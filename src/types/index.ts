@@ -63,3 +63,52 @@ export interface ChartDataPoint {
 export interface StripeSession {
   url: string;
 }
+
+// ── Auto-invest ──────────────────────────────────────────────
+
+export type TradeAction = 'buy' | 'sell' | 'hold';
+export type RiskLevel = 'low' | 'medium' | 'high';
+export type PortfolioHealth = 'poor' | 'fair' | 'good' | 'excellent';
+export type InvestMode = 'review' | 'auto';
+
+export interface TradeRecommendation {
+  symbol: string;
+  action: TradeAction;
+  qty: number;
+  confidence: number;        // 0–100
+  reasoning: string;
+  risk_level: RiskLevel;
+  estimated_value?: number;  // qty * price, set by risk guard
+}
+
+export interface PortfolioAnalysis {
+  recommendations: TradeRecommendation[];
+  market_outlook: string;
+  portfolio_health: PortfolioHealth;
+  summary: string;
+}
+
+export interface AutoInvestConfig {
+  mode: InvestMode;
+  max_position_pct: number;      // e.g. 0.05 = 5% of portfolio
+  confidence_threshold: number;  // min score to approve, e.g. 70
+  max_trade_value: number;       // max $ per single trade, e.g. 2000
+  watchlist: string[];           // symbols Claude can recommend buying
+}
+
+export interface RejectedRecommendation extends TradeRecommendation {
+  rejection_reason: string;
+}
+
+export interface ExecutedRecommendation extends TradeRecommendation {
+  order_id: string;
+}
+
+export interface AutoInvestResult {
+  analysis: PortfolioAnalysis;
+  approved: TradeRecommendation[];       // review mode — pending user approval
+  executed: ExecutedRecommendation[];    // auto mode — already placed
+  rejected: RejectedRecommendation[];    // blocked by risk guard
+  errors: string[];
+  portfolio: { value: number; cash: number };
+}

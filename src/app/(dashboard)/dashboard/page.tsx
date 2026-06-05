@@ -3,6 +3,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { PortfolioChart } from '@/components/dashboard/PortfolioChart';
 import { AllocationChart } from '@/components/dashboard/AllocationChart';
 import { AIFeed } from '@/components/dashboard/AIFeed';
+import { AutoInvestPanel } from '@/components/dashboard/AutoInvestPanel';
 import { DollarSign, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 
 const mockChartData = Array.from({ length: 30 }, (_, i) => ({
@@ -55,7 +56,14 @@ export default function DashboardPage() {
             <AllocationChart data={mockAllocation} />
           </div>
 
-          <AIFeed insights={mockInsights} />
+          <div className="grid gap-6 lg:grid-cols-5">
+            <div className="lg:col-span-3">
+              <AIFeed insights={mockInsights} />
+            </div>
+            <div className="lg:col-span-2">
+              <AutoInvestPanel />
+            </div>
+          </div>
         </div>
       </main>
     </div>
