@@ -262,7 +262,7 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
 
     // ── 10. Return result ──────────────────────────────────────────────────────
     const toOutput = (r: TradeRecommendation) => ({
-      ticker:          r.symbol,
+      symbol:          r.symbol,
       action:          r.action,
       qty:             r.qty,
       confidence:      r.confidence,
@@ -271,15 +271,29 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       estimated_value: r.estimated_value,
     });
 
+    // Simple portfolio health heuristic based on unrealized P&L across positions
+    const totalPl = positions.reduce((sum, p) => sum + parseFloat(p.unrealized_pl), 0);
+    const plPct   = equity > 0 ? (totalPl / equity) * 100 : 0;
+    const portfolio_health =
+      plPct >= 10  ? 'excellent' :
+      plPct >= 0   ? 'good'      :
+      plPct >= -10 ? 'fair'      : 'poor';
+
     return NextResponse.json({
-      approved: approved.map(toOutput),
-      blocked:  rejected.map((r) => ({
+      analysis: {
+        recommendations: approved.map(toOutput),
+        market_outlook:  raw.market_outlook,
+        summary:         raw.summary,
+        portfolio_health,
+      },
+      approved:  approved.map(toOutput),
+      executed:  [],
+      rejected:  rejected.map((r) => ({
         ...toOutput(r),
         rejection_reason: r.rejection_reason,
       })),
-      market_outlook: raw.market_outlook,
-      summary:        raw.summary,
-      portfolio: { equity, buying_power: buyingPower, cash },
+      errors:    [],
+      portfolio: { value: equity, cash },
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal server error';

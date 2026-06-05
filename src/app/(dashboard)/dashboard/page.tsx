@@ -73,11 +73,7 @@ export default function DashboardPage() {
     setAnalyzing(true);
     setError(null);
     try {
-      const res = await fetch('/api/ai/auto-invest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, watchlist: [] }),
-      });
+      const res = await fetch('/api/ai/analyze', { method: 'POST' });
       const data: AutoInvestResult = await res.json();
       if (!res.ok) throw new Error((data as unknown as { error: string }).error ?? 'Analysis failed');
       setResult(data);
@@ -86,7 +82,7 @@ export default function DashboardPage() {
     } finally {
       setAnalyzing(false);
     }
-  }, [mode]);
+  }, []);
 
   // ── Execute a single recommendation (review mode) ────────────────────────
   const executeOne = useCallback(async (rec: TradeRecommendation) => {
