@@ -1,19 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getAccount, getPositions, getSnapshots, placeMarketOrder } from '@/lib/alpaca/client';
-import { analyzePortfolio } from '@/lib/ai/analyzer';
-import { applyRiskGuard } from '@/lib/ai/risk-guard';
-import type { AutoInvestConfig, AutoInvestResult, ExecutedRecommendation } from '@/types';
+import { getSnapshots, placeMarketOrder } from '@/lib/alpaca/client';
+import { syncHoldingsToSupabase } from '@/lib/alpaca/sync';
+import type { AIInsight, TradeSide } from '@/types';
 
-const DEFAULT_CONFIG: AutoInvestConfig = {
-  mode: 'review',
-  max_position_pct: 0.05,
-  confidence_threshold: 70,
-  max_trade_value: 2000,
-  watchlist: [],
-};
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface TradeResult {
+  insight_id: string;
+  ticker:     string | null;
+  status:     'success' | 'failure';
+  order_id?:  string;
+  error?:     string;
+}
+
+// ── Validation helpers ────────────────────────────────────────────────────────
+
+function assertExecutable(
+  insight: AIInsight | undefined,
+  insightId: string,
+  userId: string,
+): asserts insight is AIInsight & { ticker: string; qty: number } {
+  if (!insight) {
+    throw new Error('Insight not found');
+  }
+  if (insight.user_id !== userId) {
+    throw new Error('Insight does not belong to this user');
+  }
+  if (insight.executed) {
+    throw new Error('Insight has already been executed');
+  }
+  if (insight.type !== 'buy' && insight.type !== 'sell') {
+    throw new Error(`Insight type "${insight.type}" is not executable — only buy/sell can be traded`);
+  }
+  if (!insight.ticker) {
+    throw new Error('Insight has no ticker');
+  }
+  if (!insight.qty || insight.qty <= 0) {
+    throw new Error(`Invalid quantity: ${insight.qty ?? 'null'}`);
+  }
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // ── 1. Auth ──────────────────────────────────────────────────────────────────
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -21,142 +52,112 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = await req.json().catch(() => ({}));
-  const config: AutoInvestConfig = {
-    mode:                 body.mode                 ?? DEFAULT_CONFIG.mode,
-    max_position_pct:     body.max_position_pct     ?? DEFAULT_CONFIG.max_position_pct,
-    confidence_threshold: body.confidence_threshold ?? DEFAULT_CONFIG.confidence_threshold,
-    max_trade_value:      body.max_trade_value      ?? DEFAULT_CONFIG.max_trade_value,
-    watchlist:            body.watchlist            ?? DEFAULT_CONFIG.watchlist,
+  // ── Parse body — accept { insight_id } or { insight_ids } ────────────────────
+  const body = await req.json().catch(() => ({})) as {
+    insight_id?: string;
+    insight_ids?: string[];
   };
 
-  try {
-    // ── 1. Fetch Alpaca account + positions ──────────────────────────────────
-    const [account, positions] = await Promise.all([getAccount(), getPositions()]);
+  const insightIds: string[] = Array.isArray(body.insight_ids)
+    ? body.insight_ids
+    : body.insight_id
+    ? [body.insight_id]
+    : [];
 
-    const portfolioValue = parseFloat(account.equity);
-    const availableCash  = parseFloat(account.cash);
-
-    // ── 2. Fetch live market data ────────────────────────────────────────────
-    const heldSymbols  = positions.map((p) => p.symbol);
-    const watchSymbols = config.watchlist.filter((s) => !heldSymbols.includes(s));
-    const snapshots    = await getSnapshots([...heldSymbols, ...watchSymbols]);
-
-    // ── 3. Build position context for Claude ─────────────────────────────────
-    const positionContexts = positions.map((p) => {
-      const snap = snapshots[p.symbol];
-      const price    = snap?.latestTrade?.p ?? parseFloat(p.current_price);
-      const prevClose = snap?.prevDailyBar?.c ?? price;
-      return {
-        symbol:            p.symbol,
-        qty:               parseFloat(p.qty),
-        avg_entry:         parseFloat(p.avg_entry_price),
-        current_price:     price,
-        market_value:      parseFloat(p.market_value),
-        unrealized_pl_pct: parseFloat(p.unrealized_plpc),
-        daily_change_pct:  prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0,
-      };
-    });
-
-    const watchlistPrices: Record<string, number> = {};
-    for (const sym of watchSymbols) {
-      const snap = snapshots[sym];
-      if (snap) watchlistPrices[sym] = snap.latestTrade?.p ?? snap.minuteBar?.c ?? 0;
-    }
-
-    // ── 4. Fetch user risk profile ───────────────────────────────────────────
-    const { data: riskProfile } = await supabase
-      .from('risk_profiles')
-      .select('level')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    // ── 5. Call Claude for structured analysis ───────────────────────────────
-    const analysis = await analyzePortfolio({
-      cash:             availableCash,
-      portfolio_value:  portfolioValue,
-      positions:        positionContexts,
-      watchlist:        config.watchlist,
-      watchlist_prices: watchlistPrices,
-      risk_level:       riskProfile?.level ?? 'balanced',
-      investment_goal:  '',
-    });
-
-    // ── 6. Apply risk guard ──────────────────────────────────────────────────
-    const currentPositionValues: Record<string, number> = {};
-    for (const p of positions) {
-      currentPositionValues[p.symbol] = parseFloat(p.market_value);
-    }
-
-    const latestPrices: Record<string, number> = {};
-    for (const [sym, snap] of Object.entries(snapshots)) {
-      latestPrices[sym] = snap.latestTrade?.p ?? snap.minuteBar?.c ?? 0;
-    }
-
-    const { approved, rejected } = applyRiskGuard(analysis.recommendations, config, {
-      portfolioValue,
-      availableCash,
-      currentPositionValues,
-      latestPrices,
-    });
-
-    // ── 7. Execute trades (auto mode only) ───────────────────────────────────
-    const executed: ExecutedRecommendation[] = [];
-    const errors: string[] = [];
-
-    if (config.mode === 'auto') {
-      for (const rec of approved) {
-        if (rec.action === 'hold') continue;
-        try {
-          const order = await placeMarketOrder(rec.symbol, rec.action, rec.qty);
-          await supabase.from('trades').insert({
-            user_id:          user.id,
-            ticker:           rec.symbol,
-            side:             rec.action,
-            qty:              rec.qty,
-            alpaca_order_id:  order.id,
-            ai_reasoning:     rec.reasoning,
-            confidence_score: rec.confidence,
-            status:           'pending',
-          });
-          executed.push({ ...rec, order_id: order.id });
-        } catch (err: unknown) {
-          errors.push(`${rec.symbol}: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        }
-      }
-    }
-
-    // ── 8. Persist AI insights ───────────────────────────────────────────────
-    const executedSymbols = new Set(executed.map((e) => e.symbol));
-    const insightRows = analysis.recommendations
-      .filter((r) => r.action !== 'hold')
-      .map((rec) => ({
-        user_id:          user.id,
-        type:             rec.action as 'buy' | 'sell',
-        ticker:           rec.symbol,
-        message:          rec.reasoning,
-        confidence_score: rec.confidence,
-        executed:         executedSymbols.has(rec.symbol),
-      }));
-
-    if (insightRows.length > 0) {
-      await supabase.from('ai_insights').insert(insightRows);
-    }
-
-    // ── 9. Return result ─────────────────────────────────────────────────────
-    const result: AutoInvestResult = {
-      analysis,
-      approved: config.mode === 'review' ? approved : [],
-      executed,
-      rejected,
-      errors,
-      portfolio: { value: portfolioValue, cash: availableCash },
-    };
-
-    return NextResponse.json(result);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    console.error('[auto-invest]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+  if (insightIds.length === 0) {
+    return NextResponse.json(
+      { error: 'Provide insight_id (string) or insight_ids (string[])' },
+      { status: 400 },
+    );
   }
+
+  // ── 2. Batch-fetch all insights in one query ──────────────────────────────────
+  const { data: rows, error: fetchErr } = await supabase
+    .from('ai_insights')
+    .select('*')
+    .in('id', insightIds);
+
+  if (fetchErr) {
+    return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+  }
+
+  const insightMap = new Map<string, AIInsight>(
+    (rows ?? []).map((r) => [r.id, r as AIInsight]),
+  );
+
+  // ── 3. Batch-fetch snapshots for all valid tickers ────────────────────────────
+  //    (only for insights that look executable — avoids unnecessary API calls)
+  const candidateTickers = [...new Set(
+    insightIds
+      .map((id) => insightMap.get(id)?.ticker)
+      .filter((t): t is string => !!t),
+  )];
+
+  const snapshots = candidateTickers.length > 0
+    ? await getSnapshots(candidateTickers)
+    : {};
+
+  // ── 4. Process each insight independently ─────────────────────────────────────
+  const results: TradeResult[] = [];
+
+  for (const insightId of insightIds) {
+    const insight = insightMap.get(insightId);
+
+    try {
+      // ── Validate ──────────────────────────────────────────────────────────────
+      assertExecutable(insight, insightId, user.id);
+
+      const side  = insight.type as TradeSide;
+      const qty   = insight.qty;                      // validated non-null by assertExecutable
+      const ticker = insight.ticker;
+      const snap  = snapshots[ticker];
+      const price = snap?.latestTrade?.p ?? snap?.minuteBar?.c ?? 0;
+
+      // ── Place order ───────────────────────────────────────────────────────────
+      const order = await placeMarketOrder(ticker, side, qty);
+
+      // ── Record trade (best-effort — order already placed, don't abort) ────────
+      const tradeInsert = await supabase.from('trades').insert({
+        user_id:          user.id,
+        ticker,
+        side,
+        qty,
+        price:            price || null,
+        alpaca_order_id:  order.id,
+        ai_reasoning:     insight.message,
+        confidence_score: insight.confidence_score,
+        status:           'pending',
+      });
+      if (tradeInsert.error) {
+        console.error(`[auto-invest] trade insert failed for ${ticker}:`, tradeInsert.error.message);
+      }
+
+      // ── Mark insight as executed ──────────────────────────────────────────────
+      const updateResult = await supabase
+        .from('ai_insights')
+        .update({ executed: true })
+        .eq('id', insightId);
+      if (updateResult.error) {
+        console.error(`[auto-invest] insight update failed for ${insightId}:`, updateResult.error.message);
+      }
+
+      // ── Sync holdings (best-effort — reflects new position immediately) ───────
+      syncHoldingsToSupabase(user.id).catch((err: unknown) => {
+        console.error('[auto-invest] syncHoldings failed:', err instanceof Error ? err.message : err);
+      });
+
+      results.push({ insight_id: insightId, ticker, status: 'success', order_id: order.id });
+
+    } catch (err: unknown) {
+      results.push({
+        insight_id: insightId,
+        ticker:     insight?.ticker ?? null,
+        status:     'failure',
+        error:      err instanceof Error ? err.message : 'Unknown error',
+      });
+      // continue — never let one failure abort the batch
+    }
+  }
+
+  return NextResponse.json({ results });
 }

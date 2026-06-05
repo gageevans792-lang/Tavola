@@ -94,8 +94,18 @@ create table public.ai_insights (
   ticker            text,
   message           text not null,
   confidence_score  integer check (confidence_score between 0 and 100),
+  qty               numeric(18, 6),   -- shares to trade; null for non-trade insights
   executed          boolean not null default false,
   created_at        timestamptz not null default now()
+);
+
+-- 9. user_watchlist
+create table public.user_watchlist (
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  ticker      text not null,
+  created_at  timestamptz not null default now(),
+  unique (user_id, ticker)
 );
 
 -- 8. holdings
@@ -127,6 +137,7 @@ create index idx_trades_user_id           on public.trades          (user_id);
 create index idx_trades_ticker            on public.trades          (ticker);
 create index idx_ai_insights_user_id      on public.ai_insights     (user_id);
 create index idx_holdings_user_id         on public.holdings        (user_id);
+create index idx_user_watchlist_user_id   on public.user_watchlist  (user_id);
 
 -- ============================================================
 -- Row Level Security
@@ -183,6 +194,12 @@ create policy "holdings: own rows select" on public.holdings for select using (a
 create policy "holdings: own rows insert" on public.holdings for insert with check (auth.uid() = user_id);
 create policy "holdings: own rows update" on public.holdings for update using (auth.uid() = user_id);
 create policy "holdings: own rows delete" on public.holdings for delete using (auth.uid() = user_id);
+
+-- user_watchlist
+alter table public.user_watchlist enable row level security;
+create policy "user_watchlist: own rows select" on public.user_watchlist for select using (auth.uid() = user_id);
+create policy "user_watchlist: own rows insert" on public.user_watchlist for insert with check (auth.uid() = user_id);
+create policy "user_watchlist: own rows delete" on public.user_watchlist for delete using (auth.uid() = user_id);
 
 -- ============================================================
 -- Trigger: auto-create profile on signup

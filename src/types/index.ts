@@ -94,6 +94,7 @@ export interface AIInsight {
   ticker: string | null;
   message: string;
   confidence_score: number | null;  // 0–100
+  qty: number | null;               // shares to trade; null for outlook/rebalance
   executed: boolean;
   created_at: string;
 }

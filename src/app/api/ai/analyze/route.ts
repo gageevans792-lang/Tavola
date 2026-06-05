@@ -252,6 +252,7 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
         ticker:           r.symbol,
         message:          r.reasoning,
         confidence_score: r.confidence,
+        qty:              r.qty,
         executed:         false,
       }));
 
