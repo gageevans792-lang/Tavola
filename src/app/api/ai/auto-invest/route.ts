@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { alpaca } from '@/lib/alpaca/client';
+import { getAccount, getPositions, getSnapshots, placeMarketOrder } from '@/lib/alpaca/client';
 import { analyzePortfolio } from '@/lib/ai/analyzer';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
-import { getSnapshots } from '@/lib/alpaca/market-data';
-import { AutoInvestConfig, AutoInvestResult, ExecutedRecommendation } from '@/types';
+import type { AutoInvestConfig, AutoInvestResult, ExecutedRecommendation } from '@/types';
 
 const DEFAULT_CONFIG: AutoInvestConfig = {
   mode: 'review',
@@ -16,9 +15,7 @@ const DEFAULT_CONFIG: AutoInvestConfig = {
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -26,75 +23,74 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const config: AutoInvestConfig = {
-    mode: body.mode ?? DEFAULT_CONFIG.mode,
-    max_position_pct: body.max_position_pct ?? DEFAULT_CONFIG.max_position_pct,
+    mode:                 body.mode                 ?? DEFAULT_CONFIG.mode,
+    max_position_pct:     body.max_position_pct     ?? DEFAULT_CONFIG.max_position_pct,
     confidence_threshold: body.confidence_threshold ?? DEFAULT_CONFIG.confidence_threshold,
-    max_trade_value: body.max_trade_value ?? DEFAULT_CONFIG.max_trade_value,
-    watchlist: body.watchlist ?? DEFAULT_CONFIG.watchlist,
+    max_trade_value:      body.max_trade_value      ?? DEFAULT_CONFIG.max_trade_value,
+    watchlist:            body.watchlist            ?? DEFAULT_CONFIG.watchlist,
   };
 
   try {
     // ── 1. Fetch Alpaca account + positions ──────────────────────────────────
-    const [account, positions] = await Promise.all([
-      alpaca.getAccount(),
-      alpaca.getPositions(),
-    ]);
+    const [account, positions] = await Promise.all([getAccount(), getPositions()]);
 
-    const portfolioValue = parseFloat((account as any).equity);
-    const availableCash = parseFloat((account as any).cash);
+    const portfolioValue = parseFloat(account.equity);
+    const availableCash  = parseFloat(account.cash);
 
     // ── 2. Fetch live market data ────────────────────────────────────────────
-    const heldSymbols: string[] = (positions as any[]).map((p) => p.symbol);
+    const heldSymbols  = positions.map((p) => p.symbol);
     const watchSymbols = config.watchlist.filter((s) => !heldSymbols.includes(s));
-    const allSymbols = [...heldSymbols, ...watchSymbols];
-
-    const snapshots = await getSnapshots(allSymbols);
+    const snapshots    = await getSnapshots([...heldSymbols, ...watchSymbols]);
 
     // ── 3. Build position context for Claude ─────────────────────────────────
-    const positionContexts = (positions as any[]).map((p) => {
+    const positionContexts = positions.map((p) => {
       const snap = snapshots[p.symbol];
+      const price    = snap?.latestTrade?.p ?? parseFloat(p.current_price);
+      const prevClose = snap?.prevDailyBar?.c ?? price;
       return {
-        symbol: p.symbol,
-        qty: parseFloat(p.qty),
-        avg_entry: parseFloat(p.avg_entry_price),
-        current_price: snap?.price ?? parseFloat(p.current_price),
-        market_value: parseFloat(p.market_value),
+        symbol:            p.symbol,
+        qty:               parseFloat(p.qty),
+        avg_entry:         parseFloat(p.avg_entry_price),
+        current_price:     price,
+        market_value:      parseFloat(p.market_value),
         unrealized_pl_pct: parseFloat(p.unrealized_plpc),
-        daily_change_pct: snap?.dailyChangePct ?? parseFloat(p.change_today ?? '0'),
+        daily_change_pct:  prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0,
       };
     });
 
     const watchlistPrices: Record<string, number> = {};
     for (const sym of watchSymbols) {
-      if (snapshots[sym]) watchlistPrices[sym] = snapshots[sym].price;
+      const snap = snapshots[sym];
+      if (snap) watchlistPrices[sym] = snap.latestTrade?.p ?? snap.minuteBar?.c ?? 0;
     }
 
     // ── 4. Fetch user risk profile ───────────────────────────────────────────
-    const [{ data: riskProfile }, { data: profile }] = await Promise.all([
-      supabase.from('risk_profiles').select('level').eq('user_id', user.id).maybeSingle(),
-      supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
-    ]);
+    const { data: riskProfile } = await supabase
+      .from('risk_profiles')
+      .select('level')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
     // ── 5. Call Claude for structured analysis ───────────────────────────────
     const analysis = await analyzePortfolio({
-      cash: availableCash,
-      portfolio_value: portfolioValue,
-      positions: positionContexts,
-      watchlist: config.watchlist,
+      cash:             availableCash,
+      portfolio_value:  portfolioValue,
+      positions:        positionContexts,
+      watchlist:        config.watchlist,
       watchlist_prices: watchlistPrices,
-      risk_level: riskProfile?.level ?? 'balanced',
-      investment_goal: '',
+      risk_level:       riskProfile?.level ?? 'balanced',
+      investment_goal:  '',
     });
 
     // ── 6. Apply risk guard ──────────────────────────────────────────────────
     const currentPositionValues: Record<string, number> = {};
-    for (const p of positions as any[]) {
+    for (const p of positions) {
       currentPositionValues[p.symbol] = parseFloat(p.market_value);
     }
 
     const latestPrices: Record<string, number> = {};
     for (const [sym, snap] of Object.entries(snapshots)) {
-      latestPrices[sym] = snap.price;
+      latestPrices[sym] = snap.latestTrade?.p ?? snap.minuteBar?.c ?? 0;
     }
 
     const { approved, rejected } = applyRiskGuard(analysis.recommendations, config, {
@@ -111,48 +107,36 @@ export async function POST(req: NextRequest) {
     if (config.mode === 'auto') {
       for (const rec of approved) {
         if (rec.action === 'hold') continue;
-
         try {
-          const order = await alpaca.createOrder({
-            symbol: rec.symbol,
-            qty: rec.qty,
-            side: rec.action as 'buy' | 'sell',
-            type: 'market',
-            time_in_force: 'day',
-          });
-
+          const order = await placeMarketOrder(rec.symbol, rec.action, rec.qty);
           await supabase.from('trades').insert({
-            user_id: user.id,
-            ticker: rec.symbol,
-            side: rec.action,
-            qty: rec.qty,
-            alpaca_order_id: (order as any).id,
-            ai_reasoning: rec.reasoning,
+            user_id:          user.id,
+            ticker:           rec.symbol,
+            side:             rec.action,
+            qty:              rec.qty,
+            alpaca_order_id:  order.id,
+            ai_reasoning:     rec.reasoning,
             confidence_score: rec.confidence,
-            status: 'pending',
+            status:           'pending',
           });
-
-          executed.push({ ...rec, order_id: (order as any).id });
+          executed.push({ ...rec, order_id: order.id });
         } catch (err: unknown) {
-          errors.push(
-            `${rec.symbol}: ${err instanceof Error ? err.message : 'Unknown error'}`,
-          );
+          errors.push(`${rec.symbol}: ${err instanceof Error ? err.message : 'Unknown error'}`);
         }
       }
     }
 
     // ── 8. Persist AI insights ───────────────────────────────────────────────
     const executedSymbols = new Set(executed.map((e) => e.symbol));
-
     const insightRows = analysis.recommendations
       .filter((r) => r.action !== 'hold')
       .map((rec) => ({
-        user_id: user.id,
-        type: rec.action as 'buy' | 'sell',
-        ticker: rec.symbol,
-        message: rec.reasoning,
+        user_id:          user.id,
+        type:             rec.action as 'buy' | 'sell',
+        ticker:           rec.symbol,
+        message:          rec.reasoning,
         confidence_score: rec.confidence,
-        executed: executedSymbols.has(rec.symbol),
+        executed:         executedSymbols.has(rec.symbol),
       }));
 
     if (insightRows.length > 0) {

@@ -2,10 +2,10 @@
 
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card';
-import { ChartDataPoint } from '@/types';
+import { PortfolioChartPoint } from '@/types';
 
 interface PortfolioChartProps {
-  data: ChartDataPoint[];
+  data: PortfolioChartPoint[];
 }
 
 export function PortfolioChart({ data }: PortfolioChartProps) {

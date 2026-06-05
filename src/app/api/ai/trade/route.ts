@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { anthropic } from '@/lib/anthropic/client';
-import { alpaca } from '@/lib/alpaca/client';
+import { placeMarketOrder } from '@/lib/alpaca/client';
+import type { TradeSide } from '@/types';
 
 export async function POST(req: NextRequest) {
-  const { symbol, action, reasoning } = await req.json();
+  const { symbol, action, reasoning } = await req.json() as {
+    symbol?: string;
+    action?: TradeSide;
+    reasoning?: string;
+  };
 
   if (!symbol || !action) {
     return NextResponse.json({ error: 'symbol and action are required' }, { status: 400 });
@@ -20,16 +25,10 @@ export async function POST(req: NextRequest) {
     ],
   });
 
-  const content = message.content[0];
-  const assessment = content.type === 'text' ? content.text : '';
+  const block = message.content[0];
+  const assessment = block.type === 'text' ? block.text : '';
 
-  const order = await alpaca.createOrder({
-    symbol,
-    qty: 1,
-    side: action,
-    type: 'market',
-    time_in_force: 'day',
-  });
+  const order = await placeMarketOrder(symbol, action, 1);
 
   return NextResponse.json({ order, assessment });
 }

@@ -2,10 +2,10 @@
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card';
-import { AllocationItem } from '@/types';
+import { AllocationSlice } from '@/types';
 
 interface AllocationChartProps {
-  data: AllocationItem[];
+  data: AllocationSlice[];
 }
 
 export function AllocationChart({ data }: AllocationChartProps) {

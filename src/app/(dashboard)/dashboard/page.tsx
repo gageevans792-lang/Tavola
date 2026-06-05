@@ -12,7 +12,7 @@ import { AnalysisOverlay } from '@/components/dashboard/AnalysisOverlay';
 import { RecommendationsSection } from '@/components/dashboard/RecommendationsSection';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
-import type { AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
+import type { AIInsight, AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
 import { DollarSign, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 
 // ── Static mock data ─────────────────────────────────────────────────────────
@@ -33,22 +33,25 @@ const mockAllocation = [
   { name: 'Other',   value: 20, color: '#e5e7eb' },
 ];
 
-const mockInsights = [
+const mockInsights: AIInsight[] = [
   {
     id: '1',
-    type: 'recommendation' as const,
-    title: 'NVDA showing momentum',
-    content:
-      'NVDA broke above its 50-day MA on high volume. Consider adding exposure with a 3% position.',
-    symbol: 'NVDA',
+    user_id: 'mock',
+    type: 'buy',
+    ticker: 'NVDA',
+    message: 'NVDA broke above its 50-day MA on high volume. Consider adding exposure with a 3% position.',
+    confidence_score: 82,
+    executed: false,
     created_at: new Date().toISOString(),
   },
   {
     id: '2',
-    type: 'alert' as const,
-    title: 'High volatility detected',
-    content:
-      'Your portfolio VIX sensitivity is elevated. Consider hedging with puts or reducing tech exposure.',
+    user_id: 'mock',
+    type: 'outlook',
+    ticker: null,
+    message: 'Portfolio VIX sensitivity is elevated. Consider hedging with puts or reducing tech exposure.',
+    confidence_score: null,
+    executed: false,
     created_at: new Date().toISOString(),
   },
 ];
