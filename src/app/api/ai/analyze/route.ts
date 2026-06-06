@@ -246,7 +246,7 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       watchlist:            watchlistTickers,
     };
 
-    const { approved, rejected } = applyRiskGuard(recs, guardConfig, {
+    const { approved, rejected, warnings } = applyRiskGuard(recs, guardConfig, {
       portfolioValue:        equity,
       availableCash:         buyingPower,
       currentPositionValues,
@@ -301,12 +301,15 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
         ...toOutput(r),
         rejection_reason: r.rejection_reason,
       })),
+      warnings,
       errors:    [],
       portfolio: { value: equity, cash },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    console.error('[ai/analyze]', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[ai/analyze]', err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: 'Internal server error', code: 'INTERNAL_ERROR' },
+      { status: 500 },
+    );
   }
 }
