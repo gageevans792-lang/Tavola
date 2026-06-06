@@ -149,3 +149,19 @@ export async function getRecentOrders(limit = 50): Promise<AlpacaOrder[]> {
     symbols:   undefined,
   }) as Promise<AlpacaOrder[]>;
 }
+
+export interface PortfolioHistory {
+  timestamp:        number[];
+  equity:           number[];
+  profit_loss:      number[];
+  profit_loss_pct:  number[];
+  base_value:       number;
+  timeframe:        string;
+}
+
+export async function getPortfolioHistory(params: {
+  period?:    string;
+  timeframe?: string;
+}): Promise<PortfolioHistory> {
+  return alpaca.getPortfolioHistory(params) as Promise<PortfolioHistory>;
+}

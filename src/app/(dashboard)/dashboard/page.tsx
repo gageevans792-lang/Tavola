@@ -3,37 +3,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 
-import { TopBar }                from '@/components/layout/TopBar';
-import { StatCard }              from '@/components/dashboard/StatCard';
-import { PortfolioChart }        from '@/components/dashboard/PortfolioChart';
-import { AllocationChart }       from '@/components/dashboard/AllocationChart';
-import { AIFeed }                from '@/components/dashboard/AIFeed';
-import { AnalysisOverlay }       from '@/components/dashboard/AnalysisOverlay';
+import { TopBar }                 from '@/components/layout/TopBar';
+import { StatCard }               from '@/components/dashboard/StatCard';
+import { PortfolioChart }         from '@/components/dashboard/PortfolioChart';
+import { AllocationChart }        from '@/components/dashboard/AllocationChart';
+import { AIFeed }                 from '@/components/dashboard/AIFeed';
+import { AnalysisOverlay }        from '@/components/dashboard/AnalysisOverlay';
 import { RecommendationsSection } from '@/components/dashboard/RecommendationsSection';
-import { Toast }                 from '@/components/ui/Toast';
-import type { ToastData }        from '@/components/ui/Toast';
+import { Toast }                  from '@/components/ui/Toast';
+import type { ToastData }         from '@/components/ui/Toast';
+import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient }    from '@/lib/supabase/client';
 import type { AIInsight, AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
 
-// ── Mock chart/allocation data (replace with live queries when ready) ─────────
+// ── Fallback mock insights (dashboard feed) ───────────────────────────────────
 
-const mockChartData = Array.from({ length: 30 }, (_, i) => ({
-  date: new Date(Date.now() - (29 - i) * 86400000).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric',
-  }),
-  value: 50000 + Math.sin(i * 0.8) * 8000 + i * 400,
-}));
-
-const mockAllocation = [
-  { name: 'Tech',    value: 42, color: '#0A1628' },
-  { name: 'Finance', value: 23, color: '#B8960C' },
-  { name: 'Energy',  value: 15, color: '#4A5568' },
-  { name: 'Other',   value: 20, color: '#E2E8F0' },
-];
-
-const mockInsights: AIInsight[] = [
+const MOCK_INSIGHTS: AIInsight[] = [
   {
     id: '1', user_id: 'mock', type: 'buy', ticker: 'NVDA',
     message: 'NVDA broke above its 50-day MA on high volume. Consider adding exposure with a 3% position.',
@@ -46,20 +33,21 @@ const mockInsights: AIInsight[] = [
   },
 ];
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Formatting helpers ────────────────────────────────────────────────────────
 
-interface PortfolioStats {
-  total_value:    number;
-  cash:           number;
-  day_pl:         number;
-  day_pl_percent: number;
-}
-
-function fmt(n: number, decimals = 2): string {
-  return n.toLocaleString('en-US', {
+function fmtUSD(n: number, decimals = 0): string {
+  return '$' + Math.abs(n).toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
+}
+
+function fmtPct(n: number): string {
+  return (n >= 0 ? '+' : '-') + Math.abs(n).toFixed(2) + '%';
+}
+
+function fmtPL(n: number): string {
+  return (n >= 0 ? '+' : '-') + fmtUSD(n, 0);
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -67,7 +55,8 @@ function fmt(n: number, decimals = 2): string {
 export default function DashboardPage() {
   const [mode, setMode]           = useLocalStorage<InvestMode>('tavola:invest-mode', 'review');
   const [firstName, setFirstName] = useState<string | null>(null);
-  const [stats, setStats]         = useState<PortfolioStats | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [toast, setToast]         = useState<ToastData | null>(null);
 
   // ── Load user name ─────────────────────────────────────────────────────────
@@ -85,15 +74,20 @@ export default function DashboardPage() {
     loadUser();
   }, []);
 
-  // ── Fetch live portfolio stats ─────────────────────────────────────────────
+  // ── Fetch / refresh live portfolio data ────────────────────────────────────
   const refreshPortfolio = useCallback(async () => {
     try {
       const res = await fetch('/api/alpaca/portfolio');
-      if (!res.ok) return;
-      const data: PortfolioStats = await res.json();
-      setStats(data);
-    } catch {
-      // silent — keep showing whatever is currently displayed
+      if (!res.ok) {
+        console.warn('[dashboard] portfolio fetch:', res.status, res.statusText);
+        return;
+      }
+      const data: PortfolioData = await res.json();
+      setPortfolio(data);
+    } catch (err) {
+      console.warn('[dashboard] portfolio fetch error:', err instanceof Error ? err.message : err);
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 
@@ -109,7 +103,7 @@ export default function DashboardPage() {
     setAnalyzing(true);
     setError(null);
     try {
-      const res = await fetch('/api/ai/analyze', { method: 'POST' });
+      const res  = await fetch('/api/ai/analyze', { method: 'POST' });
       const data: AutoInvestResult = await res.json();
       if (!res.ok) throw new Error((data as unknown as { error: string }).error ?? 'Analysis failed');
       setResult(data);
@@ -121,13 +115,14 @@ export default function DashboardPage() {
   }, []);
 
   // ── Execute a single recommendation ───────────────────────────────────────
+  // Re-throws on failure so RecommendationCard knows not to flip selfExecuted.
   const executeOne = useCallback(async (rec: TradeRecommendation) => {
     setExecutingSymbol(rec.symbol);
     try {
       const res = await fetch('/api/alpaca/orders', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: rec.symbol, qty: rec.qty, side: rec.action }),
+        body:    JSON.stringify({ symbol: rec.symbol, qty: rec.qty, side: rec.action }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -142,38 +137,42 @@ export default function DashboardPage() {
           executed: [...prev.executed, { ...rec, order_id: 'manual' }],
         };
       });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Order failed. Please try again.');
+      throw err; // re-throw so RecommendationCard stays in pending state
     } finally {
       setExecutingSymbol(null);
     }
-    // Don't catch here — let the error bubble to RecommendationCard's handleExecute
-    // so the card knows the trade failed and doesn't flip to selfExecuted
   }, []);
 
-  // ── Post-execution callback: sync + toast ─────────────────────────────────
+  // ── Post-execution: sync portfolio + show toast ────────────────────────────
   const handleExecuted = useCallback((rec: TradeRecommendation) => {
-    // Sync Alpaca positions back to Supabase + refresh stat cards
+    // Sync holdings and refresh all stat cards
     refreshPortfolio();
 
-    // Show toast
-    const price = rec.estimated_value && rec.qty > 0
+    // Compute approximate per-share price from the risk guard estimate
+    const price = rec.estimated_value != null && rec.qty > 0
       ? rec.estimated_value / rec.qty
       : undefined;
+
     setToast({ ticker: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, price });
   }, [refreshPortfolio]);
 
-  // ── Stat card display values ───────────────────────────────────────────────
-  const portfolioValue = stats
-    ? `$${fmt(stats.total_value, 0)}`
-    : '$—';
-  const cashAvailable = stats
-    ? `$${fmt(stats.cash, 0)}`
-    : '$—';
-  const dayPl = stats
-    ? `${stats.day_pl >= 0 ? '+' : ''}$${fmt(Math.abs(stats.day_pl), 0)}`
-    : '$—';
-  const dayPlPct = stats
-    ? `${stats.day_pl_percent >= 0 ? '+' : ''}${fmt(Math.abs(stats.day_pl_percent), 2)}%`
-    : undefined;
+  // ── Derived display values ─────────────────────────────────────────────────
+  const p = portfolio;
+  const loading = statsLoading && !p;
+
+  const portfolioValue  = loading ? '—' : p ? fmtUSD(p.equity)                     : '$—';
+  const cashAvailable   = loading ? '—' : p ? fmtUSD(p.buying_power)               : '$—';
+  const totalReturn     = loading ? '—' : p ? fmtPL(p.total_return)                : '$—';
+  const totalReturnPct  = loading ? undefined : p ? fmtPct(p.total_return_pct)     : undefined;
+  const dayPl           = loading ? '—' : p ? fmtPL(p.day_pl)                      : '$—';
+  const dayPlPct        = loading ? undefined : p ? fmtPct(p.day_pl_percent)       : undefined;
+  const dayPlChange     = loading ? undefined : p ? `${fmtPL(p.day_pl)} today`     : undefined;
+
+  // Chart: use real Alpaca history if available, otherwise empty (shows empty state)
+  const chartData  = p?.chart       ?? [];
+  const allocData  = p?.allocation  ?? [];
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -190,32 +189,37 @@ export default function DashboardPage() {
 
         <div className="mx-auto max-w-7xl space-y-6">
 
-          {/* Stat cards */}
+          {/* ── Stat cards ─────────────────────────────────────────────────── */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               title="Portfolio Value"
               value={portfolioValue}
-              change={dayPl !== '$—' ? `${dayPl} today` : undefined}
-              changePositive={stats ? stats.day_pl >= 0 : undefined}
+              change={!loading && p ? dayPlChange : undefined}
+              changePositive={p ? p.day_pl >= 0 : undefined}
             />
             <StatCard
               title="Day P&L"
               value={dayPl}
-              change={dayPlPct}
-              changePositive={stats ? stats.day_pl >= 0 : undefined}
+              change={!loading && p ? dayPlPct : undefined}
+              changePositive={p ? p.day_pl >= 0 : undefined}
             />
-            <StatCard title="Total Return" value="$—" />
+            <StatCard
+              title="Total Return"
+              value={totalReturn}
+              change={!loading && p ? totalReturnPct : undefined}
+              changePositive={p ? p.total_return >= 0 : undefined}
+            />
             <StatCard title="Cash Available" value={cashAvailable} />
           </div>
 
-          {/* Error banner */}
+          {/* ── Error banner ────────────────────────────────────────────────── */}
           {error && (
             <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#C41E3A]">
               {error}
             </div>
           )}
 
-          {/* AI recommendations */}
+          {/* ── AI recommendations ──────────────────────────────────────────── */}
           <AnimatePresence>
             {result && !analyzing && (
               <RecommendationsSection
@@ -228,32 +232,39 @@ export default function DashboardPage() {
             )}
           </AnimatePresence>
 
-          {/* Charts */}
-          {mockChartData.length > 0 ? (
+          {/* ── Charts ──────────────────────────────────────────────────────── */}
+          {chartData.length > 0 ? (
             <div className="grid gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2">
-                <PortfolioChart data={mockChartData} />
+                <PortfolioChart data={chartData} />
               </div>
-              <AllocationChart data={mockAllocation} />
+              {allocData.length > 0 ? (
+                <AllocationChart data={allocData} />
+              ) : (
+                <div className="border border-[#E2E8F0] bg-white flex items-center justify-center p-8">
+                  <p className="text-sm text-[#4A5568] text-center">No positions to display.</p>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="border border-[#E2E8F0] bg-white px-8 py-12 text-center">
-              <p className="font-serif text-xl font-light text-[#0A1628] mb-2">No positions yet.</p>
-              <p className="text-sm text-[#4A5568]">Deposit funds to get started.</p>
-            </div>
+            !loading && (
+              <div className="border border-[#E2E8F0] bg-white px-8 py-12 text-center">
+                <p className="font-serif text-xl font-light text-[#0A1628] mb-2">No portfolio data yet.</p>
+                <p className="text-sm text-[#4A5568]">
+                  {p ? 'Run an AI analysis to get started.' : 'Connect your Alpaca account to see live data.'}
+                </p>
+              </div>
+            )
           )}
 
-          {/* AI feed */}
-          <AIFeed insights={mockInsights} />
+          {/* ── AI feed ─────────────────────────────────────────────────────── */}
+          <AIFeed insights={MOCK_INSIGHTS} />
         </div>
       </main>
 
-      {/* Toast notification */}
+      {/* ── Toast notification ───────────────────────────────────────────────── */}
       {toast && (
-        <Toast
-          data={toast}
-          onDismiss={() => setToast(null)}
-        />
+        <Toast data={toast} onDismiss={() => setToast(null)} />
       )}
     </div>
   );
