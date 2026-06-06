@@ -29,8 +29,22 @@ export function AllocationChart({ data }: AllocationChartProps) {
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip formatter={(value) => [`${Number(value).toFixed(1)}%`, 'Allocation']} />
-          <Legend />
+          <Tooltip
+            formatter={(value) => [`${Number(value).toFixed(1)}%`, 'Allocation']}
+            contentStyle={{
+              border: '1px solid #E2E8F0',
+              borderRadius: 0,
+              boxShadow: 'none',
+              backgroundColor: '#ffffff',
+              fontSize: 12,
+              color: '#0A1628',
+            }}
+          />
+          <Legend
+            formatter={(value) => (
+              <span style={{ color: '#0A1628', fontSize: 11 }}>{value}</span>
+            )}
+          />
         </PieChart>
       </ResponsiveContainer>
     </Card>

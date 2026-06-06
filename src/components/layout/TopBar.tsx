@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, Sparkles } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import type { InvestMode } from '@/types';
@@ -45,8 +45,13 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
         )}
 
         {hasAnalysis && (
-          <Button size="sm" onClick={onRunAnalysis} loading={analyzing} disabled={analyzing} className="gap-1.5 text-xs tracking-[0.1em] uppercase">
-            {!analyzing && <Sparkles className="h-3.5 w-3.5" />}
+          <Button
+            size="sm"
+            onClick={onRunAnalysis}
+            loading={analyzing}
+            disabled={analyzing}
+            className="text-xs tracking-[0.2em] uppercase"
+          >
             {analyzing ? 'Analyzing…' : 'Run Analysis'}
           </Button>
         )}

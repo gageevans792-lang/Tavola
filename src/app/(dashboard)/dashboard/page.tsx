@@ -14,7 +14,6 @@ import { RecommendationsSection } from '@/components/dashboard/RecommendationsSe
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient } from '@/lib/supabase/client';
 import type { AIInsight, AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
-import { DollarSign, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 
 // ── Mock data — replace with live Supabase queries when tables are ready ─────
 
@@ -94,7 +93,7 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error((data as unknown as { error: string }).error ?? 'Analysis failed');
       setResult(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed');
+      setError('AI analysis temporarily unavailable.');
     } finally {
       setAnalyzing(false);
     }
@@ -152,23 +151,20 @@ export default function DashboardPage() {
               value="$68,420"
               change="+$1,240 today"
               changePositive
-              icon={Wallet}
             />
             <StatCard
               title="Day P&L"
               value="+$1,240"
               change="+1.84%"
               changePositive
-              icon={TrendingUp}
             />
             <StatCard
               title="Total Return"
               value="+$18,420"
               change="+36.8%"
               changePositive
-              icon={DollarSign}
             />
-            <StatCard title="Cash Available" value="$4,200" icon={TrendingDown} />
+            <StatCard title="Cash Available" value="$4,200" />
           </div>
 
           {/* Error banner */}
