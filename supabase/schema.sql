@@ -246,3 +246,32 @@ create trigger set_risk_profiles_updated_at
 create trigger set_portfolios_updated_at
   before update on public.portfolios
   for each row execute procedure public.set_updated_at();
+
+-- ============================================================
+-- Audit Log (see supabase/migrations/001_audit_log.sql)
+-- ============================================================
+
+create table if not exists public.audit_log (
+  id              uuid primary key default uuid_generate_v4(),
+  user_id         uuid references auth.users(id) on delete set null,
+  action          text not null,
+  resource_id     text,
+  resource_type   text,
+  metadata        jsonb,
+  ip_address      inet,
+  user_agent      text,
+  status          text not null check (status in ('success', 'failure')),
+  error_message   text,
+  created_at      timestamptz not null default now()
+);
+
+create index if not exists idx_audit_log_user_id    on public.audit_log (user_id);
+create index if not exists idx_audit_log_action     on public.audit_log (action);
+create index if not exists idx_audit_log_created_at on public.audit_log (created_at desc);
+
+alter table public.audit_log enable row level security;
+
+create policy "audit_log: own rows select"
+  on public.audit_log
+  for select
+  using (auth.uid() = user_id);
