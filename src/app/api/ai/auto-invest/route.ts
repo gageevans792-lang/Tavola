@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getSnapshots, placeMarketOrder } from '@/lib/alpaca/client';
+import { getTickerPrices, placeMarketOrder } from '@/lib/alpaca/client';
 import { syncHoldingsToSupabase } from '@/lib/alpaca/sync';
 import type { AIInsight, TradeSide } from '@/types';
 
@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
       .filter((t): t is string => !!t),
   )];
 
-  const snapshots = candidateTickers.length > 0
-    ? await getSnapshots(candidateTickers)
+  const tickerPrices = candidateTickers.length > 0
+    ? await getTickerPrices(candidateTickers)
     : {};
 
   // ── 4. Process each insight independently ─────────────────────────────────────
@@ -107,11 +107,10 @@ export async function POST(req: NextRequest) {
       // ── Validate ──────────────────────────────────────────────────────────────
       assertExecutable(insight, insightId, user.id);
 
-      const side  = insight.type as TradeSide;
-      const qty   = insight.qty;                      // validated non-null by assertExecutable
+      const side   = insight.type as TradeSide;
+      const qty    = insight.qty;                      // validated non-null by assertExecutable
       const ticker = insight.ticker;
-      const snap  = snapshots[ticker];
-      const price = snap?.latestTrade?.p ?? snap?.minuteBar?.c ?? 0;
+      const price  = tickerPrices[ticker]?.price ?? 0;
 
       // ── Place order ───────────────────────────────────────────────────────────
       const order = await placeMarketOrder(ticker, side, qty);

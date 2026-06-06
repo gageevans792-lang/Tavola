@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
-import { getAccount, getPositions, getSnapshots } from '@/lib/alpaca/client';
+import { getAccount, getPositions, getTickerPrices } from '@/lib/alpaca/client';
+import type { TickerPrice } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import type {
   AlpacaPosition,
-  AlpacaSnapshot,
   AutoInvestConfig,
   TradeRecommendation,
 } from '@/types';
@@ -52,14 +52,9 @@ const ANALYSIS_TOOL: Anthropic.Tool = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function livePrice(snap: AlpacaSnapshot | undefined, fallback: string): number {
-  return snap?.latestTrade?.p ?? snap?.minuteBar?.c ?? parseFloat(fallback);
-}
-
-function dailyChangePct(snap: AlpacaSnapshot | undefined, currentPrice: number): number {
-  const prev = snap?.prevDailyBar?.c;
-  if (!prev || prev === 0) return 0;
-  return ((currentPrice - prev) / prev) * 100;
+function dailyChangePct(posCurrentPrice: number, avgEntry: number): number {
+  if (avgEntry === 0) return 0;
+  return ((posCurrentPrice - avgEntry) / avgEntry) * 100;
 }
 
 function buildPortfolioText(
@@ -67,22 +62,25 @@ function buildPortfolioText(
   buyingPower: number,
   cash: number,
   positions: AlpacaPosition[],
-  snapshots: Record<string, AlpacaSnapshot>,
+  prices: Record<string, TickerPrice>,
   watchlistTickers: string[],
 ): string {
   const posLines = positions.length
     ? positions.map((p) => {
-        const price  = livePrice(snapshots[p.symbol], p.current_price);
-        const chgPct = dailyChangePct(snapshots[p.symbol], price);
-        const uPl    = parseFloat(p.unrealized_pl);
-        const uPlPc  = parseFloat(p.unrealized_plpc) * 100;
+        const info      = prices[p.symbol];
+        const price     = info?.price > 0 ? info.price : parseFloat(p.current_price);
+        const src       = info?.price_source ?? 'position';
+        const chgPct    = dailyChangePct(price, parseFloat(p.avg_entry_price));
+        const uPl       = parseFloat(p.unrealized_pl);
+        const uPlPc     = parseFloat(p.unrealized_plpc) * 100;
+        const priceTag  = info?.price_unavailable ? 'N/A (estimated)' : `$${price.toFixed(2)} [${src}]`;
         return (
           `  ${p.symbol.padEnd(6)} ` +
           `qty=${p.qty}  entry=$${parseFloat(p.avg_entry_price).toFixed(2)}  ` +
-          `price=$${price.toFixed(2)}  ` +
+          `price=${priceTag}  ` +
           `mktval=$${parseFloat(p.market_value).toFixed(0)}  ` +
           `unrPL=${uPl >= 0 ? '+' : ''}$${uPl.toFixed(0)} (${uPlPc >= 0 ? '+' : ''}${uPlPc.toFixed(1)}%)  ` +
-          `today=${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%`
+          `chg=${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%`
         );
       }).join('\n')
     : '  (no open positions)';
@@ -92,8 +90,10 @@ function buildPortfolioText(
   );
   const watchLines = watchOnly.length
     ? watchOnly.map((t) => {
-        const price = snapshots[t]?.latestTrade?.p ?? snapshots[t]?.minuteBar?.c ?? 0;
-        return `  ${t.padEnd(6)} price=$${price > 0 ? price.toFixed(2) : 'N/A'}`;
+        const info  = prices[t];
+        const price = info?.price ?? 0;
+        const src   = info?.price_source ?? 'unavailable';
+        return `  ${t.padEnd(6)} price=${price > 0 ? `$${price.toFixed(2)} [${src}]` : 'N/A'}`;
       }).join('\n')
     : '  (empty)';
 
@@ -116,7 +116,7 @@ ${watchLines}`;
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST() {
-  // ── 1. Authenticate ──────────────────────────────────────────────────────────
+  // ── 1. Authenticate ───────────────────────────────────────────────────────
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -125,17 +125,17 @@ export async function POST() {
   }
 
   try {
-    // ── 2. Fetch Alpaca positions (+ account for equity / buying power) ────────
+    // ── 2. Fetch Alpaca account + positions ──────────────────────────────────
     const [account, positions] = await Promise.all([
       getAccount(),
       getPositions(),
     ]);
 
-    const equity       = parseFloat(account.equity);
-    const buyingPower  = parseFloat(account.buying_power);
-    const cash         = parseFloat(account.cash);
+    const equity      = parseFloat(account.equity);
+    const buyingPower = parseFloat(account.buying_power);
+    const cash        = parseFloat(account.cash);
 
-    // ── 3. Fetch user watchlist ────────────────────────────────────────────────
+    // ── 3. Fetch user watchlist ──────────────────────────────────────────────
     let watchlistTickers: string[] = [];
     try {
       const { data, error } = await supabase
@@ -149,17 +149,26 @@ export async function POST() {
       // table may not exist yet — continue with empty watchlist
     }
 
-    // ── 4. Dedupe tickers and fetch snapshots ──────────────────────────────────
+    // ── 4. Fetch prices with three-level fallback ───────────────────────────
     const heldTickers = positions.map((p) => p.symbol);
     const allTickers  = [...new Set([...heldTickers, ...watchlistTickers])];
-    const snapshots   = await getSnapshots(allTickers);
+    const prices      = await getTickerPrices(allTickers);
 
-    // ── 5. Build portfolio snapshot text for Claude ────────────────────────────
+    // ── 5. Determine how many tickers lack live pricing ─────────────────────
+    const totalTickers     = allTickers.length;
+    const unavailableCount = allTickers.filter((t) => prices[t]?.price_unavailable).length;
+    const pricingLimited   = totalTickers > 0 && unavailableCount / totalTickers > 0.5;
+
+    const pricingNote = pricingLimited
+      ? '\n\nNote: live pricing is limited on this account tier. Use your knowledge of approximate current market prices to estimate position sizing, clearly noting you are estimating.'
+      : '';
+
+    // ── 6. Build portfolio snapshot text ────────────────────────────────────
     const portfolioText = buildPortfolioText(
-      equity, buyingPower, cash, positions, snapshots, watchlistTickers,
+      equity, buyingPower, cash, positions, prices, watchlistTickers,
     );
 
-    // ── 6. Call Claude with forced tool use ────────────────────────────────────
+    // ── 7. Call Claude with forced tool use ──────────────────────────────────
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,
@@ -174,10 +183,11 @@ Rules you must follow:
 • A single position must not exceed 20% of total equity after the trade
 • Do not recommend cumulative buys that exceed available buying power
 • Provide 2–3 sentence reasoning that references the data you were given
+• If a ticker shows price=N/A, note this in your reasoning and estimate conservatively${pricingNote}
 
 You MUST call submit_portfolio_analysis — do not reply in plain text.`,
-      tools:        [ANALYSIS_TOOL],
-      tool_choice:  { type: 'tool', name: 'submit_portfolio_analysis' },
+      tools:       [ANALYSIS_TOOL],
+      tool_choice: { type: 'tool', name: 'submit_portfolio_analysis' },
       messages: [
         {
           role:    'user',
@@ -186,7 +196,7 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       ],
     });
 
-    // ── 7. Parse tool_use block ────────────────────────────────────────────────
+    // ── 8. Parse tool_use block ───────────────────────────────────────────────
     const toolBlock = response.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
     );
@@ -208,7 +218,7 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       summary:        string;
     };
 
-    // ── 8. Map ticker → symbol and run risk guard ──────────────────────────────
+    // ── 9. Map ticker → symbol and run risk guard ─────────────────────────────
     const recs: TradeRecommendation[] = raw.recommendations.map((r) => ({
       symbol:     r.ticker,
       action:     r.action,
@@ -224,8 +234,8 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
     }
 
     const latestPrices: Record<string, number> = {};
-    for (const [ticker, snap] of Object.entries(snapshots)) {
-      latestPrices[ticker] = livePrice(snap, '0');
+    for (const [ticker, info] of Object.entries(prices)) {
+      latestPrices[ticker] = info.price;
     }
 
     const guardConfig: AutoInvestConfig = {
@@ -243,7 +253,7 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       latestPrices,
     });
 
-    // ── 9. Write approved non-hold recommendations to ai_insights ─────────────
+    // ── 10. Write approved non-hold recommendations to ai_insights ────────────
     const insightRows = approved
       .filter((r) => r.action !== 'hold')
       .map((r) => ({
@@ -260,7 +270,7 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       await supabase.from('ai_insights').insert(insightRows);
     }
 
-    // ── 10. Return result ──────────────────────────────────────────────────────
+    // ── 11. Return result ─────────────────────────────────────────────────────
     const toOutput = (r: TradeRecommendation) => ({
       symbol:          r.symbol,
       action:          r.action,
@@ -271,7 +281,6 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       estimated_value: r.estimated_value,
     });
 
-    // Simple portfolio health heuristic based on unrealized P&L across positions
     const totalPl = positions.reduce((sum, p) => sum + parseFloat(p.unrealized_pl), 0);
     const plPct   = equity > 0 ? (totalPl / equity) * 100 : 0;
     const portfolio_health =
