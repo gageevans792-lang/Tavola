@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 
 import { TopBar } from '@/components/layout/TopBar';
@@ -12,10 +12,11 @@ import { AnalysisOverlay } from '@/components/dashboard/AnalysisOverlay';
 import { RecommendationsSection } from '@/components/dashboard/RecommendationsSection';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
+import { createClient } from '@/lib/supabase/client';
 import type { AIInsight, AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
 import { DollarSign, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 
-// ── Static mock data ─────────────────────────────────────────────────────────
+// ── Mock data — replace with live Supabase queries when tables are ready ─────
 
 const mockChartData = Array.from({ length: 30 }, (_, i) => ({
   date: new Date(Date.now() - (29 - i) * 86400000).toLocaleDateString('en-US', {
@@ -27,10 +28,10 @@ const mockChartData = Array.from({ length: 30 }, (_, i) => ({
 }));
 
 const mockAllocation = [
-  { name: 'Tech',    value: 42, color: '#6366f1' },
-  { name: 'Finance', value: 23, color: '#22d3ee' },
-  { name: 'Energy',  value: 15, color: '#f59e0b' },
-  { name: 'Other',   value: 20, color: '#e5e7eb' },
+  { name: 'Tech',    value: 42, color: '#0A1628' },
+  { name: 'Finance', value: 23, color: '#B8960C' },
+  { name: 'Energy',  value: 15, color: '#4A5568' },
+  { name: 'Other',   value: 20, color: '#E2E8F0' },
 ];
 
 const mockInsights: AIInsight[] = [
@@ -62,6 +63,21 @@ const mockInsights: AIInsight[] = [
 
 export default function DashboardPage() {
   const [mode, setMode] = useLocalStorage<InvestMode>('tavola:invest-mode', 'review');
+  const [firstName, setFirstName] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const name = user?.user_metadata?.full_name as string | undefined;
+        if (name) setFirstName(name.split(' ')[0]);
+      } catch (err) {
+        console.error('[dashboard] failed to load user', err);
+      }
+    }
+    loadUser();
+  }, []);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState<AutoInvestResult | null>(null);
@@ -116,7 +132,7 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <TopBar
-        title="Dashboard"
+        title={firstName ? `Dashboard — ${firstName}` : 'Dashboard'}
         onRunAnalysis={runAnalysis}
         analyzing={analyzing}
         mode={mode}
@@ -174,13 +190,20 @@ export default function DashboardPage() {
             )}
           </AnimatePresence>
 
-          {/* Charts */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <PortfolioChart data={mockChartData} />
+          {/* Charts — guarded against empty data */}
+          {mockChartData.length > 0 ? (
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <PortfolioChart data={mockChartData} />
+              </div>
+              <AllocationChart data={mockAllocation} />
             </div>
-            <AllocationChart data={mockAllocation} />
-          </div>
+          ) : (
+            <div className="border border-[#E2E8F0] bg-white px-8 py-12 text-center">
+              <p className="font-serif text-xl font-light text-[#0A1628] mb-2">No positions yet.</p>
+              <p className="text-sm text-[#4A5568]">Deposit funds to get started.</p>
+            </div>
+          )}
 
           {/* AI feed */}
           <AIFeed insights={mockInsights} />

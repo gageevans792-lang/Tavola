@@ -38,7 +38,7 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
                     : 'text-[#4A5568] hover:text-[#0A1628]'
                 )}
               >
-                {m === 'auto' ? '⚡ Auto' : '👁 Review'}
+                {m === 'auto' ? 'Auto' : 'Review'}
               </button>
             ))}
           </div>

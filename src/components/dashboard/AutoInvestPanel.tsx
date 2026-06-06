@@ -32,10 +32,10 @@ const DEFAULT_CONFIG: AutoInvestConfig = {
 };
 
 const HEALTH_CONFIG: Record<PortfolioHealth, { label: string; color: string }> = {
-  poor: { label: 'Poor', color: 'text-red-500' },
-  fair: { label: 'Fair', color: 'text-amber-500' },
-  good: { label: 'Good', color: 'text-blue-500' },
-  excellent: { label: 'Excellent', color: 'text-green-500' },
+  poor:      { label: 'Poor',      color: 'text-red-500' },
+  fair:      { label: 'Fair',      color: 'text-amber-500' },
+  good:      { label: 'Good',      color: 'text-[#4A5568]' },
+  excellent: { label: 'Excellent', color: 'text-green-600' },
 };
 
 function WatchlistInput({
@@ -55,19 +55,19 @@ function WatchlistInput({
 
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+      <label className="block text-xs font-medium text-[#4A5568] mb-1">
         Watchlist — candidate buys
       </label>
       <div className="flex flex-wrap gap-1.5 mb-2">
         {value.map((sym) => (
           <span
             key={sym}
-            className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+            className="inline-flex items-center gap-1 bg-[#F8F9FA] border border-[#E2E8F0] px-2 py-0.5 text-xs font-medium text-[#0A1628]"
           >
             {sym}
             <button
               onClick={() => onChange(value.filter((s) => s !== sym))}
-              className="hover:text-indigo-900"
+              className="hover:text-[#0A1628]/60"
             >
               <X className="h-3 w-3" />
             </button>
@@ -80,7 +80,7 @@ function WatchlistInput({
           onChange={(e) => setInput(e.target.value.toUpperCase())}
           onKeyDown={(e) => e.key === 'Enter' && add()}
           placeholder="e.g. NVDA"
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm uppercase dark:border-gray-700 dark:bg-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="flex-1 border border-[#E2E8F0] px-3 py-1.5 text-sm uppercase focus:outline-none focus:border-[#0A1628] bg-white text-[#0A1628] transition-colors"
         />
         <Button size="sm" variant="secondary" onClick={add} disabled={!input.trim()}>
           Add
@@ -98,10 +98,10 @@ function ConfigPanel({
   onChange: (c: AutoInvestConfig) => void;
 }) {
   return (
-    <div className="space-y-5 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900/50">
+    <div className="space-y-5 border border-[#E2E8F0] bg-[#F8F9FA] p-4">
       {/* Mode toggle */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+        <label className="block text-xs font-medium text-[#4A5568] mb-2">
           Execution mode
         </label>
         <div className="grid grid-cols-2 gap-2">
@@ -110,18 +110,18 @@ function ConfigPanel({
               key={mode}
               onClick={() => onChange({ ...config, mode })}
               className={cn(
-                'rounded-lg border-2 py-2.5 text-sm font-medium transition-colors',
+                'border py-2.5 text-sm font-medium transition-colors',
                 config.mode === mode
-                  ? 'border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:text-gray-400',
+                  ? 'border-[#0A1628] bg-white text-[#0A1628]'
+                  : 'border-[#E2E8F0] text-[#4A5568] hover:border-[#0A1628]/30',
               )}
             >
-              {mode === 'review' ? '👁 Review first' : '⚡ Auto-execute'}
+              {mode === 'review' ? 'Review first' : 'Auto-execute'}
             </button>
           ))}
         </div>
         {config.mode === 'auto' && (
-          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+          <p className="mt-2 border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
             Auto mode places market orders immediately after risk checks pass.
           </p>
         )}
@@ -130,10 +130,8 @@ function ConfigPanel({
       {/* Confidence threshold */}
       <div>
         <div className="flex justify-between mb-1">
-          <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-            Min confidence threshold
-          </label>
-          <span className="text-xs font-bold text-indigo-600">{config.confidence_threshold}</span>
+          <label className="text-xs font-medium text-[#4A5568]">Min confidence threshold</label>
+          <span className="text-xs font-bold text-[#B8960C]">{config.confidence_threshold}</span>
         </div>
         <Slider.Root
           min={50}
@@ -143,12 +141,12 @@ function ConfigPanel({
           onValueChange={([v]) => onChange({ ...config, confidence_threshold: v })}
           className="relative flex h-4 w-full touch-none items-center"
         >
-          <Slider.Track className="relative h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-gray-700">
-            <Slider.Range className="absolute h-full rounded-full bg-indigo-600" />
+          <Slider.Track className="relative h-1.5 flex-1 rounded-full bg-[#E2E8F0]">
+            <Slider.Range className="absolute h-full rounded-full bg-[#0A1628]" />
           </Slider.Track>
-          <Slider.Thumb className="block h-4 w-4 rounded-full border-2 border-indigo-600 bg-white shadow focus:outline-none" />
+          <Slider.Thumb className="block h-4 w-4 rounded-full border-2 border-[#0A1628] bg-white shadow focus:outline-none" />
         </Slider.Root>
-        <div className="mt-1 flex justify-between text-xs text-gray-400">
+        <div className="mt-1 flex justify-between text-xs text-[#4A5568]/60">
           <span>50 (lenient)</span>
           <span>95 (strict)</span>
         </div>
@@ -157,10 +155,8 @@ function ConfigPanel({
       {/* Max position % */}
       <div>
         <div className="flex justify-between mb-1">
-          <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-            Max position size
-          </label>
-          <span className="text-xs font-bold text-indigo-600">
+          <label className="text-xs font-medium text-[#4A5568]">Max position size</label>
+          <span className="text-xs font-bold text-[#B8960C]">
             {(config.max_position_pct * 100).toFixed(0)}%
           </span>
         </div>
@@ -172,12 +168,12 @@ function ConfigPanel({
           onValueChange={([v]) => onChange({ ...config, max_position_pct: v })}
           className="relative flex h-4 w-full touch-none items-center"
         >
-          <Slider.Track className="relative h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-gray-700">
-            <Slider.Range className="absolute h-full rounded-full bg-indigo-600" />
+          <Slider.Track className="relative h-1.5 flex-1 rounded-full bg-[#E2E8F0]">
+            <Slider.Range className="absolute h-full rounded-full bg-[#0A1628]" />
           </Slider.Track>
-          <Slider.Thumb className="block h-4 w-4 rounded-full border-2 border-indigo-600 bg-white shadow focus:outline-none" />
+          <Slider.Thumb className="block h-4 w-4 rounded-full border-2 border-[#0A1628] bg-white shadow focus:outline-none" />
         </Slider.Root>
-        <div className="mt-1 flex justify-between text-xs text-gray-400">
+        <div className="mt-1 flex justify-between text-xs text-[#4A5568]/60">
           <span>2%</span>
           <span>20%</span>
         </div>
@@ -186,10 +182,8 @@ function ConfigPanel({
       {/* Max trade value */}
       <div>
         <div className="flex justify-between mb-1">
-          <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-            Max trade value
-          </label>
-          <span className="text-xs font-bold text-indigo-600">
+          <label className="text-xs font-medium text-[#4A5568]">Max trade value</label>
+          <span className="text-xs font-bold text-[#B8960C]">
             ${config.max_trade_value.toLocaleString()}
           </span>
         </div>
@@ -201,12 +195,12 @@ function ConfigPanel({
           onValueChange={([v]) => onChange({ ...config, max_trade_value: v })}
           className="relative flex h-4 w-full touch-none items-center"
         >
-          <Slider.Track className="relative h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-gray-700">
-            <Slider.Range className="absolute h-full rounded-full bg-indigo-600" />
+          <Slider.Track className="relative h-1.5 flex-1 rounded-full bg-[#E2E8F0]">
+            <Slider.Range className="absolute h-full rounded-full bg-[#0A1628]" />
           </Slider.Track>
-          <Slider.Thumb className="block h-4 w-4 rounded-full border-2 border-indigo-600 bg-white shadow focus:outline-none" />
+          <Slider.Thumb className="block h-4 w-4 rounded-full border-2 border-[#0A1628] bg-white shadow focus:outline-none" />
         </Slider.Root>
-        <div className="mt-1 flex justify-between text-xs text-gray-400">
+        <div className="mt-1 flex justify-between text-xs text-[#4A5568]/60">
           <span>$100</span>
           <span>$10,000</span>
         </div>
@@ -249,38 +243,30 @@ export function AutoInvestPanel() {
     }
   }, [config]);
 
-  const executeOne = useCallback(
-    async (rec: TradeRecommendation) => {
-      setExecutingSymbol(rec.symbol);
-      try {
-        const res = await fetch('/api/alpaca/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            symbol: rec.symbol,
-            qty: rec.qty,
-            side: rec.action,
-          }),
-        });
-        if (!res.ok) throw new Error('Order failed');
+  const executeOne = useCallback(async (rec: TradeRecommendation) => {
+    setExecutingSymbol(rec.symbol);
+    try {
+      const res = await fetch('/api/alpaca/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: rec.symbol, qty: rec.qty, side: rec.action }),
+      });
+      if (!res.ok) throw new Error('Order failed');
 
-        // Move from approved to executed in local state
-        setResult((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            approved: prev.approved.filter((r) => r.symbol !== rec.symbol),
-            executed: [...prev.executed, { ...rec, order_id: 'manual' }],
-          };
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Order failed');
-      } finally {
-        setExecutingSymbol(null);
-      }
-    },
-    [],
-  );
+      setResult((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          approved: prev.approved.filter((r) => r.symbol !== rec.symbol),
+          executed: [...prev.executed, { ...rec, order_id: 'manual' }],
+        };
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Order failed');
+    } finally {
+      setExecutingSymbol(null);
+    }
+  }, []);
 
   const actionablePending = result?.approved.filter((r) => r.action !== 'hold') ?? [];
   const holds = result?.approved.filter((r) => r.action === 'hold') ?? [];
@@ -290,12 +276,12 @@ export function AutoInvestPanel() {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <div className="rounded-lg bg-indigo-50 p-1.5 dark:bg-indigo-900/30">
-            <Bot className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="bg-[#F8F9FA] p-1.5">
+            <Bot className="h-5 w-5 text-[#B8960C]" />
           </div>
           <CardTitle>AI Auto-Invest</CardTitle>
           {health && (
-            <span className={cn('ml-auto text-sm font-semibold', HEALTH_CONFIG[health].color)}>
+            <span className={cn('ml-auto text-sm font-medium', HEALTH_CONFIG[health].color)}>
               {HEALTH_CONFIG[health].label} portfolio
             </span>
           )}
@@ -305,12 +291,12 @@ export function AutoInvestPanel() {
       {/* Config toggle */}
       <button
         onClick={() => setShowConfig((s) => !s)}
-        className="mb-4 flex w-full items-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 hover:border-gray-400 dark:border-gray-700 dark:text-gray-400"
+        className="mb-4 flex w-full items-center gap-2 border border-dashed border-[#E2E8F0] px-3 py-2 text-sm text-[#4A5568] hover:border-[#0A1628]/40 transition-colors"
       >
-        <Settings2 className="h-4 w-4" />
+        <Settings2 className="h-4 w-4 shrink-0" />
         Configuration
-        <span className="ml-auto text-xs">
-          {config.mode === 'auto' ? '⚡ Auto' : '👁 Review'} ·{' '}
+        <span className="ml-auto text-xs text-[#4A5568]/60">
+          {config.mode === 'auto' ? 'Auto' : 'Review'} ·{' '}
           {config.confidence_threshold}% threshold ·{' '}
           {(config.max_position_pct * 100).toFixed(0)}% max position
         </span>
@@ -324,19 +310,14 @@ export function AutoInvestPanel() {
       )}
 
       {/* Run button */}
-      <Button
-        className="w-full"
-        onClick={runAnalysis}
-        loading={loading}
-        disabled={loading}
-      >
+      <Button className="w-full" onClick={runAnalysis} loading={loading} disabled={loading}>
         <Sparkles className="h-4 w-4" />
         {loading ? 'Analysing portfolio…' : 'Run AI Analysis'}
       </Button>
 
       {/* Error */}
       {error && (
-        <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+        <p className="mt-3 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
           {error}
         </p>
       )}
@@ -345,34 +326,32 @@ export function AutoInvestPanel() {
       {result && (
         <div className="mt-6 space-y-6">
           {/* Summary */}
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 dark:border-indigo-900/40 dark:bg-indigo-900/10">
+          <div className="border border-[#E2E8F0] bg-[#F8F9FA] p-4">
             <div className="flex items-start gap-2">
-              <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" />
+              <TrendingUp className="mt-0.5 h-4 w-4 shrink-0 text-[#B8960C]" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400 mb-1">
+                <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-[#B8960C] mb-1">
                   Market Outlook
                 </p>
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  {result.analysis.market_outlook}
-                </p>
+                <p className="text-sm text-[#0A1628]">{result.analysis.market_outlook}</p>
               </div>
             </div>
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 border-t border-indigo-100 dark:border-indigo-900/40 pt-3">
+            <p className="mt-3 text-sm text-[#4A5568] border-t border-[#E2E8F0] pt-3">
               {result.analysis.summary}
             </p>
           </div>
 
           {/* Portfolio stats */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
-              <p className="text-xs text-gray-500">Portfolio value</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white">
+            <div className="border border-[#E2E8F0] p-4">
+              <p className="text-xs text-[#4A5568]">Portfolio value</p>
+              <p className="font-serif text-lg font-light text-[#0A1628]">
                 ${result.portfolio.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </p>
             </div>
-            <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
-              <p className="text-xs text-gray-500">Available cash</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white">
+            <div className="border border-[#E2E8F0] p-4">
+              <p className="text-xs text-[#4A5568]">Available cash</p>
+              <p className="font-serif text-lg font-light text-[#0A1628]">
                 ${result.portfolio.cash.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </p>
             </div>
@@ -383,7 +362,7 @@ export function AutoInvestPanel() {
             <section>
               <div className="mb-2 flex items-center gap-2">
                 <Zap className="h-4 w-4 text-green-600" />
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                <h4 className="text-sm font-medium text-[#0A1628]">
                   Executed ({result.executed.length})
                 </h4>
               </div>
@@ -395,12 +374,12 @@ export function AutoInvestPanel() {
             </section>
           )}
 
-          {/* Pending approval (review mode) */}
+          {/* Pending approval */}
           {actionablePending.length > 0 && (
             <section>
               <div className="mb-2 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-indigo-600" />
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                <Sparkles className="h-4 w-4 text-[#B8960C]" />
+                <h4 className="text-sm font-medium text-[#0A1628]">
                   Recommendations — approve to execute ({actionablePending.length})
                 </h4>
               </div>
@@ -421,7 +400,7 @@ export function AutoInvestPanel() {
           {/* Hold recommendations */}
           {holds.length > 0 && (
             <section>
-              <h4 className="mb-2 text-sm font-semibold text-gray-500 dark:text-gray-400">
+              <h4 className="mb-2 text-sm font-medium text-[#4A5568]">
                 Hold ({holds.length})
               </h4>
               <div className="space-y-2">
@@ -435,7 +414,7 @@ export function AutoInvestPanel() {
           {/* Rejected by risk guard */}
           {result.rejected.length > 0 && (
             <section>
-              <h4 className="mb-2 text-sm font-semibold text-gray-500 dark:text-gray-400">
+              <h4 className="mb-2 text-sm font-medium text-[#4A5568]">
                 Blocked by risk guard ({result.rejected.length})
               </h4>
               <div className="space-y-2">
@@ -448,8 +427,8 @@ export function AutoInvestPanel() {
 
           {/* Execution errors */}
           {result.errors.length > 0 && (
-            <div className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
-              <p className="text-xs font-semibold text-red-600 mb-1">Execution errors</p>
+            <div className="border border-red-200 bg-red-50 p-3">
+              <p className="text-xs font-medium text-red-600 mb-1">Execution errors</p>
               {result.errors.map((e, i) => (
                 <p key={i} className="text-xs text-red-500">{e}</p>
               ))}
