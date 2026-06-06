@@ -6,6 +6,7 @@ import {
   getPortfolioHistory,
 } from '@/lib/alpaca/client';
 import { syncHoldingsToSupabase } from '@/lib/alpaca/sync';
+import type { SyncedHolding } from '@/lib/alpaca/sync';
 import type { AlpacaPosition } from '@/types';
 
 // Alpaca paper accounts start at $100,000
@@ -32,7 +33,7 @@ export interface PortfolioData {
   total_return_pct:   number;
   chart:              Array<{ date: string; value: number }>;
   allocation:         Array<{ name: string; value: number; color: string }>;
-  holdings:           unknown[];
+  holdings:           SyncedHolding[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -98,10 +99,13 @@ export async function GET() {
     const totalReturn    = equity - PAPER_BASELINE;
     const totalReturnPct = (totalReturn / PAPER_BASELINE) * 100;
 
-    // ── Sync Alpaca positions → Supabase holdings (fire-and-forget) ───────────
-    syncHoldingsToSupabase(user.id).catch((err: unknown) => {
-      console.warn('[portfolio] sync:', err instanceof Error ? err.message : err);
-    });
+    // ── Sync Alpaca positions → Supabase holdings ─────────────────────────────
+    let holdings: SyncedHolding[] = [];
+    try {
+      holdings = await syncHoldingsToSupabase(user.id);
+    } catch (syncErr) {
+      console.warn('[portfolio] sync:', syncErr instanceof Error ? syncErr.message : syncErr);
+    }
 
     // ── Portfolio history → chart data (30-day daily) ─────────────────────────
     let chart: PortfolioData['chart'];
@@ -145,7 +149,7 @@ export async function GET() {
       total_return_pct:   totalReturnPct,
       chart,
       allocation,
-      holdings:           [],
+      holdings,
     } satisfies PortfolioData);
 
   } catch (err: unknown) {

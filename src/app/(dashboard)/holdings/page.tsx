@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TopBar } from '@/components/layout/TopBar';
+import { HoldingsTable } from '@/components/dashboard/HoldingsTable';
 import { createClient } from '@/lib/supabase/client';
-import { cn } from '@/lib/utils';
-import type { Holding } from '@/types';
+import type { SyncedHolding } from '@/lib/alpaca/sync';
+import type { PortfolioData } from '@/app/api/alpaca/portfolio/route';
 
 interface WatchlistItem {
   id: string;
@@ -12,37 +13,52 @@ interface WatchlistItem {
 }
 
 export default function HoldingsPage() {
-  const [holdings, setHoldings] = useState<Holding[]>([]);
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
-  const [tickerInput, setTickerInput] = useState('');
-  const [loadingHoldings, setLoadingHoldings] = useState(true);
+  const [holdings, setHoldings]     = useState<SyncedHolding[]>([]);
+  const [syncing, setSyncing]       = useState(true);
+  const [watchlist, setWatchlist]   = useState<WatchlistItem[]>([]);
   const [loadingWatchlist, setLoadingWatchlist] = useState(true);
-  const [adding, setAdding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [tickerInput, setTickerInput] = useState('');
+  const [adding, setAdding]         = useState(false);
+  const [error, setError]           = useState<string | null>(null);
 
-  useEffect(() => {
-    loadHoldings();
-    loadWatchlist();
-  }, []);
+  // ── Sync positions from Alpaca then read fresh holdings ───────────────────
+  const syncAndLoad = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/alpaca/portfolio');
+      if (res.ok) {
+        const data: PortfolioData = await res.json();
+        setHoldings(data.holdings);
+        return;
+      }
+    } catch (err) {
+      console.warn('[holdings] portfolio sync failed:', err);
+    }
 
-  async function loadHoldings() {
+    // Fallback: read directly from Supabase if API call fails
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase
-        .from('holdings')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('market_value', { ascending: false });
-      if (error) throw error;
-      setHoldings(data ?? []);
+      if (user) {
+        const { data } = await supabase
+          .from('holdings')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('market_value', { ascending: false });
+        setHoldings((data ?? []) as SyncedHolding[]);
+      }
     } catch (err) {
-      console.error('[holdings] failed to load', err);
+      console.error('[holdings] fallback fetch failed:', err);
     } finally {
-      setLoadingHoldings(false);
+      setSyncing(false);
     }
-  }
+    setSyncing(false);
+  }, []);
+
+  useEffect(() => {
+    syncAndLoad();
+    loadWatchlist();
+  }, [syncAndLoad]);
 
   async function loadWatchlist() {
     try {
@@ -84,8 +100,7 @@ export default function HoldingsPage() {
       if (error) throw error;
       setWatchlist((prev) => [...prev, data]);
       setTickerInput('');
-    } catch (err) {
-      console.error('[holdings] failed to add ticker', err);
+    } catch {
       setError('Unable to add ticker. Please try again.');
     } finally {
       setAdding(false);
@@ -98,8 +113,7 @@ export default function HoldingsPage() {
       const { error } = await supabase.from('user_watchlist').delete().eq('id', id);
       if (error) throw error;
       setWatchlist((prev) => prev.filter((w) => w.id !== id));
-    } catch (err) {
-      console.error('[holdings] failed to remove ticker', err);
+    } catch {
       setError(`Unable to remove ${ticker}. Please try again.`);
     }
   }
@@ -110,57 +124,39 @@ export default function HoldingsPage() {
       <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6">
         <div className="mx-auto max-w-7xl space-y-6">
 
-          {/* Positions */}
+          {/* ── Positions ─────────────────────────────────────────────────── */}
           <div className="bg-white border border-[#E2E8F0]">
-            <div className="px-6 py-4 border-b border-[#E2E8F0]">
-              <h2 className="font-serif text-lg font-light text-[#0A1628]">Positions</h2>
+            <div className="px-6 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+              <div>
+                <h2 className="font-serif text-lg font-light text-[#0A1628]">Positions</h2>
+                {syncing && (
+                  <p className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] mt-0.5">
+                    Syncing positions...
+                  </p>
+                )}
+              </div>
+              {!syncing && (
+                <button
+                  onClick={syncAndLoad}
+                  className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors"
+                >
+                  Refresh
+                </button>
+              )}
             </div>
-            {loadingHoldings ? (
-              <div className="px-6 py-8 text-center text-sm text-[#4A5568]">Loading...</div>
-            ) : holdings.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <p className="font-serif text-lg font-light text-[#0A1628] mb-1">No positions yet.</p>
-                <p className="text-sm text-[#4A5568]">Run an AI analysis to get started.</p>
+
+            {syncing ? (
+              <div className="px-6 py-8 space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-10 animate-pulse bg-[#E2E8F0]" />
+                ))}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[#E2E8F0]">
-                      {['Ticker', 'Shares', 'Avg Price', 'Current', 'Mkt Value', 'P&L', 'Weight'].map((h) => (
-                        <th key={h} className="px-6 py-3 text-left text-[11px] tracking-[0.1em] uppercase text-[#4A5568] font-medium whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {holdings.map((h) => (
-                      <tr key={h.ticker} className="border-b border-[#E2E8F0] hover:bg-[#F8F9FA]">
-                        <td className="px-6 py-4">
-                          <p className="font-medium text-[#0A1628]">{h.ticker}</p>
-                          {h.name && <p className="text-xs text-[#4A5568]">{h.name}</p>}
-                        </td>
-                        <td className="px-6 py-4 text-[#4A5568]">{h.qty}</td>
-                        <td className="px-6 py-4 text-[#4A5568]">${h.avg_entry_price.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-[#4A5568]">${h.current_price.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-[#0A1628]">${h.market_value.toLocaleString()}</td>
-                        <td className={cn('px-6 py-4 font-medium', h.unrealized_pl >= 0 ? 'text-green-600' : 'text-[#C41E3A]')}>
-                          {h.unrealized_pl >= 0 ? '+' : ''}${h.unrealized_pl.toFixed(2)}
-                          <span className="ml-1 text-xs opacity-70">
-                            ({(h.unrealized_plpc * 100).toFixed(1)}%)
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-[#4A5568]">{h.weight_pct.toFixed(1)}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <HoldingsTable holdings={holdings} />
             )}
           </div>
 
-          {/* Watchlist */}
+          {/* ── Watchlist ─────────────────────────────────────────────────── */}
           <div className="bg-white border border-[#E2E8F0]">
             <div className="px-6 py-4 border-b border-[#E2E8F0]">
               <h2 className="font-serif text-lg font-light text-[#0A1628]">Watchlist</h2>
@@ -176,10 +172,7 @@ export default function HoldingsPage() {
                   <input
                     type="text"
                     value={tickerInput}
-                    onChange={(e) => {
-                      setError(null);
-                      setTickerInput(e.target.value.toUpperCase());
-                    }}
+                    onChange={(e) => { setError(null); setTickerInput(e.target.value.toUpperCase()); }}
                     onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                     placeholder="AAPL"
                     maxLength={10}
@@ -198,7 +191,10 @@ export default function HoldingsPage() {
             </div>
 
             {loadingWatchlist ? (
-              <div className="px-6 py-8 text-center text-sm text-[#4A5568]">Loading...</div>
+              <div className="px-6 py-8 space-y-2">
+                <div className="h-8 w-1/3 animate-pulse bg-[#E2E8F0]" />
+                <div className="h-8 w-1/4 animate-pulse bg-[#E2E8F0]" />
+              </div>
             ) : watchlist.length === 0 ? (
               <div className="px-6 py-8 text-center">
                 <p className="text-sm text-[#4A5568]">Add tickers to your watchlist to enable AI analysis.</p>

@@ -151,8 +151,8 @@ export default function DashboardPage() {
 
   // ── Post-execution: sync portfolio + show toast ────────────────────────────
   const handleExecuted = useCallback((rec: TradeRecommendation) => {
-    // Sync holdings and refresh all stat cards
-    refreshPortfolio();
+    // Delay 1s to let Alpaca process the order before syncing
+    setTimeout(refreshPortfolio, 1_000);
 
     // Compute approximate per-share price from the risk guard estimate
     const price = rec.estimated_value != null && rec.qty > 0
