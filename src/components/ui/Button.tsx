@@ -8,10 +8,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles = {
-  primary: 'bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-indigo-400',
-  secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700',
-  ghost: 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800',
-  danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-400',
+  primary:   'bg-[#0A1628] text-white hover:bg-[#1a2f4a] disabled:opacity-50',
+  secondary: 'bg-[#F8F9FA] text-[#0A1628] hover:bg-[#E2E8F0]',
+  ghost:     'text-[#4A5568] hover:bg-[#F8F9FA]',
+  danger:    'bg-red-600 text-white hover:bg-red-700 disabled:opacity-50',
 };
 
 const sizeStyles = {
@@ -27,7 +27,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={cn(
-          'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed',
+          'inline-flex items-center justify-center gap-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A1628]/30 disabled:cursor-not-allowed',
           variantStyles[variant],
           sizeStyles[size],
           className
@@ -35,7 +35,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading && (
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <span className="h-4 w-4 animate-spin border-2 border-current border-t-transparent" />
         )}
         {children}
       </button>

@@ -33,12 +33,12 @@ export default function InsightsPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <TopBar title="AI Insights" />
-      <main className="flex-1 overflow-y-auto bg-gray-50 p-6 dark:bg-gray-950">
+      <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-6">
         <div className="mx-auto max-w-3xl space-y-6">
           <Card>
             <div className="flex items-start gap-3">
-              <div className="rounded-lg bg-indigo-50 p-2 dark:bg-indigo-900/30">
-                <Sparkles className="h-5 w-5 text-indigo-600" />
+              <div className="bg-[#F8F9FA] p-2">
+                <Sparkles className="h-5 w-5 text-[#B8960C]" />
               </div>
               <div className="flex-1">
                 <h2 className="font-semibold text-gray-900 dark:text-white">Ask the AI</h2>
@@ -47,7 +47,7 @@ export default function InsightsPage() {
             </div>
             <div className="mt-4 flex gap-3">
               <textarea
-                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                className="flex-1 border border-[#E2E8F0] px-3 py-2 text-sm text-[#0A1628] focus:border-[#0A1628] outline-none bg-white"
                 rows={3}
                 placeholder="e.g. Should I increase my AAPL position given current macro conditions?"
                 value={prompt}

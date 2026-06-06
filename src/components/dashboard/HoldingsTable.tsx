@@ -15,34 +15,34 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 dark:border-gray-800">
+            <tr className="border-b border-[#E2E8F0]">
               {['Ticker', 'Qty', 'Avg Cost', 'Price', 'Mkt Value', 'P&L'].map((h) => (
                 <th
                   key={h}
-                  className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400"
+                  className="px-3 py-2 text-left text-[11px] tracking-[0.1em] uppercase text-[#4A5568]"
                 >
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+          <tbody className="divide-y divide-[#F8F9FA]">
             {holdings.map((h) => (
-              <tr key={h.ticker} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+              <tr key={h.ticker} className="hover:bg-[#F8F9FA]">
                 <td className="px-3 py-3">
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">{h.ticker}</p>
-                    {h.name && <p className="text-xs text-gray-500">{h.name}</p>}
+                    <p className="font-medium text-[#0A1628]">{h.ticker}</p>
+                    {h.name && <p className="text-xs text-[#4A5568]">{h.name}</p>}
                   </div>
                 </td>
-                <td className="px-3 py-3 text-gray-700 dark:text-gray-300">{h.qty}</td>
-                <td className="px-3 py-3 text-gray-700 dark:text-gray-300">
+                <td className="px-3 py-3 text-[#4A5568]">{h.qty}</td>
+                <td className="px-3 py-3 text-[#4A5568]">
                   ${h.avg_entry_price.toFixed(2)}
                 </td>
-                <td className="px-3 py-3 text-gray-700 dark:text-gray-300">
+                <td className="px-3 py-3 text-[#4A5568]">
                   ${h.current_price.toFixed(2)}
                 </td>
-                <td className="px-3 py-3 text-gray-700 dark:text-gray-300">
+                <td className="px-3 py-3 text-[#4A5568]">
                   ${h.market_value.toLocaleString()}
                 </td>
                 <td

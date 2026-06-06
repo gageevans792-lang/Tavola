@@ -16,7 +16,6 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     console.log('[signup] form submitted', { email, fullName });
-
     setLoading(true);
     setError(null);
 
@@ -24,9 +23,7 @@ export default function SignupPage() {
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { full_name: fullName },
-      },
+      options: { data: { full_name: fullName } },
     });
 
     if (signUpError) {
@@ -43,19 +40,14 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen bg-white text-[#0A1628] flex flex-col">
 
-      {/* Wordmark */}
       <div className="px-12 lg:px-20 h-14 flex items-center border-b border-[#E2E8F0] shrink-0">
-        <Link
-          href="/"
-          className="font-serif text-[13px] tracking-[0.4em] uppercase text-[#0A1628]"
-        >
+        <Link href="/" className="font-serif text-[13px] tracking-[0.4em] uppercase text-[#0A1628]">
           Tavola
         </Link>
       </div>
 
-      {/* Form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-20">
-        <div className="w-full max-w-[380px]">
+      <div className="flex-1 flex items-center justify-center px-6 py-16">
+        <div className="w-full max-w-[400px]">
 
           <div className="mb-12">
             <h1 className="font-serif text-[36px] font-light text-[#0A1628] leading-tight mb-3">
@@ -66,9 +58,9 @@ export default function SignupPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-9">
+          <form onSubmit={handleSubmit} className="space-y-8">
             <div>
-              <label className="block text-[11px] tracking-[0.2em] uppercase text-[#0A1628]/40 mb-3">
+              <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-1">
                 Full Name
               </label>
               <input
@@ -76,12 +68,12 @@ export default function SignupPage() {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="block w-full border-0 border-b border-[#E2E8F0] pb-3 text-[14px] text-[#0A1628] bg-transparent focus:outline-none focus:border-[#0A1628] transition-colors placeholder:text-[#0A1628]/20"
+                className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent transition-colors placeholder:text-[#0A1628]/20"
                 placeholder="Jane Doe"
               />
             </div>
             <div>
-              <label className="block text-[11px] tracking-[0.2em] uppercase text-[#0A1628]/40 mb-3">
+              <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-1">
                 Email
               </label>
               <input
@@ -89,12 +81,12 @@ export default function SignupPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full border-0 border-b border-[#E2E8F0] pb-3 text-[14px] text-[#0A1628] bg-transparent focus:outline-none focus:border-[#0A1628] transition-colors placeholder:text-[#0A1628]/20"
+                className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent transition-colors placeholder:text-[#0A1628]/20"
                 placeholder="you@example.com"
               />
             </div>
             <div>
-              <label className="block text-[11px] tracking-[0.2em] uppercase text-[#0A1628]/40 mb-3">
+              <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-1">
                 Password
               </label>
               <input
@@ -102,7 +94,7 @@ export default function SignupPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full border-0 border-b border-[#E2E8F0] pb-3 text-[14px] text-[#0A1628] bg-transparent focus:outline-none focus:border-[#0A1628] transition-colors placeholder:text-[#0A1628]/20"
+                className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent transition-colors placeholder:text-[#0A1628]/20"
                 placeholder="••••••••"
               />
             </div>
@@ -111,11 +103,11 @@ export default function SignupPage() {
               <p className="text-[13px] text-red-600 leading-relaxed">{error}</p>
             )}
 
-            <div className="pt-3">
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 bg-[#0A1628] text-white text-[12px] tracking-[0.2em] uppercase transition-colors hover:bg-[#0A1628]/85 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#0A1628] text-white text-xs tracking-[0.2em] uppercase h-12 hover:bg-[#1a2f4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Creating account...' : 'Create Account'}
               </button>
@@ -132,18 +124,12 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* Legal */}
       <div className="px-6 pb-8 text-center shrink-0">
         <p className="text-[10px] text-[#0A1628]/30 leading-relaxed max-w-sm mx-auto">
           By creating an account you agree to our{' '}
-          <Link href="#" className="hover:text-[#0A1628]/50 transition-colors">
-            Terms of Service
-          </Link>{' '}
+          <Link href="#" className="hover:text-[#0A1628]/50 transition-colors">Terms of Service</Link>{' '}
           and{' '}
-          <Link href="#" className="hover:text-[#0A1628]/50 transition-colors">
-            Privacy Policy
-          </Link>
-          .
+          <Link href="#" className="hover:text-[#0A1628]/50 transition-colors">Privacy Policy</Link>.
         </p>
       </div>
 

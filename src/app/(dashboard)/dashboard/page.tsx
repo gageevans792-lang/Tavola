@@ -124,7 +124,7 @@ export default function DashboardPage() {
       />
 
       {/* ── Main content ─────────────────────────────────────── */}
-      <main className="relative flex-1 overflow-y-auto bg-gray-50 p-6 dark:bg-gray-950">
+      <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA] p-6">
         {/* Loading overlay — positioned over the scroll area */}
         <AnimatePresence>{analyzing && <AnalysisOverlay />}</AnimatePresence>
 
@@ -157,7 +157,7 @@ export default function DashboardPage() {
 
           {/* Error banner */}
           {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               {error}
             </div>
           )}
