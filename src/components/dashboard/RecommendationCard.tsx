@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { TradeRecommendation, RejectedRecommendation, ExecutedRecommendation } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -7,10 +8,11 @@ import { Button } from '@/components/ui/Button';
 type CardVariant = 'pending' | 'executed' | 'rejected';
 
 interface RecommendationCardProps {
-  rec: TradeRecommendation | RejectedRecommendation | ExecutedRecommendation;
-  variant: CardVariant;
-  onExecute?: (rec: TradeRecommendation) => void;
-  executing?: boolean;
+  rec:          TradeRecommendation | RejectedRecommendation | ExecutedRecommendation;
+  variant:      CardVariant;
+  onExecute?:   (rec: TradeRecommendation) => Promise<void>;
+  onExecuted?:  (rec: TradeRecommendation) => void;
+  executing?:   boolean;
 }
 
 const ACTION_STYLE: Record<string, string> = {
@@ -37,16 +39,30 @@ function ConfidenceBar({ value }: { value: number }) {
   );
 }
 
-export function RecommendationCard({ rec, variant, onExecute, executing }: RecommendationCardProps) {
+export function RecommendationCard({ rec, variant, onExecute, onExecuted, executing }: RecommendationCardProps) {
+  // Local executed state — flips to true after a successful onExecute call
+  const [selfExecuted, setSelfExecuted] = useState(variant === 'executed');
+
   const isRejected = variant === 'rejected';
-  const isExecuted = variant === 'executed';
-  const isPending  = variant === 'pending';
+  const isExecuted = selfExecuted;
+  const isPending  = !selfExecuted && variant === 'pending';
+
+  async function handleExecute() {
+    if (!onExecute) return;
+    try {
+      await onExecute(rec as TradeRecommendation);
+      setSelfExecuted(true);
+      onExecuted?.(rec as TradeRecommendation);
+    } catch {
+      // error is handled upstream (dashboard page sets error state)
+    }
+  }
 
   return (
     <div
       className={cn(
-        'border p-4',
-        isRejected ? 'border-[#E2E8F0] opacity-60' : 'border-[#E2E8F0] bg-white',
+        'border p-4 transition-opacity',
+        isRejected || isExecuted ? 'border-[#E2E8F0] opacity-60' : 'border-[#E2E8F0] bg-white',
       )}
     >
       {/* Header */}
@@ -66,7 +82,7 @@ export function RecommendationCard({ rec, variant, onExecute, executing }: Recom
 
         <div className="shrink-0">
           {isExecuted && (
-            <span className="text-[10px] tracking-[0.1em] uppercase text-green-600">Executed</span>
+            <span className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Executed</span>
           )}
           {isRejected && (
             <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]/50">Blocked</span>
@@ -98,14 +114,14 @@ export function RecommendationCard({ rec, variant, onExecute, executing }: Recom
         <p className="mt-2 text-xs text-[#C41E3A]">Blocked: {rec.rejection_reason}</p>
       )}
 
-      {/* Execute button */}
+      {/* Execute button — hidden once self-executed */}
       {isPending && rec.action !== 'hold' && onExecute && (
         <div className="mt-4 flex justify-end">
           <Button
             size="sm"
             variant={rec.action === 'sell' ? 'danger' : 'primary'}
             loading={executing}
-            onClick={() => onExecute(rec as TradeRecommendation)}
+            onClick={handleExecute}
           >
             Execute {rec.action.toUpperCase()}
           </Button>

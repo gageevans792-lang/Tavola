@@ -27,10 +27,11 @@ interface Props {
   result: AutoInvestResult;
   onDismiss: () => void;
   onExecuteOne: (rec: TradeRecommendation) => Promise<void>;
+  onExecuted: (rec: TradeRecommendation) => void;
   executingSymbol: string | null;
 }
 
-export function RecommendationsSection({ result, onDismiss, onExecuteOne, executingSymbol }: Props) {
+export function RecommendationsSection({ result, onDismiss, onExecuteOne, onExecuted, executingSymbol }: Props) {
   const [showRejected, setShowRejected] = useState(false);
 
   const buys  = result.approved.filter((r) => r.action === 'buy');
@@ -129,7 +130,7 @@ export function RecommendationsSection({ result, onDismiss, onExecuteOne, execut
           <motion.div variants={container} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
             {buys.map((rec) => (
               <motion.div key={rec.symbol} variants={cardVariant}>
-                <RecommendationCard rec={rec} variant="pending" onExecute={onExecuteOne} executing={executingSymbol === rec.symbol} />
+                <RecommendationCard rec={rec} variant="pending" onExecute={onExecuteOne} onExecuted={onExecuted} executing={executingSymbol === rec.symbol} />
               </motion.div>
             ))}
           </motion.div>
@@ -145,7 +146,7 @@ export function RecommendationsSection({ result, onDismiss, onExecuteOne, execut
           <motion.div variants={container} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
             {sells.map((rec) => (
               <motion.div key={rec.symbol} variants={cardVariant}>
-                <RecommendationCard rec={rec} variant="pending" onExecute={onExecuteOne} executing={executingSymbol === rec.symbol} />
+                <RecommendationCard rec={rec} variant="pending" onExecute={onExecuteOne} onExecuted={onExecuted} executing={executingSymbol === rec.symbol} />
               </motion.div>
             ))}
           </motion.div>
