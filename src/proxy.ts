@@ -9,7 +9,7 @@ function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
-export async function proxy(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   // Build a mutable response so Supabase can refresh the session cookie
   let response = NextResponse.next({ request });
 
