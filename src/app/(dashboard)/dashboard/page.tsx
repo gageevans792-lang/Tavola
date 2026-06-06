@@ -91,7 +91,11 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => { refreshPortfolio(); }, [refreshPortfolio]);
+  useEffect(() => {
+    refreshPortfolio();
+    const id = setInterval(refreshPortfolio, 30_000);
+    return () => clearInterval(id);
+  }, [refreshPortfolio]);
 
   // ── Analysis state ─────────────────────────────────────────────────────────
   const [analyzing, setAnalyzing]             = useState(false);
@@ -162,13 +166,13 @@ export default function DashboardPage() {
   const p = portfolio;
   const loading = statsLoading && !p;
 
-  const portfolioValue  = loading ? '—' : p ? fmtUSD(p.equity)                     : '$—';
-  const cashAvailable   = loading ? '—' : p ? fmtUSD(p.buying_power)               : '$—';
-  const totalReturn     = loading ? '—' : p ? fmtPL(p.total_return)                : '$—';
-  const totalReturnPct  = loading ? undefined : p ? fmtPct(p.total_return_pct)     : undefined;
-  const dayPl           = loading ? '—' : p ? fmtPL(p.day_pl)                      : '$—';
-  const dayPlPct        = loading ? undefined : p ? fmtPct(p.day_pl_percent)       : undefined;
-  const dayPlChange     = loading ? undefined : p ? `${fmtPL(p.day_pl)} today`     : undefined;
+  const portfolioValue = loading ? '' : p ? fmtUSD(p.equity)        : '$—';
+  const cashAvailable  = loading ? '' : p ? fmtUSD(p.cash)          : '$—';
+  const totalReturn    = loading ? '' : p ? fmtPL(p.total_return)   : '$—';
+  const totalReturnPct = loading ? undefined : p ? fmtPct(p.total_return_pct) : undefined;
+  const dayPl          = loading ? '' : p ? fmtPL(p.day_pl)         : '$—';
+  const dayPlPct       = loading ? undefined : p ? fmtPct(p.day_pl_pct) : undefined;
+  const dayPlChange    = loading ? undefined : p ? `${fmtPL(p.day_pl)} today` : undefined;
 
   // Chart: use real Alpaca history if available, otherwise empty (shows empty state)
   const chartData  = p?.chart       ?? [];
@@ -194,22 +198,29 @@ export default function DashboardPage() {
             <StatCard
               title="Portfolio Value"
               value={portfolioValue}
-              change={!loading && p ? dayPlChange : undefined}
+              change={dayPlChange}
               changePositive={p ? p.day_pl >= 0 : undefined}
+              loading={loading}
             />
             <StatCard
               title="Day P&L"
               value={dayPl}
-              change={!loading && p ? dayPlPct : undefined}
+              change={dayPlPct}
               changePositive={p ? p.day_pl >= 0 : undefined}
+              loading={loading}
             />
             <StatCard
               title="Total Return"
               value={totalReturn}
-              change={!loading && p ? totalReturnPct : undefined}
+              change={totalReturnPct}
               changePositive={p ? p.total_return >= 0 : undefined}
+              loading={loading}
             />
-            <StatCard title="Cash Available" value={cashAvailable} />
+            <StatCard
+              title="Cash Available"
+              value={cashAvailable}
+              loading={loading}
+            />
           </div>
 
           {/* ── Error banner ────────────────────────────────────────────────── */}

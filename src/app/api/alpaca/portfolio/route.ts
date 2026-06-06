@@ -20,16 +20,19 @@ const ALLOC_COLORS = [
 // ── Shared types (imported by dashboard page) ─────────────────────────────────
 
 export interface PortfolioData {
-  equity:           number;
-  cash:             number;
-  buying_power:     number;
-  last_equity:      number;
-  day_pl:           number;
-  day_pl_percent:   number;
-  total_return:     number;
-  total_return_pct: number;
-  chart:            Array<{ date: string; value: number }>;
-  allocation:       Array<{ name: string; value: number; color: string }>;
+  equity:             number;
+  last_equity:        number;
+  cash:               number;
+  buying_power:       number;
+  long_market_value:  number;
+  portfolio_value:    number;
+  day_pl:             number;
+  day_pl_pct:         number;
+  total_return:       number;
+  total_return_pct:   number;
+  chart:              Array<{ date: string; value: number }>;
+  allocation:         Array<{ name: string; value: number; color: string }>;
+  holdings:           unknown[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -83,11 +86,12 @@ export async function GET() {
       getPositions(),
     ]);
 
-    const equity      = parseFloat(account.equity);
-    const cash        = parseFloat(account.cash);
-    const buyingPower = parseFloat(account.buying_power);
-    const lastEquity  = parseFloat(account.last_equity);
-    const portValue   = parseFloat(account.portfolio_value) || equity;
+    const equity          = parseFloat(account.equity);
+    const lastEquity      = parseFloat(account.last_equity);
+    const cash            = parseFloat(account.cash);
+    const buyingPower     = parseFloat(account.buying_power);
+    const longMarketValue = parseFloat(account.long_market_value ?? '0');
+    const portValue       = parseFloat(account.portfolio_value) || equity;
 
     const dayPl          = equity - lastEquity;
     const dayPlPct       = lastEquity > 0 ? (dayPl / lastEquity) * 100 : 0;
@@ -130,15 +134,18 @@ export async function GET() {
 
     return NextResponse.json({
       equity,
+      last_equity:        lastEquity,
       cash,
-      buying_power:     buyingPower,
-      last_equity:      lastEquity,
-      day_pl:           dayPl,
-      day_pl_percent:   dayPlPct,
-      total_return:     totalReturn,
-      total_return_pct: totalReturnPct,
+      buying_power:       buyingPower,
+      long_market_value:  longMarketValue,
+      portfolio_value:    portValue,
+      day_pl:             dayPl,
+      day_pl_pct:         dayPlPct,
+      total_return:       totalReturn,
+      total_return_pct:   totalReturnPct,
       chart,
       allocation,
+      holdings:           [],
     } satisfies PortfolioData);
 
   } catch (err: unknown) {
