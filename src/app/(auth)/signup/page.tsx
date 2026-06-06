@@ -1,6 +1,45 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 
 export default function SignupPage() {
+  const router = useRouter();
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    console.log('[signup] form submitted', { email, fullName });
+
+    setLoading(true);
+    setError(null);
+
+    const supabase = createClient();
+    const { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+      },
+    });
+
+    if (signUpError) {
+      console.error('[signup] error', signUpError.message);
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    console.log('[signup] success, redirecting to /onboarding');
+    router.push('/onboarding');
+  }
+
   return (
     <div className="min-h-screen bg-white text-[#0A1628] flex flex-col">
 
@@ -27,7 +66,7 @@ export default function SignupPage() {
             </p>
           </div>
 
-          <form className="space-y-9">
+          <form onSubmit={handleSubmit} className="space-y-9">
             <div>
               <label className="block text-[11px] tracking-[0.2em] uppercase text-[#0A1628]/40 mb-3">
                 Full Name
@@ -35,6 +74,8 @@ export default function SignupPage() {
               <input
                 type="text"
                 required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 className="block w-full border-0 border-b border-[#E2E8F0] pb-3 text-[14px] text-[#0A1628] bg-transparent focus:outline-none focus:border-[#0A1628] transition-colors placeholder:text-[#0A1628]/20"
                 placeholder="Jane Doe"
               />
@@ -46,6 +87,8 @@ export default function SignupPage() {
               <input
                 type="email"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="block w-full border-0 border-b border-[#E2E8F0] pb-3 text-[14px] text-[#0A1628] bg-transparent focus:outline-none focus:border-[#0A1628] transition-colors placeholder:text-[#0A1628]/20"
                 placeholder="you@example.com"
               />
@@ -57,17 +100,24 @@ export default function SignupPage() {
               <input
                 type="password"
                 required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="block w-full border-0 border-b border-[#E2E8F0] pb-3 text-[14px] text-[#0A1628] bg-transparent focus:outline-none focus:border-[#0A1628] transition-colors placeholder:text-[#0A1628]/20"
                 placeholder="••••••••"
               />
             </div>
 
+            {error && (
+              <p className="text-[13px] text-red-600 leading-relaxed">{error}</p>
+            )}
+
             <div className="pt-3">
               <button
                 type="submit"
-                className="w-full h-12 bg-[#0A1628] text-white text-[12px] tracking-[0.2em] uppercase hover:bg-[#0A1628]/85 transition-colors"
+                disabled={loading}
+                className="w-full h-12 bg-[#0A1628] text-white text-[12px] tracking-[0.2em] uppercase transition-colors hover:bg-[#0A1628]/85 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Account
+                {loading ? 'Creating account...' : 'Create Account'}
               </button>
             </div>
           </form>
