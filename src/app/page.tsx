@@ -90,7 +90,7 @@ export default function Home() {
           </span>
           <div className="flex items-center text-[12px]">
             <Link
-              href="/signin"
+              href="/login"
               className="px-5 text-[#0A1628]/50 hover:text-[#0A1628] transition-colors"
             >
               Sign In

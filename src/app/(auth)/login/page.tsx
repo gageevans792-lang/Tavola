@@ -14,7 +14,6 @@ export default function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    console.log('[login] form submitted', { email });
     setLoading(true);
     setError(null);
 
@@ -22,14 +21,15 @@ export default function LoginPage() {
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (signInError) {
-      console.error('[login] error', signInError.message);
       setError(signInError.message);
       setLoading(false);
       return;
     }
 
-    console.log('[login] success, redirecting to /dashboard');
-    router.push('/dashboard');
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get('next') ?? '/dashboard';
+    router.push(next.startsWith('/') ? next : '/dashboard');
+    router.refresh();
   }
 
   return (
