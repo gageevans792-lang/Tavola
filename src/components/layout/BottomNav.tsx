@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard'   },
-  { href: '/insights',  label: 'Insights'    },
-  { href: '/holdings',  label: 'Holdings'    },
-  { href: '/deposit',   label: 'Deposit'     },
-  { href: '/settings',  label: 'Settings'    },
+  { href: '/dashboard', label: 'Dashboard' },
+  { href: '/markets',   label: 'Markets'   },
+  { href: '/insights',  label: 'Insights'  },
+  { href: '/holdings',  label: 'Holdings'  },
+  { href: '/settings',  label: 'Settings'  },
 ];
 
 export function BottomNav() {
