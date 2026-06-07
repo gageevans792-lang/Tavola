@@ -12,20 +12,42 @@ function alpacaHeaders(): HeadersInit {
   };
 }
 
-export interface BriefResponse {
-  brief:        string;
+// ── Shared types ──────────────────────────────────────────────────────────────
+
+export interface SignalsResponse {
+  signals: {
+    market_sentiment: string;
+    your_portfolio:   string;
+    top_opportunity:  string;
+  };
   generated_at: string;
 }
+
+// ── Parse the three-line Claude response ─────────────────────────────────────
+
+function parseSignals(text: string): SignalsResponse['signals'] {
+  const extract = (label: string): string => {
+    const match = text.match(new RegExp(`${label}:\\s*(.+)`, 'i'));
+    return match ? match[1].trim() : '';
+  };
+
+  return {
+    market_sentiment: extract('MARKET SENTIMENT'),
+    your_portfolio:   extract('YOUR PORTFOLIO'),
+    top_opportunity:  extract('TOP OPPORTUNITY'),
+  };
+}
+
+// ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Fetch last 24h news, holdings, account equity in parallel
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [newsRes, holdingsRes, account] = await Promise.allSettled([
+  const [newsRes, holdingsRes, accountRes] = await Promise.allSettled([
     fetch(`${DATA_BASE}/v1beta1/news?limit=30&sort=desc&start=${encodeURIComponent(since)}`, {
       headers: alpacaHeaders(),
     }),
@@ -36,81 +58,60 @@ export async function POST() {
     getAccount(),
   ]);
 
-  // ── Headlines ─────────────────────────────────────────────────────────────
-  let headlines = 'No recent headlines available.';
+  // Headlines
+  let headlines = 'No recent headlines.';
   if (newsRes.status === 'fulfilled' && newsRes.value.ok) {
-    const newsData = await newsRes.value.json().catch(() => ({ news: [] }));
-    const items = (newsData.news ?? []) as Array<{ headline: string; symbols: string[] }>;
+    const d = await newsRes.value.json().catch(() => ({ news: [] }));
+    const items = (d.news ?? []) as Array<{ headline: string; symbols: string[] }>;
     if (items.length > 0) {
-      headlines = items
-        .slice(0, 25)
-        .map((n) => `• ${n.headline}${n.symbols.length ? ` [${n.symbols.slice(0, 3).join(', ')}]` : ''}`)
+      headlines = items.slice(0, 20)
+        .map((n) => `${n.headline}${n.symbols.length ? ` [${n.symbols.slice(0, 2).join(',')}]` : ''}`)
         .join('\n');
     }
-  } else {
-    console.warn('[market/brief] news fetch failed');
   }
 
-  // ── Holdings summary ──────────────────────────────────────────────────────
+  // Holdings
   const holdings = holdingsRes.status === 'fulfilled' ? (holdingsRes.value.data ?? []) : [];
   const holdingsSummary = holdings.length > 0
-    ? holdings
-        .map((h) => {
-          const plPct = (parseFloat(h.unrealized_plpc) * 100).toFixed(1);
-          const mv    = parseFloat(h.market_value).toLocaleString('en-US', {
-            style: 'currency', currency: 'USD', maximumFractionDigits: 0,
-          });
-          return `${h.ticker} ${mv} (${plPct}% unrealized P&L)`;
-        })
-        .join(', ')
-    : 'No current positions';
+    ? holdings.map((h) => {
+        const pct = (parseFloat(h.unrealized_plpc) * 100).toFixed(1);
+        return `${h.ticker} ($${Math.round(parseFloat(h.market_value)).toLocaleString()}, ${pct}%)`;
+      }).join(', ')
+    : 'No positions';
 
-  // ── Account equity ────────────────────────────────────────────────────────
-  const acct = account.status === 'fulfilled' ? account.value : null;
+  // Equity
+  const acct = accountRes.status === 'fulfilled' ? accountRes.value : null;
   const equity = acct
-    ? parseFloat(acct.equity).toLocaleString('en-US', {
-        style: 'currency', currency: 'USD', maximumFractionDigits: 0,
-      })
-    : 'Unavailable';
+    ? `$${Math.round(parseFloat(acct.equity)).toLocaleString()}`
+    : 'unknown';
 
-  // ── Claude brief generation ───────────────────────────────────────────────
-  const userMessage = `Portfolio equity: ${equity}
-Holdings: ${holdingsSummary}
-
-Market headlines from the past 24 hours:
-${headlines}`;
+  const userMessage =
+    `Portfolio equity: ${equity}\nHoldings: ${holdingsSummary}\n\nHeadlines:\n${headlines}`;
 
   const aiResponse = await anthropic.messages.create({
     model:      'claude-sonnet-4-6',
-    max_tokens: 600,
-    system: `You are Tavola's Chief Investment Strategist. Write a concise, institutional-quality daily market brief for this investor.
+    max_tokens: 200,
+    system: `You are Tavola's Chief Investment Strategist. Generate exactly three atomic market signals — one sentence each, bold and specific.
 
-Format your response exactly as follows (use these exact section headers, no markdown, no dashes):
+Output format (three lines only, no other text):
+MARKET SENTIMENT: [one punchy sentence on today's market tone, max 15 words]
+YOUR PORTFOLIO: [one sentence specific to the investor's actual holdings, max 15 words]
+TOP OPPORTUNITY: [one specific actionable opportunity from the headlines, max 15 words]
 
-MARKET OVERVIEW
-[2-3 sentences on current macro conditions based on the headlines]
-
-PORTFOLIO IMPACT
-[1-2 sentences on how today's market conditions affect this specific portfolio]
-
-KEY RISKS
-· [specific risk]
-· [specific risk]
-· [specific risk]
-
-OPPORTUNITIES
-· [specific opportunity]
-· [specific opportunity]
-· [specific opportunity]
-
-Rules: Under 250 words total. Tone: confident, precise, institutional. No emojis. Use middle dot (·) for bullet points, not dashes. Be specific to the actual holdings and headlines provided.`,
+Rules: Be direct, institutional, no hedging. No emojis. No extra text. Just the three labeled lines.`,
     messages: [{ role: 'user', content: userMessage }],
   });
 
-  const brief = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
+  const rawText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
+  const signals = parseSignals(rawText);
+
+  // Fallback values if parsing fails
+  if (!signals.market_sentiment) signals.market_sentiment = 'Market conditions require close monitoring today.';
+  if (!signals.your_portfolio)   signals.your_portfolio   = 'Portfolio positioning reflects current market environment.';
+  if (!signals.top_opportunity)  signals.top_opportunity  = 'Review watchlist for emerging setups.';
 
   return NextResponse.json({
-    brief,
+    signals,
     generated_at: new Date().toISOString(),
-  } satisfies BriefResponse);
+  } satisfies SignalsResponse);
 }
