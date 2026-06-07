@@ -12,43 +12,61 @@ interface WatchlistItem {
   ticker: string;
 }
 
-export default function HoldingsPage() {
-  const [holdings, setHoldings]     = useState<SyncedHolding[]>([]);
-  const [syncing, setSyncing]       = useState(true);
-  const [watchlist, setWatchlist]   = useState<WatchlistItem[]>([]);
-  const [loadingWatchlist, setLoadingWatchlist] = useState(true);
-  const [tickerInput, setTickerInput] = useState('');
-  const [adding, setAdding]         = useState(false);
-  const [error, setError]           = useState<string | null>(null);
+async function fetchFromSupabase(userId: string): Promise<SyncedHolding[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from('holdings')
+    .select('*')
+    .eq('user_id', userId)
+    .order('market_value', { ascending: false });
+  return (data ?? []) as SyncedHolding[];
+}
 
-  // ── Sync positions from Alpaca then read fresh holdings ───────────────────
+export default function HoldingsPage() {
+  const [holdings, setHoldings]         = useState<SyncedHolding[]>([]);
+  const [syncing, setSyncing]           = useState(true);
+  const [syncWarning, setSyncWarning]   = useState<string | null>(null);
+  const [watchlist, setWatchlist]       = useState<WatchlistItem[]>([]);
+  const [loadingWatchlist, setLoadingWatchlist] = useState(true);
+  const [tickerInput, setTickerInput]   = useState('');
+  const [adding, setAdding]             = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+
+  // ── Sync via /api/alpaca/portfolio then fall back to cached Supabase data ──
   const syncAndLoad = useCallback(async () => {
     setSyncing(true);
+    setSyncWarning(null);
+
+    const controller = new AbortController();
+    const timeoutId  = setTimeout(() => controller.abort(), 15_000);
+
     try {
-      const res = await fetch('/api/alpaca/portfolio');
+      const res = await fetch('/api/alpaca/portfolio', { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const data: PortfolioData = await res.json();
         setHoldings(data.holdings);
         return;
       }
+      console.warn('[holdings] portfolio API returned', res.status);
     } catch (err) {
-      console.warn('[holdings] portfolio sync failed:', err);
+      clearTimeout(timeoutId);
+      const isTimeout = err instanceof Error && err.name === 'AbortError';
+      console.warn('[holdings] portfolio sync failed:', isTimeout ? 'timeout' : err);
+      setSyncWarning('Unable to sync positions. Showing cached data.');
     }
 
-    // Fallback: read directly from Supabase if API call fails
+    // Fallback: read directly from Supabase
     try {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data } = await supabase
-          .from('holdings')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('market_value', { ascending: false });
-        setHoldings((data ?? []) as SyncedHolding[]);
+        const cached = await fetchFromSupabase(user.id);
+        setHoldings(cached);
       }
     } catch (err) {
-      console.error('[holdings] fallback fetch failed:', err);
+      console.error('[holdings] fallback Supabase fetch failed:', err);
     } finally {
       setSyncing(false);
     }
@@ -56,8 +74,10 @@ export default function HoldingsPage() {
   }, []);
 
   useEffect(() => {
-    syncAndLoad();
+    let cancelled = false;
+    syncAndLoad().finally(() => { if (!cancelled) setSyncing(false); });
     loadWatchlist();
+    return () => { cancelled = true; };
   }, [syncAndLoad]);
 
   async function loadWatchlist() {
@@ -144,6 +164,12 @@ export default function HoldingsPage() {
                 </button>
               )}
             </div>
+
+            {syncWarning && (
+              <div className="px-6 py-2 border-b border-[#E2E8F0] bg-amber-50">
+                <p className="text-xs text-amber-700">{syncWarning}</p>
+              </div>
+            )}
 
             {syncing ? (
               <div className="px-6 py-8 space-y-3">

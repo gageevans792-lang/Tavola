@@ -25,14 +25,25 @@ export interface SyncedHolding {
   updated_at: string;
 }
 
-export async function syncHoldingsToSupabase(userId: string): Promise<SyncedHolding[]> {
+// positions + portfolioValue are optional: when omitted the function fetches them itself
+// (used by fire-and-forget callers like auto-invest; portfolio route passes them to avoid
+// a redundant round-trip to Alpaca)
+export async function syncHoldingsToSupabase(
+  userId: string,
+  positions?: AlpacaPosition[],
+  portfolioValue?: number,
+): Promise<SyncedHolding[]> {
   const supabase = adminClient();
 
-  const [account, positions] = await Promise.all([getAccount(), getPositions()]);
+  // Fetch from Alpaca only when the caller didn't supply the data
+  if (positions === undefined || portfolioValue === undefined) {
+    const [acct, pos] = await Promise.all([getAccount(), getPositions()]);
+    positions     = pos;
+    portfolioValue = parseFloat(acct.portfolio_value) || parseFloat(acct.equity);
+  }
 
-  const portfolioValue = parseFloat(account.portfolio_value) || parseFloat(account.equity);
+  console.log('[sync] Upserting to Supabase:', positions.length, 'positions');
 
-  // ── Upsert current positions ────────────────────────────────────────────────
   if (positions.length > 0) {
     const rows = positions.map((p: AlpacaPosition) => {
       const marketValue = parseFloat(p.market_value);
@@ -55,12 +66,10 @@ export async function syncHoldingsToSupabase(userId: string): Promise<SyncedHold
       .from('holdings')
       .upsert(rows, { onConflict: 'user_id,ticker' });
 
-    if (upsertErr) {
-      throw new Error(`syncHoldingsToSupabase upsert: ${upsertErr.message}`);
-    }
+    if (upsertErr) throw new Error(`upsert: ${upsertErr.message}`);
 
-    // ── Delete holdings that are no longer in Alpaca positions ────────────────
-    const currentTickers = positions.map((p: AlpacaPosition) => p.symbol);
+    // Delete stale tickers no longer in Alpaca positions
+    const currentTickers = positions.map((p) => p.symbol);
     const { error: deleteErr } = await supabase
       .from('holdings')
       .delete()
@@ -68,21 +77,20 @@ export async function syncHoldingsToSupabase(userId: string): Promise<SyncedHold
       .not('ticker', 'in', `(${currentTickers.map((t) => `"${t}"`).join(',')})`);
 
     if (deleteErr) {
-      // Non-fatal: stale rows stay but won't break anything
-      console.warn('[sync] stale holdings delete:', deleteErr.message);
+      console.warn('[sync] stale delete failed (non-fatal):', deleteErr.message);
     }
   } else {
-    // No open positions — clear all holdings for this user
     await supabase.from('holdings').delete().eq('user_id', userId);
   }
 
-  // ── Return fresh rows ───────────────────────────────────────────────────────
+  console.log('[sync] Upsert complete');
+
   const { data, error: fetchErr } = await supabase
     .from('holdings')
     .select('*')
     .eq('user_id', userId)
     .order('market_value', { ascending: false });
 
-  if (fetchErr) throw new Error(`syncHoldingsToSupabase fetch: ${fetchErr.message}`);
+  if (fetchErr) throw new Error(`fetch: ${fetchErr.message}`);
   return (data ?? []) as SyncedHolding[];
 }
