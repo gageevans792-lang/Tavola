@@ -73,7 +73,7 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
           </Button>
         )}
 
-        <Button variant="ghost" size="sm" aria-label="Notifications" className="hidden sm:flex">
+        <Button variant="ghost" size="sm" aria-label="Notifications">
           <Bell className="h-4 w-4" />
         </Button>
 
