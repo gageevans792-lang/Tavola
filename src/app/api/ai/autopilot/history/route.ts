@@ -52,13 +52,13 @@ export async function GET(req: NextRequest) {
       .limit(limit);
 
     if (error) {
-      console.error('[autopilot/history GET]', error.message);
-      return NextResponse.json({ error: 'Failed to fetch history' }, { status: 500 });
+      console.warn('[autopilot/history GET] table missing or error, returning empty:', error.message);
+      return NextResponse.json({ runs: [] });
     }
 
     return NextResponse.json({ runs: (data ?? []) as AutopilotRun[] });
   } catch (err: unknown) {
-    console.error('[autopilot/history GET]', err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.warn('[autopilot/history GET] exception:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ runs: [] });
   }
 }

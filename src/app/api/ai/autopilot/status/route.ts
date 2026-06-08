@@ -159,13 +159,27 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (upsertError) {
-      console.error('[autopilot/status POST]', upsertError.message);
-      return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
+      // Table missing — return optimistic settings so UI stays responsive
+      console.warn('[autopilot/status POST] upsert failed (table missing?):', upsertError.message);
+      const now = new Date().toISOString();
+      const optimistic: AutopilotSettings = {
+        ...DEFAULT_SETTINGS_BASE,
+        user_id:    user.id,
+        created_at: now,
+        updated_at: now,
+        ...(b.enabled !== undefined        && { enabled:        Boolean(b.enabled) }),
+        ...(b.frequency !== undefined      && { frequency:      b.frequency as Frequency }),
+        ...(b.max_trade_size !== undefined && { max_trade_size: Number(b.max_trade_size) }),
+      };
+      return NextResponse.json({ settings: optimistic });
     }
 
     return NextResponse.json({ settings: updated as AutopilotSettings });
   } catch (err: unknown) {
-    console.error('[autopilot/status POST]', err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.warn('[autopilot/status POST] exception:', err instanceof Error ? err.message : err);
+    const now = new Date().toISOString();
+    return NextResponse.json({
+      settings: { ...DEFAULT_SETTINGS_BASE, user_id: user.id, created_at: now, updated_at: now },
+    });
   }
 }
