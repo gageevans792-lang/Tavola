@@ -10,27 +10,23 @@ interface StatCardProps {
 
 export function StatCard({ title, value, change, changePositive, loading }: StatCardProps) {
   return (
-    <div className="flex border-b border-[#E2E8F0] bg-white">
-      {/* Gold left accent bar */}
-      <div className="w-0.5 shrink-0 bg-[#B8960C]" />
-      <div className="flex-1 p-6">
-        <p className="text-[11px] tracking-[0.12em] uppercase text-[#4A5568]">{title}</p>
-        {loading ? (
-          <div className="mt-3 space-y-2">
-            <div className="h-8 w-3/4 animate-pulse bg-[#E2E8F0]" />
-            <div className="h-3 w-1/2 animate-pulse bg-[#E2E8F0]" />
-          </div>
-        ) : (
-          <>
-            <p className="mt-3 font-serif text-[28px] font-light leading-none text-[#0A1628] tabular-nums">{value}</p>
-            {change && (
-              <p className={cn('mt-2 text-[11px] font-medium tabular-nums', changePositive ? 'text-[#166534]' : 'text-[#991b1b]')}>
-                {change}
-              </p>
-            )}
-          </>
-        )}
-      </div>
+    <div className="flex flex-col justify-center px-5 py-3 min-w-0">
+      <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568] whitespace-nowrap">{title}</p>
+      {loading ? (
+        <div className="mt-1 space-y-1">
+          <div className="h-5 w-20 animate-pulse bg-[#E2E8F0]" />
+          <div className="h-3 w-12 animate-pulse bg-[#E2E8F0]" />
+        </div>
+      ) : (
+        <>
+          <p className="mt-0.5 font-mono text-[17px] font-medium leading-tight text-[#0A1628] tabular-nums">{value}</p>
+          {change && (
+            <p className={cn('mt-0.5 text-[11px] tabular-nums', changePositive ? 'text-[#166534]' : 'text-[#991b1b]')}>
+              {change}
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

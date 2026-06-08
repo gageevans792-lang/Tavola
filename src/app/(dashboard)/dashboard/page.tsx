@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 
 import { TopBar }                 from '@/components/layout/TopBar';
@@ -11,14 +10,10 @@ import { AllocationChart }        from '@/components/dashboard/AllocationChart';
 import { AIFeed }                 from '@/components/dashboard/AIFeed';
 import { AnalysisOverlay }        from '@/components/dashboard/AnalysisOverlay';
 import { RecommendationsSection } from '@/components/dashboard/RecommendationsSection';
-import { NewsPanel }              from '@/components/dashboard/NewsPanel';
-import { MarketOverview }         from '@/components/dashboard/MarketOverview';
-import { Watchlist }              from '@/components/dashboard/Watchlist';
+import { MarketTabs }             from '@/components/dashboard/MarketTabs';
 import { Toast }                  from '@/components/ui/Toast';
 import type { ToastData }         from '@/components/ui/Toast';
 import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
-
-import Link from 'next/link';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient }    from '@/lib/supabase/client';
@@ -59,10 +54,6 @@ function fmtPL(n: number): string {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const searchParams = useSearchParams();
-  const depositSuccess = searchParams.get('deposit') === 'success';
-  const [depositBannerDismissed, setDepositBannerDismissed] = useState(false);
-
   const [mode, setMode]           = useLocalStorage<InvestMode>('tavola:invest-mode', 'review');
   const [firstName, setFirstName] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
@@ -88,11 +79,14 @@ export default function DashboardPage() {
   const refreshPortfolio = useCallback(async () => {
     try {
       const res = await fetch('/api/alpaca/portfolio');
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.warn('[dashboard] portfolio fetch:', res.status, res.statusText);
+        return;
+      }
       const data: PortfolioData = await res.json();
       setPortfolio(data);
-    } catch {
-      // non-fatal — portfolio will stay null or stale
+    } catch (err) {
+      console.warn('[dashboard] portfolio fetch error:', err instanceof Error ? err.message : err);
     } finally {
       setStatsLoading(false);
     }
@@ -195,86 +189,53 @@ export default function DashboardPage() {
         onModeChange={setMode}
       />
 
-      <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-8">
+      <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6">
         <AnimatePresence>{analyzing && <AnalysisOverlay />}</AnimatePresence>
 
-        <div className="mx-auto max-w-7xl space-y-10">
+        <div className="mx-auto max-w-7xl space-y-6">
 
-          {/* ── Deposit success banner ──────────────────────────────────────── */}
-          {depositSuccess && !depositBannerDismissed && (
-            <div className="flex items-center justify-between border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-              <span>Deposit successful. Funds will appear in your account shortly.</span>
-              <button
-                onClick={() => setDepositBannerDismissed(true)}
-                className="ml-4 text-green-600 hover:text-green-900 transition-colors text-lg leading-none"
-                aria-label="Dismiss"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {/* ── Stat cards ─────────────────────────────────────────────────── */}
-          <section>
-            <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Portfolio Overview</p>
-            <div className="grid gap-px bg-[#E2E8F0] sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard
-                title="Portfolio Value"
-                value={portfolioValue}
-                change={dayPlChange}
-                changePositive={p ? p.day_pl >= 0 : undefined}
-                loading={loading}
-              />
-              <StatCard
-                title="Day P&L"
-                value={dayPl}
-                change={dayPlPct}
-                changePositive={p ? p.day_pl >= 0 : undefined}
-                loading={loading}
-              />
-              <StatCard
-                title="Total Return"
-                value={totalReturn}
-                change={totalReturnPct}
-                changePositive={p ? p.total_return >= 0 : undefined}
-                loading={loading}
-              />
-              <StatCard
-                title="Cash Available"
-                value={cashAvailable}
-                loading={loading}
-              />
-            </div>
-          </section>
-
-          {/* ── AI Agent Status ─────────────────────────────────────────────────── */}
-          <section>
-            <div className="border border-[#E2E8F0] bg-white px-6 py-5 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C] mb-1">Autonomous AI Agent</p>
-                <p className="font-serif text-[18px] font-light text-[#0A1628]">Ready to analyze your portfolio</p>
-                <p className="text-[13px] text-[#4A5568] mt-0.5">AI-powered strategy execution based on your investment philosophy</p>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <Link
-                  href="/strategy"
-                  className="text-[11px] tracking-[0.15em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors"
-                >
-                  Strategy
-                </Link>
-                <Link
-                  href="/autonomous"
-                  className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase px-5 h-9 flex items-center hover:bg-[#1a2f4a] transition-colors"
-                >
-                  Launch Agent →
-                </Link>
+          {/* ── Compact stat strip ────────────────────────────────────────────── */}
+          <div className="border border-[#E2E8F0] bg-white flex items-stretch divide-x divide-[#E2E8F0] overflow-x-auto">
+            <div className="w-0.5 shrink-0 bg-[#B8960C]" />
+            <StatCard
+              title="Portfolio Value"
+              value={portfolioValue}
+              change={dayPlChange}
+              changePositive={p ? p.day_pl >= 0 : undefined}
+              loading={loading}
+            />
+            <StatCard
+              title="Day P&L"
+              value={dayPl}
+              change={dayPlPct}
+              changePositive={p ? p.day_pl >= 0 : undefined}
+              loading={loading}
+            />
+            <StatCard
+              title="Total Return"
+              value={totalReturn}
+              change={totalReturnPct}
+              changePositive={p ? p.total_return >= 0 : undefined}
+              loading={loading}
+            />
+            <StatCard
+              title="Cash Available"
+              value={cashAvailable}
+              loading={loading}
+            />
+            {/* Market status indicator */}
+            <div className="flex flex-col justify-center px-5 py-3 ml-auto shrink-0">
+              <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568]">Market</p>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#166534] animate-pulse" />
+                <span className="font-mono text-[13px] text-[#166534]">Open</span>
               </div>
             </div>
-          </section>
+          </div>
 
           {/* ── Error banner ────────────────────────────────────────────────── */}
           {error && (
-            <div className="border border-[#C41E3A]/20 bg-[#C41E3A]/5 px-4 py-3 text-sm text-[#C41E3A]">
+            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#C41E3A]">
               {error}
             </div>
           )}
@@ -298,7 +259,6 @@ export default function DashboardPage() {
           {/* ── Charts ──────────────────────────────────────────────────────── */}
           {chartData.length > 0 ? (
             <section>
-              <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Performance</p>
               <div className="grid gap-px bg-[#E2E8F0] lg:grid-cols-3">
                 <div className="lg:col-span-2">
                   <PortfolioChart data={chartData} />
@@ -328,16 +288,11 @@ export default function DashboardPage() {
             <AIFeed insights={MOCK_INSIGHTS} />
           </section>
 
-          {/* ── Market intelligence + news ──────────────────────────────────── */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <NewsPanel />
-            </div>
-            <div className="flex flex-col gap-6">
-              <MarketOverview />
-              <Watchlist />
-            </div>
-          </div>
+          {/* ── Market intelligence (tabbed) ────────────────────────────────── */}
+          <section>
+            <MarketTabs />
+          </section>
+
         </div>
       </main>
 
