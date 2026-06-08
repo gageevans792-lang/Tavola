@@ -27,10 +27,15 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
       </div>
 
       <div className="ml-auto flex items-center gap-3">
-        {/* ⌘K hint */}
-        <div className="hidden md:flex items-center border border-[#E2E8F0] px-2 h-6 gap-1 text-[10px] text-[#4A5568]">
+        {/* ⌘K hint — opens command palette */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('tavola:open-palette'))}
+          className="hidden md:flex items-center border border-[#E2E8F0] px-2 h-6 gap-1 text-[10px] text-[#4A5568] hover:border-[#0A1628] hover:text-[#0A1628] transition-colors"
+          aria-label="Open command palette"
+        >
           <span className="font-mono">⌘K</span>
-        </div>
+        </button>
 
         {/* Mode toggle */}
         {hasAnalysis && mode && onModeChange && (
