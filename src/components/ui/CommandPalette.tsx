@@ -32,6 +32,7 @@ const GROUPS: CommandGroup[] = [
     name: 'Navigate',
     items: [
       { label: 'Dashboard',     shortcut: 'G D', href: '/dashboard',    description: 'Portfolio overview and AI feed' },
+      { label: 'Performance',   shortcut: 'G F', href: '/performance',  description: 'Returns, Sharpe ratio, AI attribution' },
       { label: 'AutoPilot',     shortcut: 'G P', href: '/autopilot',    description: 'Autonomous AI investing engine' },
       { label: 'AI Agent',      shortcut: 'G A', href: '/autonomous',   description: 'Run autonomous investment agent' },
       { label: 'Strategy',      shortcut: 'G S', href: '/strategy',     description: 'Investment philosophy & execution mode' },

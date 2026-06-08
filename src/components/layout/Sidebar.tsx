@@ -11,6 +11,7 @@ type NavItem = NavLink | NavDivider;
 
 const navItems: NavItem[] = [
   { href: '/dashboard',    label: 'Dashboard'    },
+  { href: '/performance',  label: 'Performance'  },
   { href: '/autopilot',    label: 'AutoPilot'    },
   { href: '/autonomous',   label: 'AI Agent'     },
   { href: '/strategy',     label: 'Strategy'     },
