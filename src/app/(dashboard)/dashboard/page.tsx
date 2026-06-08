@@ -18,6 +18,8 @@ import { Toast }                  from '@/components/ui/Toast';
 import type { ToastData }         from '@/components/ui/Toast';
 import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
 
+import Link from 'next/link';
+
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient }    from '@/lib/supabase/client';
 import type { AIInsight, AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
@@ -242,6 +244,31 @@ export default function DashboardPage() {
                 value={cashAvailable}
                 loading={loading}
               />
+            </div>
+          </section>
+
+          {/* ── AI Agent Status ─────────────────────────────────────────────────── */}
+          <section>
+            <div className="border border-[#E2E8F0] bg-white px-6 py-5 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C] mb-1">Autonomous AI Agent</p>
+                <p className="font-serif text-[18px] font-light text-[#0A1628]">Ready to analyze your portfolio</p>
+                <p className="text-[13px] text-[#4A5568] mt-0.5">AI-powered strategy execution based on your investment philosophy</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <Link
+                  href="/strategy"
+                  className="text-[11px] tracking-[0.15em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors"
+                >
+                  Strategy
+                </Link>
+                <Link
+                  href="/autonomous"
+                  className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase px-5 h-9 flex items-center hover:bg-[#1a2f4a] transition-colors"
+                >
+                  Launch Agent →
+                </Link>
+              </div>
             </div>
           </section>
 
