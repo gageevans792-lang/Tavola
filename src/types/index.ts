@@ -252,6 +252,12 @@ export interface TradeRecommendation {
   reasoning: string;
   risk_level: 'low' | 'medium' | 'high';
   estimated_value?: number;   // qty × price; set by risk guard
+  // Feature 1: AI explains every decision
+  catalyst?: string;
+  expected_timeframe?: string;
+  exit_condition?: string;
+  risk_factors?: string[];
+  institutional_context?: string;
 }
 
 export interface PortfolioAnalysis {

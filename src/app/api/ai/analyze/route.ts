@@ -28,14 +28,19 @@ const ANALYSIS_TOOL: Anthropic.Tool = {
           'One entry per ticker you have a view on. Include holds explicitly so the user sees your full reasoning.',
         items: {
           type: 'object',
-          required: ['ticker', 'action', 'qty', 'confidence', 'reasoning', 'risk_level'],
+          required: ['ticker', 'action', 'qty', 'confidence', 'reasoning', 'risk_level', 'catalyst', 'expected_timeframe', 'exit_condition', 'risk_factors', 'institutional_context'],
           properties: {
-            ticker:     { type: 'string', description: 'Uppercase ticker symbol, e.g. AAPL' },
-            action:     { type: 'string', enum: ['buy', 'sell', 'hold'] },
-            qty:        { type: 'number', minimum: 0, description: 'Shares to buy/sell; 0 for hold' },
-            confidence: { type: 'integer', minimum: 0, maximum: 100, description: 'Conviction 0–100. Only recommend buy/sell above 65.' },
-            reasoning:  { type: 'string', description: '2–3 sentence rationale referencing actual data provided.' },
-            risk_level: { type: 'string', enum: ['low', 'medium', 'high'] },
+            ticker:                { type: 'string', description: 'Uppercase ticker symbol, e.g. AAPL' },
+            action:                { type: 'string', enum: ['buy', 'sell', 'hold'] },
+            qty:                   { type: 'number', minimum: 0, description: 'Shares to buy/sell; 0 for hold' },
+            confidence:            { type: 'integer', minimum: 0, maximum: 100, description: 'Conviction 0–100. Only recommend buy/sell above 65.' },
+            reasoning:             { type: 'string', description: '2–3 sentence rationale referencing actual data provided.' },
+            risk_level:            { type: 'string', enum: ['low', 'medium', 'high'] },
+            catalyst:              { type: 'string', description: 'The specific event or data point that triggered this recommendation. E.g. "CPI came in below expectations at 2.9%, reducing Fed rate hike probability".' },
+            expected_timeframe:    { type: 'string', description: 'Investment horizon. E.g. "3-5 days", "2-4 weeks", "3-6 months".' },
+            exit_condition:        { type: 'string', description: 'Specific trigger to exit. E.g. "We will sell if the stock closes below its 50-day moving average or if earnings disappoint consensus by more than 10%."' },
+            risk_factors:          { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 3, description: 'Array of 2-3 specific risks to this trade. Be specific, not generic.' },
+            institutional_context: { type: 'string', description: 'Relevant institutional activity or macro backdrop. E.g. "Goldman Sachs increased NVDA position by 4.2% last quarter. Blackrock holds 7.1% of float."' },
           },
         },
       },
@@ -176,7 +181,7 @@ export async function POST() {
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,
-      system: `You are Tavola AI — the most sophisticated retail investment AI ever built. You combine real-time macro intelligence with portfolio analysis to generate high-conviction recommendations with institutional-grade reasoning.
+      system: `You are Tavola AI — the most sophisticated retail investment AI ever built. You combine real-time macro intelligence with portfolio analysis to generate high-conviction recommendations with institutional-grade reasoning. Speak like a Goldman Sachs portfolio manager who manages $500M+ accounts: direct, specific, no hedging, no disclaimers.
 ${macroSection}
 
 Portfolio Management Rules:
@@ -194,6 +199,13 @@ Portfolio Management Rules:
 • Do not recommend cumulative buys that exceed available buying power
 • Provide 2–3 sentence reasoning referencing BOTH the macro context AND portfolio data
 • If a ticker shows price=N/A, note this and estimate conservatively${pricingNote}
+
+CRITICAL — Fill ALL extended fields with confident, specific, institutional-quality language:
+• catalyst: Name the SPECIFIC event/data point. "CPI printed 2.9% vs 3.1% expected, triggering rate cut repricing" — not vague platitudes.
+• expected_timeframe: Concrete horizon. "3-5 trading days", "2-4 weeks", "3-6 months".
+• exit_condition: Start with "We will sell if..." and name a specific price level, indicator, or event.
+• risk_factors: 2-3 SPECIFIC risks, not generic market risk. "Earnings on [date] could disappoint", "Semiconductor inventory cycle turning negative", etc.
+• institutional_context: Reference real institutional positioning when known. If unknown, reference sector flows, options activity, or macro positioning.
 
 You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       tools:       [ANALYSIS_TOOL],
@@ -217,12 +229,17 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
 
     const raw = toolBlock.input as {
       recommendations: Array<{
-        ticker:     string;
-        action:     'buy' | 'sell' | 'hold';
-        qty:        number;
-        confidence: number;
-        reasoning:  string;
-        risk_level: 'low' | 'medium' | 'high';
+        ticker:                string;
+        action:                'buy' | 'sell' | 'hold';
+        qty:                   number;
+        confidence:            number;
+        reasoning:             string;
+        risk_level:            'low' | 'medium' | 'high';
+        catalyst?:             string;
+        expected_timeframe?:   string;
+        exit_condition?:       string;
+        risk_factors?:         string[];
+        institutional_context?: string;
       }>;
       market_outlook: string;
       summary:        string;
@@ -230,12 +247,17 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
 
     // ── 9. Map ticker → symbol and run risk guard ─────────────────────────────
     const recs: TradeRecommendation[] = raw.recommendations.map((r) => ({
-      symbol:     r.ticker,
-      action:     r.action,
-      qty:        r.qty,
-      confidence: r.confidence,
-      reasoning:  r.reasoning,
-      risk_level: r.risk_level,
+      symbol:                r.ticker,
+      action:                r.action,
+      qty:                   r.qty,
+      confidence:            r.confidence,
+      reasoning:             r.reasoning,
+      risk_level:            r.risk_level,
+      catalyst:              r.catalyst,
+      expected_timeframe:    r.expected_timeframe,
+      exit_condition:        r.exit_condition,
+      risk_factors:          r.risk_factors,
+      institutional_context: r.institutional_context,
     }));
 
     const currentPositionValues: Record<string, number> = {};
@@ -282,13 +304,18 @@ You MUST call submit_portfolio_analysis — do not reply in plain text.`,
 
     // ── 11. Return result ─────────────────────────────────────────────────────
     const toOutput = (r: TradeRecommendation) => ({
-      symbol:          r.symbol,
-      action:          r.action,
-      qty:             r.qty,
-      confidence:      r.confidence,
-      reasoning:       r.reasoning,
-      risk_level:      r.risk_level,
-      estimated_value: r.estimated_value,
+      symbol:                r.symbol,
+      action:                r.action,
+      qty:                   r.qty,
+      confidence:            r.confidence,
+      reasoning:             r.reasoning,
+      risk_level:            r.risk_level,
+      estimated_value:       r.estimated_value,
+      catalyst:              r.catalyst,
+      expected_timeframe:    r.expected_timeframe,
+      exit_condition:        r.exit_condition,
+      risk_factors:          r.risk_factors,
+      institutional_context: r.institutional_context,
     });
 
     const totalPl = positions.reduce((sum, p) => sum + parseFloat(p.unrealized_pl), 0);
