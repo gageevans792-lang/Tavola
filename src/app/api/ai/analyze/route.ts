@@ -5,6 +5,7 @@ import { getAccount, getPositions, getTickerPrices } from '@/lib/alpaca/client';
 import type { TickerPrice } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
+import { getMacroContext, buildMacroPromptSection } from '@/lib/macro/client';
 import type {
   AlpacaPosition,
   AutoInvestConfig,
@@ -126,9 +127,10 @@ export async function POST() {
 
   try {
     // ── 2. Fetch Alpaca account + positions ──────────────────────────────────
-    const [account, positions] = await Promise.all([
+    const [account, positions, macroCtx] = await Promise.all([
       getAccount(),
       getPositions(),
+      getMacroContext().catch(() => null),
     ]);
 
     const equity      = parseFloat(account.equity);
@@ -169,12 +171,20 @@ export async function POST() {
     );
 
     // ── 7. Call Claude with forced tool use ──────────────────────────────────
+    const macroSection = macroCtx ? buildMacroPromptSection(macroCtx) : '';
+
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,
-      system: `You are a senior AI portfolio manager. Your job is to analyse the provided portfolio snapshot and produce specific, actionable trade recommendations.
+      system: `You are Tavola AI — the most sophisticated retail investment AI ever built. You combine real-time macro intelligence with portfolio analysis to generate high-conviction recommendations with institutional-grade reasoning.
+${macroSection}
 
-Rules you must follow:
+Portfolio Management Rules:
+• React to macro data first — if Fed is hawkish, rotate to value/dividends/cash; if dovish, favor growth
+• Use VIX as a risk signal: VIX > 25 = reduce position sizes, VIX < 15 = deploy capital aggressively
+• Pre-position before known catalysts (Fed meetings, CPI, NFP) appearing in the economic calendar
+• Insider buying in a held position = confirming signal to add; insider selling = consider reducing
+• Never fight the Fed — macro trumps technicals
 • Only recommend BUY for tickers on the watchlist or already held
 • Only recommend SELL for tickers currently held
 • Set qty=0 for hold actions
@@ -182,8 +192,8 @@ Rules you must follow:
 • Buy notional (qty × price) must not exceed $5,000 per trade
 • A single position must not exceed 20% of total equity after the trade
 • Do not recommend cumulative buys that exceed available buying power
-• Provide 2–3 sentence reasoning that references the data you were given
-• If a ticker shows price=N/A, note this in your reasoning and estimate conservatively${pricingNote}
+• Provide 2–3 sentence reasoning referencing BOTH the macro context AND portfolio data
+• If a ticker shows price=N/A, note this and estimate conservatively${pricingNote}
 
 You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       tools:       [ANALYSIS_TOOL],

@@ -13,6 +13,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard',    label: 'Dashboard'    },
   { href: '/performance',  label: 'Performance'  },
   { href: '/autopilot',    label: 'AutoPilot'    },
+  { href: '/chat',         label: 'AI Chat'      },
   { href: '/autonomous',   label: 'AI Agent'     },
   { href: '/strategy',     label: 'Strategy'     },
   { href: '/insights',     label: 'AI Insights'  },
