@@ -113,21 +113,24 @@ export function applyRiskGuard(
       }
 
       // ── Position concentration ─────────────────────────────────────────────
-      const currentValue    = ctx.currentPositionValues[rec.symbol] ?? 0;
-      const projectedValue  = currentValue + tradeValue;
-      const projectedPct    = projectedValue / ctx.portfolioValue;
+      if (ctx.portfolioValue > 0) {
+        const currentValue   = ctx.currentPositionValues[rec.symbol] ?? 0;
+        const projectedValue = currentValue + tradeValue;
+        const projectedPct   = projectedValue / ctx.portfolioValue;
 
-      if (projectedPct > config.max_position_pct) {
-        reject(
-          `Would create ${(projectedPct * 100).toFixed(1)}% concentration — max is ${(config.max_position_pct * 100).toFixed(0)}%`,
-        );
-        continue;
+        if (projectedPct > config.max_position_pct) {
+          reject(
+            `Would create ${(projectedPct * 100).toFixed(1)}% concentration — max is ${(config.max_position_pct * 100).toFixed(0)}%`,
+          );
+          continue;
+        }
       }
 
       cashReserved += tradeValue;
 
       // ── Position count warning ─────────────────────────────────────────────
       // Only flag if this is a brand-new position (not an add-on)
+      const currentValue = ctx.currentPositionValues[rec.symbol] ?? 0;
       if (currentValue === 0) {
         newPositions.add(rec.symbol);
         const projectedCount = existingPositionCount + newPositions.size;
@@ -141,7 +144,7 @@ export function applyRiskGuard(
 
     if (rec.action === 'sell') {
       // ── Has position to sell ───────────────────────────────────────────────
-      if (!ctx.currentPositionValues[rec.symbol]) {
+      if (ctx.currentPositionValues[rec.symbol] === undefined) {
         reject(`No existing position in ${rec.symbol} to sell`);
         continue;
       }

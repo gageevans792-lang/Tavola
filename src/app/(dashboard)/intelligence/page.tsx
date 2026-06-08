@@ -24,6 +24,14 @@ type FilterTab = 'all' | 'held' | 'buy' | 'sell';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function safeUrl(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return url;
+  } catch { /* invalid */ }
+  return undefined;
+}
+
 function timeAgo(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime();
   const mins = Math.floor(diff / 60_000);
@@ -189,10 +197,10 @@ export default function IntelligencePage() {
     if (analyticsRes.status === 'fulfilled' && !('error' in analyticsRes.value)) {
       setAnalytics(analyticsRes.value);
     }
-    if (newsRes.status === 'fulfilled') {
+    if (newsRes.status === 'fulfilled' && !('error' in newsRes.value)) {
       setNews(newsRes.value.articles ?? []);
     }
-    if (moversRes.status === 'fulfilled') {
+    if (moversRes.status === 'fulfilled' && !('error' in moversRes.value)) {
       setMovers(moversRes.value);
     }
     if (clockRes.status === 'fulfilled') {
@@ -627,14 +635,20 @@ export default function IntelligencePage() {
                         <p className="text-[10px] text-[#4A5568] uppercase tracking-wider mb-0.5">
                           {article.source}
                         </p>
-                        <a
-                          href={article.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-medium text-[#0A1628] hover:text-[#B8960C] transition-colors leading-snug block"
-                        >
-                          {article.headline}
-                        </a>
+                        {safeUrl(article.url) ? (
+                          <a
+                            href={safeUrl(article.url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-[#0A1628] hover:text-[#B8960C] transition-colors leading-snug block"
+                          >
+                            {article.headline}
+                          </a>
+                        ) : (
+                          <span className="text-xs font-medium text-[#0A1628] leading-snug block">
+                            {article.headline}
+                          </span>
+                        )}
                         <p className="text-[10px] text-[#4A5568] mt-0.5">{timeAgo(article.created_at)}</p>
                       </div>
                     ))}

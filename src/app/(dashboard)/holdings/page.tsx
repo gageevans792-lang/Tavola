@@ -29,6 +29,7 @@ export default function HoldingsPage() {
       if (res.ok) {
         const data: PortfolioData = await res.json();
         setHoldings(data.holdings);
+        setSyncing(false);
         return;
       }
     } catch (err) {
@@ -52,7 +53,6 @@ export default function HoldingsPage() {
     } finally {
       setSyncing(false);
     }
-    setSyncing(false);
   }, []);
 
   useEffect(() => {

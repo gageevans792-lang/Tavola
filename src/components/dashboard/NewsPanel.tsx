@@ -19,6 +19,16 @@ function fmtDate(iso: string): string {
   }
 }
 
+function safeUrl(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') return url;
+  } catch {
+    // invalid URL
+  }
+  return undefined;
+}
+
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 
 function SkeletonArticle() {
@@ -57,14 +67,20 @@ function ArticleRow({ article, holdingSymbols }: ArticleRowProps) {
         <span className="shrink-0 text-[10px] text-[#4A5568]/70">{fmtDate(article.created_at)}</span>
       </div>
 
-      <a
-        href={article.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block text-sm font-medium leading-snug text-[#0A1628] hover:text-[#B8960C] transition-colors"
-      >
-        {article.headline}
-      </a>
+      {safeUrl(article.url) ? (
+        <a
+          href={safeUrl(article.url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-sm font-medium leading-snug text-[#0A1628] hover:text-[#B8960C] transition-colors"
+        >
+          {article.headline}
+        </a>
+      ) : (
+        <span className="block text-sm font-medium leading-snug text-[#0A1628]">
+          {article.headline}
+        </span>
+      )}
 
       {article.summary && (
         <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[#4A5568]">

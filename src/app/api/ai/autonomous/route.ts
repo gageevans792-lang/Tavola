@@ -125,14 +125,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
   }
 
-  let body: { auto_execute?: boolean } = {};
-  try {
-    const text = await req.text();
-    if (text) body = JSON.parse(text);
-  } catch {
-    // empty body is fine
-  }
-
   try {
     // ── 2. Load user strategy ────────────────────────────────────────────────
     const { data: stratRow } = await supabase
@@ -147,11 +139,8 @@ export async function POST(req: NextRequest) {
     const resolvedId   = validIds.includes(strategyId) ? strategyId : DEFAULT_STRATEGY_ID;
     const finalStrategy = resolvedId !== strategyId ? getStrategy(resolvedId) : strategy;
 
-    // Resolve auto_execute: body override takes precedence
-    const autoExecute: boolean =
-      body.auto_execute !== undefined
-        ? body.auto_execute
-        : (stratRow?.auto_execute ?? false);
+    // auto_execute comes only from the user's stored strategy preference
+    const autoExecute: boolean = stratRow?.auto_execute ?? false;
 
     // Resolve max_trade_value: user pref may override strategy default
     const userMaxTradeValue: number =

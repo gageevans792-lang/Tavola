@@ -188,11 +188,12 @@ export async function POST(req: NextRequest) {
           console.error(`[auto-invest] trade insert failed for ${ticker}:`, tradeInsert.error.message);
         }
 
-        // ── Mark insight as executed ────────────────────────────────────────────
+        // ── Mark insight as executed (atomic CAS — guards against concurrent requests) ─
         const updateResult = await supabase
           .from('ai_insights')
           .update({ executed: true })
-          .eq('id', insightId);
+          .eq('id', insightId)
+          .eq('executed', false);
         if (updateResult.error) {
           console.error(`[auto-invest] insight update failed for ${insightId}:`, updateResult.error.message);
         }
