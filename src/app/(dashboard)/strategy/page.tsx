@@ -142,7 +142,7 @@ export default function StrategyPage() {
             <div className="flex flex-col gap-3 border border-[#B8960C]/30 bg-[#B8960C]/5 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
                 <span
-                  className="h-2 w-2 shrink-0 rounded-full"
+                  className="h-2 w-2 shrink-0"
                   style={{ backgroundColor: activeStrategy.accent_color }}
                 />
                 <div>

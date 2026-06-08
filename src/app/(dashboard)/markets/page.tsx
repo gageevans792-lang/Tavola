@@ -71,7 +71,7 @@ function SignalsSkeleton() {
 // ── Impact badge ──────────────────────────────────────────────────────────────
 
 const IMPACT_STYLE: Record<string, string> = {
-  high:   'text-[#C41E3A] border border-[#C41E3A]/30',
+  high:   'text-[#991b1b] border border-[#991b1b]/30',
   medium: 'text-[#B8960C] border border-[#B8960C]/30',
   low:    'text-[#4A5568] border border-[#E2E8F0]',
 };

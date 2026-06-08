@@ -83,7 +83,7 @@ export function MarketCommentary() {
 
   return (
     <div
-      className="bg-[#FAFAFA] border border-[#E2E8F0]"
+      className="bg-[#F8F9FA] border border-[#E2E8F0]"
       style={{ borderLeft: '3px solid #B8960C' }}
     >
       {/* Header */}
@@ -106,9 +106,18 @@ export function MarketCommentary() {
         {loading ? (
           <CommentaryShimmer />
         ) : error ? (
-          <p className="text-[14px] leading-relaxed text-[#4A5568]">
-            Market analysis temporarily unavailable.
-          </p>
+          <div className="space-y-3">
+            <p className="text-[14px] leading-relaxed text-[#4A5568]">
+              Market analysis temporarily unavailable.
+            </p>
+            <button
+              onClick={() => { setLoading(true); void fetchCommentary(); }}
+              className="text-[11px] tracking-[0.12em] uppercase text-[#B8960C] hover:underline transition-colors"
+              type="button"
+            >
+              Try again
+            </button>
+          </div>
         ) : paragraphs.length === 0 ? (
           <p className="text-[14px] leading-relaxed text-[#4A5568]">
             No commentary available at this time.

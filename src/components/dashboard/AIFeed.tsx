@@ -8,7 +8,7 @@ interface AIFeedProps {
 // Left border color per type
 const LEFT_BORDER: Record<InsightType, string> = {
   buy:       'border-l-[#B8960C]',
-  sell:      'border-l-[#C41E3A]',
+  sell:      'border-l-[#991b1b]',
   hold:      'border-l-[#6b7280]',
   rebalance: 'border-l-[#0A1628]',
   outlook:   'border-l-[#6b7280]',
@@ -17,7 +17,7 @@ const LEFT_BORDER: Record<InsightType, string> = {
 // Badge style per type
 const BADGE_STYLE: Record<InsightType, string> = {
   buy:       'text-[#B8960C]',
-  sell:      'text-[#C41E3A]',
+  sell:      'text-[#991b1b]',
   hold:      'text-[#4A5568]',
   rebalance: 'text-[#0A1628]',
   outlook:   'text-[#4A5568]',

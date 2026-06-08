@@ -58,7 +58,7 @@ function MoverRow({ mover }: { mover: Mover }) {
       <span
         className={cn(
           'w-16 text-right font-mono text-xs font-medium tabular-nums',
-          positive ? 'text-green-600' : 'text-red-500',
+          positive ? 'text-[#166534]' : 'text-[#991b1b]',
         )}
       >
         {fmtPct(mover.changePct)}
@@ -119,13 +119,13 @@ export function MarketOverview() {
             <div className="flex items-center gap-1.5 ml-auto">
               <span
                 className={cn(
-                  'h-2 w-2 rounded-full',
-                  clock.is_open ? 'bg-green-500' : 'bg-red-500',
+                  'h-2 w-2',
+                  clock.is_open ? 'bg-[#166534]' : 'bg-[#991b1b]',
                 )}
               />
               <span className={cn(
                 'text-[11px] tracking-[0.12em] uppercase font-medium',
-                clock.is_open ? 'text-green-600' : 'text-red-500',
+                clock.is_open ? 'text-[#166534]' : 'text-[#991b1b]',
               )}>
                 {clock.is_open ? 'Open' : 'Closed'}
               </span>
@@ -153,7 +153,7 @@ export function MarketOverview() {
 
           {/* ── Gainers ─────────────────────────────────────────────────────── */}
           <div>
-            <p className="mb-2 text-[10px] tracking-[0.15em] uppercase text-green-600">Gainers</p>
+            <p className="mb-2 text-[10px] tracking-[0.15em] uppercase text-[#166534]">Gainers</p>
             {loading
               ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
               : movers?.gainers.length
@@ -164,7 +164,7 @@ export function MarketOverview() {
 
           {/* ── Losers ──────────────────────────────────────────────────────── */}
           <div>
-            <p className="mb-2 text-[10px] tracking-[0.15em] uppercase text-red-500">Losers</p>
+            <p className="mb-2 text-[10px] tracking-[0.15em] uppercase text-[#991b1b]">Losers</p>
             {loading
               ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
               : movers?.losers.length

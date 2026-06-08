@@ -7,8 +7,8 @@ interface AllocationChartProps {
   data: AllocationSlice[];
 }
 
-// Monochromatic institutional palette
-const PALETTE = ['#0A1628', '#1e3a5f', '#2d5986', '#B8960C', '#6b7280', '#94a3b8', '#1e4a7a'];
+// Design system palette
+const PALETTE = ['#0A1628', '#B8960C', '#4A5568', '#6B7280', '#94A3B8', '#CBD5E1', '#E2E8F0'];
 
 export function AllocationChart({ data }: AllocationChartProps) {
   return (
@@ -51,7 +51,7 @@ export function AllocationChart({ data }: AllocationChartProps) {
           </ResponsiveContainer>
           {/* Center label */}
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[9px] tracking-[0.15em] uppercase text-[#4A5568]">Allocation</span>
+            <span className="text-[11px] tracking-[0.15em] uppercase text-[#4A5568]">Allocation</span>
           </div>
         </div>
 

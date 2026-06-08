@@ -429,7 +429,7 @@ export default function AutonomousPage() {
                 {/* Status indicator */}
                 <div className="flex items-center gap-3 mb-5">
                   <div
-                    className={`h-3 w-3 rounded-full flex-shrink-0 ${
+                    className={`h-3 w-3 flex-shrink-0 ${
                       analyzing
                         ? 'bg-[#B8960C] animate-pulse'
                         : result

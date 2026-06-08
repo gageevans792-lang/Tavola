@@ -31,12 +31,12 @@ const ALERT_CONFIG: Record<string, AlertConfig> = {
     badge: 'CUT LOSS',
     badgeColor: '#991b1b',
     borderColor: '#991b1b',
-    bgColor: '#FEF2F2',
+    bgColor: '#F8F9FA',
   },
   strong_sell: {
     badge: 'SELL SIGNAL',
-    badgeColor: '#C2410C',
-    borderColor: '#C2410C',
+    badgeColor: '#B8960C',
+    borderColor: '#B8960C',
     bgColor: '#FFF7ED',
   },
   take_profit: {
@@ -47,8 +47,8 @@ const ALERT_CONFIG: Record<string, AlertConfig> = {
   },
   strong_buy: {
     badge: 'BUY SIGNAL',
-    badgeColor: '#1D4ED8',
-    borderColor: '#1D4ED8',
+    badgeColor: '#0A1628',
+    borderColor: '#0A1628',
     bgColor: '#EFF6FF',
   },
 };
@@ -91,6 +91,7 @@ function AlertCard({ signal }: { signal: MarketSignal }) {
           className="text-[11px] font-medium tracking-[0.05em] hover:opacity-70 transition-opacity"
           style={{ color: cfg.borderColor }}
           type="button"
+          onClick={() => window.location.href = '/holdings'}
         >
           Review Position &rarr;
         </button>

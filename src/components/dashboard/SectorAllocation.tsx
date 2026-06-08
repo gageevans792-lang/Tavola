@@ -18,12 +18,12 @@ const SECTORS: Record<string, string> = {
 // ── Color palette ─────────────────────────────────────────────────────────────
 
 const SECTOR_COLORS: Record<string, string> = {
-  'Technology':     '#3B82F6',
+  'Technology':     '#0A1628',
   'Financials':     '#B8960C',
-  'Healthcare':     '#22C55E',
-  'Energy':         '#EF4444',
-  'Consumer Disc.': '#A855F7',
-  'Other':          '#6B7280',
+  'Healthcare':     '#4A5568',
+  'Energy':         '#6B7280',
+  'Consumer Disc.': '#94A3B8',
+  'Other':          '#CBD5E1',
 };
 
 function getSector(ticker: string): string {
@@ -47,9 +47,27 @@ interface SectorRow {
 
 interface SectorAllocationProps {
   holdings: SyncedHolding[];
+  loading?: boolean;
 }
 
-export function SectorAllocation({ holdings }: SectorAllocationProps) {
+export function SectorAllocation({ holdings, loading }: SectorAllocationProps) {
+  if (loading) {
+    return (
+      <div className="bg-white border border-[#E2E8F0] px-6 py-8">
+        <p
+          className="text-[10px] tracking-[0.15em] uppercase mb-4"
+          style={{ color: '#4A5568' }}
+        >
+          Sector Allocation
+        </p>
+        <div className="animate-pulse h-4 bg-[#E2E8F0] rounded-none mb-3 w-full" />
+        <div className="animate-pulse h-4 bg-[#E2E8F0] rounded-none mb-3 w-3/4" />
+        <div className="animate-pulse h-4 bg-[#E2E8F0] rounded-none mb-3 w-1/2" />
+        <div className="animate-pulse h-4 bg-[#E2E8F0] rounded-none mb-3 w-2/3" />
+      </div>
+    );
+  }
+
   if (holdings.length === 0) {
     return (
       <div className="bg-white border border-[#E2E8F0] px-6 py-8">

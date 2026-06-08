@@ -68,6 +68,7 @@ export default function HoldingsPage() {
       setHoldings(fresh);
     } catch (err) {
       console.error('[holdings] Supabase read failed:', err);
+      setError('Unable to load holdings. Please refresh the page.');
     }
 
     setSyncing(false);
@@ -174,8 +175,14 @@ export default function HoldingsPage() {
             </div>
 
             {syncWarning && (
-              <div className="px-6 py-2 border-b border-[#E2E8F0] bg-amber-50">
-                <p className="text-xs text-amber-700">{syncWarning}</p>
+              <div className="px-6 py-2 border-b border-[#E2E8F0] bg-[#FEF3C7]">
+                <p className="text-xs text-[#92400E]">{syncWarning}</p>
+              </div>
+            )}
+
+            {error && !syncWarning && (
+              <div className="px-6 py-2 border-b border-[#E2E8F0] bg-red-50 border-l-2 border-l-[#991b1b]">
+                <p className="text-xs text-[#991b1b]">{error}</p>
               </div>
             )}
 

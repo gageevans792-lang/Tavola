@@ -60,7 +60,7 @@ function ArticleRow({ article, holdingSymbols }: ArticleRowProps) {
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <div className="flex items-center gap-1.5">
           {hasHolding && (
-            <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C] shrink-0" />
+            <span className="h-1.5 w-1.5 bg-[#B8960C] shrink-0" />
           )}
           <span className="text-[10px] text-[#4A5568] font-medium">{article.source}</span>
         </div>

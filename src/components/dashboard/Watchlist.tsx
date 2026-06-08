@@ -206,7 +206,7 @@ export function Watchlist() {
                     <span
                       className={cn(
                         'w-16 text-right font-mono text-xs font-medium tabular-nums',
-                        positive ? 'text-green-600' : 'text-red-500',
+                        positive ? 'text-[#166534]' : 'text-[#991b1b]',
                       )}
                     >
                       {fmtPct(data.changePct)}
@@ -219,7 +219,7 @@ export function Watchlist() {
                 <button
                   onClick={() => handleRemove(entry.id, ticker)}
                   disabled={removing === entry.id}
-                  className="ml-1 text-[#4A5568]/40 hover:text-red-500 transition-colors text-xs leading-none"
+                  className="ml-1 text-[#4A5568]/40 hover:text-[#991b1b] transition-colors text-xs leading-none"
                   aria-label={`Remove ${ticker}`}
                 >
                   {removing === entry.id ? '...' : 'x'}

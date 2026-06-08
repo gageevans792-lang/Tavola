@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { cn } from '@/lib/utils';
 import type { IntelligenceResponse, HoldingAnalysis, RebalancingSuggestion } from '@/app/api/portfolio/intelligence/route';
@@ -306,7 +307,7 @@ export default function IntelligencePage() {
                             <div className="h-1 w-full bg-[#F0F2F5]">
                               <div
                                 className="h-full bg-[#B8960C]"
-                                style={{ width: `${Math.min(h.weight_pct * 2.5, 100)}%` }}
+                                style={{ width: `${Math.min(h.weight_pct, 100)}%` }}
                               />
                             </div>
                           </div>
@@ -347,12 +348,20 @@ export default function IntelligencePage() {
                             onClick={() => setExpandedTicker(expandedTicker === h.ticker ? null : h.ticker)}
                             className="text-left w-full"
                           >
-                            <p className={cn(
-                              'text-[11px] italic text-[#4A5568] transition-all duration-200',
-                              expandedTicker === h.ticker ? 'whitespace-normal' : 'truncate',
-                            )}>
-                              {h.ai_thesis}
-                            </p>
+                            <div className="flex items-start gap-1">
+                              <p className={cn(
+                                'text-[11px] italic text-[#4A5568] transition-all duration-200 flex-1',
+                                expandedTicker === h.ticker ? 'whitespace-normal' : 'truncate',
+                              )}>
+                                {h.ai_thesis}
+                              </p>
+                              <span className="shrink-0 mt-0.5 text-[#4A5568]/60">
+                                {expandedTicker === h.ticker
+                                  ? <ChevronUp className="h-3 w-3" />
+                                  : <ChevronDown className="h-3 w-3" />
+                                }
+                              </span>
+                            </div>
                           </button>
                         </td>
                       </tr>
