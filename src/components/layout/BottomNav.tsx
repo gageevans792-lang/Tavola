@@ -6,9 +6,9 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard',  label: 'Dashboard' },
-  { href: '/autonomous', label: 'AI Agent'  },
+  { href: '/autopilot',  label: 'AutoPilot' },
   { href: '/holdings',   label: 'Holdings'  },
-  { href: '/deposit',    label: 'Deposit'   },
+  { href: '/bank',       label: 'Banking'   },
   { href: '/settings',   label: 'Settings'  },
 ];
 
