@@ -1,204 +1,181 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getMarketNews as getFinnhubNews } from '@/lib/finnhub/client';
+import { fetchAllRssFeeds } from '@/lib/rss/client';
+import type { FinnhubNewsItem } from '@/lib/finnhub/client';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+const DATA_BASE = 'https://data.alpaca.markets';
 
-export interface Article {
-  id:         string;
-  headline:   string;
-  summary:    string;
-  url:        string;
-  source:     string;
-  created_at: string;
-  symbols:    string[];
+function alpacaHeaders(): HeadersInit {
+  return {
+    'APCA-API-KEY-ID':     process.env.ALPACA_API_KEY!,
+    'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY!,
+  };
 }
 
-export interface NewsResponse {
-  articles: Article[];
-  cached:   boolean;
-  as_of:    string;
+// ── Shared types ──────────────────────────────────────────────────────────────
+
+export type NewsCategory = 'positions' | 'watchlist' | 'macro' | 'geopolitical';
+
+export interface NewsItem {
+  id:           string;
+  headline:     string;
+  summary:      string;
+  source:       string;
+  url:          string;
+  published_at: string;
+  symbols:      string[];
+  sentiment:    null;
+  categories:   NewsCategory[];
+  data_source:  'alpaca' | 'finnhub' | 'rss';
 }
 
-// ── In-process cache (5 minutes) ──────────────────────────────────────────────
+// Legacy alias for backward compat
+export type Article = NewsItem;
 
-interface CacheEntry {
-  data:      NewsResponse;
-  expiresAt: number;
+// ── Geopolitical keyword detection ────────────────────────────────────────────
+
+const GEO_PATTERNS = [
+  /\b(ukraine|russia[n]?|kremlin|zelensky|putin)\b/i,
+  /\b(china|chinese|taiwan|hong kong|xi jinping|beijing)\b/i,
+  /\b(iran|israel|hamas|hezbollah|middle east|gaza)\b/i,
+  /\b(nato|g7|g20|un security council)\b/i,
+  /\b(sanction|trade war|tariff war|export control|embargo)\b/i,
+  /\b(geopolit|military|troops|airstrike|invasion|conflict)\b/i,
+];
+
+function isGeopolitical(headline: string, summary: string): boolean {
+  const text = headline + ' ' + summary;
+  return GEO_PATTERNS.some((re) => re.test(text));
 }
 
-let newsCache: CacheEntry | null = null;
+// ── Alpaca news fetch ─────────────────────────────────────────────────────────
 
-// ── Mock fallback ─────────────────────────────────────────────────────────────
+async function fetchAlpacaNews(params: URLSearchParams): Promise<NewsItem[]> {
+  try {
+    const res = await fetch(`${DATA_BASE}/v1beta1/news?${params}`, {
+      headers: alpacaHeaders(),
+      next: { revalidate: 300 },
+    });
+    if (!res.ok) {
+      console.warn('[market/news] Alpaca fetch:', res.status);
+      return [];
+    }
+    const data = await res.json();
+    return (data.news ?? []).map((item: Record<string, unknown>) => ({
+      id:           String(item.id),
+      headline:     String(item.headline ?? ''),
+      summary:      String(item.summary  ?? ''),
+      source:       String(item.source   ?? ''),
+      url:          String(item.url      ?? ''),
+      published_at: String(item.created_at ?? ''),
+      symbols:      Array.isArray(item.symbols) ? item.symbols as string[] : [],
+      sentiment:    null,
+      categories:   [] as NewsCategory[],
+      data_source:  'alpaca' as const,
+    }));
+  } catch (err) {
+    console.warn('[market/news] fetch error:', err instanceof Error ? err.message : err);
+    return [];
+  }
+}
 
-function getMockArticles(): Article[] {
-  const now = new Date().toISOString();
-  return [
-    {
-      id: 'mock-1',
-      headline: 'Federal Reserve Signals Pause in Rate Hikes as Inflation Moderates',
-      summary: 'Fed officials indicate a potential pause in the current rate-hiking cycle as recent data shows inflation cooling toward the 2% target. Markets rallied on the news.',
-      url: 'https://www.wsj.com',
-      source: 'Wall Street Journal',
-      created_at: now,
-      symbols: ['SPY', 'QQQ', 'TLT'],
-    },
-    {
-      id: 'mock-2',
-      headline: 'NVIDIA Reports Record Revenue Driven by AI Chip Demand',
-      summary: 'NVIDIA posted quarterly revenue of $26B, up 122% year-over-year, as hyperscalers ramp AI infrastructure spending. Data center segment reached $22.6B.',
-      url: 'https://www.bloomberg.com',
-      source: 'Bloomberg',
-      created_at: now,
-      symbols: ['NVDA', 'AMD', 'INTC'],
-    },
-    {
-      id: 'mock-3',
-      headline: 'Apple Announces $110B Share Buyback Program, Beats Q2 Estimates',
-      summary: "Apple's services revenue hit a record $23.9B while iPhone sales declined slightly year-over-year. The company authorized its largest-ever buyback.",
-      url: 'https://www.reuters.com',
-      source: 'Reuters',
-      created_at: now,
-      symbols: ['AAPL'],
-    },
-    {
-      id: 'mock-4',
-      headline: 'Goldman Sachs Upgrades S&P 500 Year-End Target to 5,600',
-      summary: 'Goldman equity strategists raised their S&P 500 target, citing stronger-than-expected corporate earnings and resilient consumer spending despite higher rates.',
-      url: 'https://www.ft.com',
-      source: 'Financial Times',
-      created_at: now,
-      symbols: ['GS', 'SPY'],
-    },
-    {
-      id: 'mock-5',
-      headline: 'Microsoft Azure Revenue Grows 31%, Powered by AI Integration',
-      summary: "Azure cloud revenue accelerated growth driven by Copilot and OpenAI integrations. Microsoft's commercial remaining performance obligations hit $259B.",
-      url: 'https://www.cnbc.com',
-      source: 'CNBC',
-      created_at: now,
-      symbols: ['MSFT'],
-    },
-    {
-      id: 'mock-6',
-      headline: 'Oil Prices Decline as OPEC+ Production Increases Offset Demand Concerns',
-      summary: 'Brent crude fell below $80 as OPEC+ members agreed to gradually unwind voluntary production cuts starting in Q4. Energy stocks came under pressure.',
-      url: 'https://www.wsj.com',
-      source: 'Wall Street Journal',
-      created_at: now,
-      symbols: ['XOM', 'CVX', 'USO'],
-    },
-    {
-      id: 'mock-7',
-      headline: 'JPMorgan Chase Reports Strong Q2 Earnings, Net Interest Income Beats',
-      summary: "Jamie Dimon's bank posted $18.1B in net income for Q2, with net interest income of $22.9B beating consensus. Consumer banking deposits stabilized.",
-      url: 'https://www.bloomberg.com',
-      source: 'Bloomberg',
-      created_at: now,
-      symbols: ['JPM', 'BAC', 'WFC'],
-    },
-    {
-      id: 'mock-8',
-      headline: 'Amazon Web Services Growth Reaccelerates to 17% as AI Workloads Surge',
-      summary: 'AWS revenue reached $25B in Q1, with CEO Andy Jassy noting a pipeline of AI-related deals is "gigantic." Operating margins expanded to 37.6%.',
-      url: 'https://www.reuters.com',
-      source: 'Reuters',
-      created_at: now,
-      symbols: ['AMZN'],
-    },
-    {
-      id: 'mock-9',
-      headline: 'Visa and Mastercard Reach $30B Settlement Over Swipe Fees',
-      summary: 'The landmark settlement with merchants caps interchange fees for five years and allows merchants greater flexibility to steer customers toward cheaper payment methods.',
-      url: 'https://www.ft.com',
-      source: 'Financial Times',
-      created_at: now,
-      symbols: ['V', 'MA'],
-    },
-    {
-      id: 'mock-10',
-      headline: 'Tesla Cuts Model 3 and Model Y Prices in Major Markets for Third Time This Year',
-      summary: "Tesla reduced prices in the US and Europe as competition from Chinese EV makers intensifies. Analysts cut margin estimates; shares fell 4% on the news.",
-      url: 'https://www.cnbc.com',
-      source: 'CNBC',
-      created_at: now,
-      symbols: ['TSLA'],
-    },
-  ];
+// ── Finnhub normalizer ────────────────────────────────────────────────────────
+
+function normalizeFinnhubNews(items: FinnhubNewsItem[]): NewsItem[] {
+  return items.map((item) => ({
+    id:           `fh-${item.id}`,
+    headline:     item.headline,
+    summary:      item.summary,
+    source:       item.source,
+    url:          item.url,
+    published_at: new Date(item.datetime * 1000).toISOString(),
+    symbols:      item.related
+      ? item.related.split(',').map((s) => s.trim()).filter(Boolean)
+      : [],
+    sentiment:    null,
+    categories:   [] as NewsCategory[],
+    data_source:  'finnhub' as const,
+  }));
+}
+
+// ── RSS normalizer ────────────────────────────────────────────────────────────
+
+function normalizeRssNews(items: Awaited<ReturnType<typeof fetchAllRssFeeds>>): NewsItem[] {
+  return items.map((item) => ({
+    id:           item.id,
+    headline:     item.title,
+    summary:      item.summary,
+    source:       item.source,
+    url:          item.url,
+    published_at: item.published_at,
+    symbols:      [],
+    sentiment:    null,
+    categories:   [] as NewsCategory[],
+    data_source:  'rss' as const,
+  }));
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function GET() {
-  // Auth check
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Serve from cache if still fresh
-  const now = Date.now();
-  if (newsCache && now < newsCache.expiresAt) {
-    return NextResponse.json({ ...newsCache.data, cached: true });
-  }
+  const [holdingsRes, watchlistRes] = await Promise.all([
+    supabase.from('holdings').select('ticker').eq('user_id', user.id),
+    supabase.from('user_watchlist').select('ticker').eq('user_id', user.id),
+  ]);
 
-  try {
-    const res = await fetch(
-      'https://data.alpaca.markets/v1beta1/news?limit=20&sort=desc',
-      {
-        headers: {
-          'APCA-API-KEY-ID':     process.env.ALPACA_API_KEY!,
-          'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY!,
-        },
-        cache: 'no-store',
-      },
-    );
+  const holdingTickers   = new Set((holdingsRes.data  ?? []).map((h) => h.ticker as string));
+  const watchlistTickers = new Set((watchlistRes.data ?? []).map((w) => w.ticker as string));
+  const allTickers       = new Set([...holdingTickers, ...watchlistTickers]);
 
-    if (!res.ok) {
-      throw new Error(`Alpaca news API responded with ${res.status}`);
+  const [alpacaTargetedResult, alpacaGeneralResult, finnhubResult, rssResult] =
+    await Promise.allSettled([
+      allTickers.size > 0
+        ? fetchAlpacaNews(new URLSearchParams({ limit: '20', sort: 'desc', symbols: [...allTickers].join(',') }))
+        : Promise.resolve([] as NewsItem[]),
+      fetchAlpacaNews(new URLSearchParams({ limit: '15', sort: 'desc' })),
+      getFinnhubNews('general').then(normalizeFinnhubNews),
+      fetchAllRssFeeds().then(normalizeRssNews),
+    ]);
+
+  const batches: NewsItem[][] = [
+    alpacaTargetedResult.status === 'fulfilled' ? alpacaTargetedResult.value : [],
+    alpacaGeneralResult.status  === 'fulfilled' ? alpacaGeneralResult.value  : [],
+    finnhubResult.status        === 'fulfilled' ? finnhubResult.value        : [],
+    rssResult.status            === 'fulfilled' ? rssResult.value            : [],
+  ];
+
+  // Dedup by id, then by 50-char headline prefix across sources
+  const seenIds      = new Set<string>();
+  const seenPrefixes = new Set<string>();
+  const all: NewsItem[] = [];
+
+  for (const batch of batches) {
+    for (const item of batch) {
+      if (!item.headline) continue;
+      if (seenIds.has(item.id)) continue;
+      const prefix = item.headline.toLowerCase().slice(0, 50);
+      if (seenPrefixes.has(prefix)) continue;
+      seenIds.add(item.id);
+      seenPrefixes.add(prefix);
+      all.push(item);
     }
-
-    const json = await res.json();
-    const raw: Array<{
-      id:         number;
-      headline:   string;
-      summary:    string;
-      url:        string;
-      source:     string;
-      created_at: string;
-      symbols:    string[];
-    }> = Array.isArray(json.news) ? json.news : Array.isArray(json) ? json : [];
-
-    const articles: Article[] = raw.map((item) => ({
-      id:         String(item.id),
-      headline:   item.headline  ?? '',
-      summary:    item.summary   ?? '',
-      url:        item.url       ?? '',
-      source:     item.source    ?? '',
-      created_at: item.created_at ?? new Date().toISOString(),
-      symbols:    Array.isArray(item.symbols) ? item.symbols : [],
-    }));
-
-    const payload: NewsResponse = {
-      articles,
-      cached: false,
-      as_of:  new Date().toISOString(),
-    };
-
-    newsCache = { data: payload, expiresAt: now + 5 * 60 * 1_000 };
-    return NextResponse.json(payload);
-
-  } catch (err) {
-    console.warn('[market/news] Alpaca fetch failed, using mock data:', err instanceof Error ? err.message : err);
-
-    const payload: NewsResponse = {
-      articles: getMockArticles(),
-      cached:   false,
-      as_of:    new Date().toISOString(),
-    };
-
-    // Cache mock data for 1 minute
-    newsCache = { data: payload, expiresAt: now + 60 * 1_000 };
-    return NextResponse.json(payload);
   }
+
+  all.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+
+  for (const item of all) {
+    const cats: NewsCategory[] = [];
+    if (item.symbols.some((s) => holdingTickers.has(s)))   cats.push('positions');
+    if (item.symbols.some((s) => watchlistTickers.has(s))) cats.push('watchlist');
+    if (isGeopolitical(item.headline, item.summary))        cats.push('geopolitical');
+    if (cats.length === 0) cats.push('macro');
+    item.categories = cats;
+  }
+
+  return NextResponse.json(all.slice(0, 40));
 }

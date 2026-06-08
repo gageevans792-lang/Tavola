@@ -132,7 +132,7 @@ export async function placeMarketOrder(
     qty,
     side,
     type: 'market',
-    time_in_force: 'day',
+    time_in_force: 'gtc',
   }) as Promise<AlpacaOrder>;
 }
 
