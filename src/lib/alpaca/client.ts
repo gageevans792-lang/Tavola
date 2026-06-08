@@ -69,8 +69,7 @@ export async function getTickerPrices(
     for (const sym of symbols) {
       if (!seen.has(sym)) needTrade.push(sym);
     }
-  } catch (err) {
-    console.warn('[alpaca] getSnapshots failed:', err instanceof Error ? err.message : err);
+  } catch {
     needTrade.push(...symbols);
   }
 
@@ -90,8 +89,7 @@ export async function getTickerPrices(
         needBar.push(sym);
       }
     }
-  } catch (err) {
-    console.warn('[alpaca] getLatestTrades failed:', err instanceof Error ? err.message : err);
+  } catch {
     needBar.push(...needTrade);
   }
 
@@ -109,8 +107,8 @@ export async function getTickerPrices(
       }
       // else stays unavailable
     }
-  } catch (err) {
-    console.warn('[alpaca] getLatestBars failed:', err instanceof Error ? err.message : err);
+  } catch {
+    // prices remain unavailable for symbols that failed
   }
 
   return result;

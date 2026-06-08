@@ -69,12 +69,12 @@ export async function syncHoldingsToSupabase(
     if (upsertErr) throw new Error(`upsert: ${upsertErr.message}`);
 
     // Delete stale tickers no longer in Alpaca positions
-    const currentTickers = positions.map((p) => p.symbol);
+    const currentTickers = positions.map((p: AlpacaPosition) => p.symbol);
     const { error: deleteErr } = await supabase
       .from('holdings')
       .delete()
       .eq('user_id', userId)
-      .not('ticker', 'in', `(${currentTickers.map((t) => `"${t}"`).join(',')})`);
+      .not('ticker', 'in', `(${currentTickers.join(',')})`);
 
     if (deleteErr) {
       console.warn('[sync] stale delete failed (non-fatal):', deleteErr.message);

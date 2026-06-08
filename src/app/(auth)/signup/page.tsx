@@ -15,7 +15,6 @@ export default function SignupPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    console.log('[signup] form submitted', { email, fullName });
     setLoading(true);
     setError(null);
 
@@ -33,7 +32,6 @@ export default function SignupPage() {
       return;
     }
 
-    console.log('[signup] success, redirecting to /onboarding');
     router.push('/onboarding');
   }
 

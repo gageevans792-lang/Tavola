@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       mode: 'payment',
+      metadata: { user_id: user.id },
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?deposit=success`,
       cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/deposit`,
     });

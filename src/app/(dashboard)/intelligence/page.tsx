@@ -54,48 +54,6 @@ const ACTION_STYLE: Record<string, string> = {
   hold:     'bg-[#B8960C]/8 text-[#B8960C] border border-[#B8960C]/30',
 };
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
-
-function IntelligenceSkeleton() {
-  return (
-    <div className="flex-1 overflow-y-auto">
-      {/* Health score skeleton */}
-      <div className="bg-[#0A1628] px-6 py-10 text-center">
-        <div className="mx-auto h-20 w-24 animate-pulse bg-white/10" />
-        <div className="mx-auto mt-4 h-3 w-40 animate-pulse bg-white/10" />
-        <div className="mx-auto mt-5 flex justify-center gap-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-5 w-24 animate-pulse bg-white/10" />
-          ))}
-        </div>
-      </div>
-      {/* Cards skeleton */}
-      <div className="grid grid-cols-2 gap-px sm:grid-cols-4 bg-[#E2E8F0] border-b border-[#E2E8F0]">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-white p-6 space-y-3">
-            <div className="h-2.5 w-20 animate-pulse bg-[#E2E8F0]" />
-            <div className="h-8   w-16 animate-pulse bg-[#E2E8F0]" />
-          </div>
-        ))}
-      </div>
-      {/* Table skeleton */}
-      <div className="bg-white border-b border-[#E2E8F0]">
-        <div className="px-5 py-3 border-b border-[#E2E8F0]">
-          <div className="h-2.5 w-32 animate-pulse bg-[#E2E8F0]" />
-        </div>
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex gap-4 px-5 py-4 border-b border-[#E2E8F0]">
-            <div className="h-4 w-12 animate-pulse bg-[#E2E8F0]" />
-            <div className="h-4 w-20 animate-pulse bg-[#E2E8F0]" />
-            <div className="h-4 w-10 animate-pulse bg-[#E2E8F0]" />
-            <div className="h-4 flex-1 animate-pulse bg-[#E2E8F0]" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Loading overlay ───────────────────────────────────────────────────────────
 
 function AnalyzingOverlay() {
@@ -152,7 +110,6 @@ export default function IntelligencePage() {
     setError(false);
 
     try {
-      // Ensure holdings are fresh before running analysis
       await fetch('/api/alpaca/sync').catch(() => {
         console.warn('[intelligence] sync failed — continuing with cached holdings');
       });
@@ -231,7 +188,6 @@ export default function IntelligencePage() {
                 Portfolio Health Score
               </p>
 
-              {/* Pills */}
               <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
                 <div>
                   <span className="text-[10px] tracking-[0.15em] uppercase text-white/40">Risk Level</span>
@@ -263,7 +219,6 @@ export default function IntelligencePage() {
                 </div>
               </div>
 
-              {/* Summary */}
               {data.portfolio_summary && (
                 <>
                   <hr className="mt-6 border-white/10" />
@@ -341,12 +296,10 @@ export default function IntelligencePage() {
                         key={h.ticker}
                         className="border-b border-[#E2E8F0] hover:bg-[#F8F9FA] transition-colors"
                       >
-                        {/* Ticker */}
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="text-[13px] font-semibold tracking-[0.05em] text-[#0A1628]">{h.ticker}</span>
                         </td>
 
-                        {/* Weight with bar */}
                         <td className="px-4 py-3 min-w-[100px]">
                           <div className="space-y-1">
                             <span className="text-[12px] font-medium text-[#0A1628]">{h.weight_pct.toFixed(1)}%</span>
@@ -359,42 +312,36 @@ export default function IntelligencePage() {
                           </div>
                         </td>
 
-                        {/* Beta */}
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className={cn('font-serif text-[14px]', betaColor(h.beta))}>
                             {fmtNum(h.beta)}
                           </span>
                         </td>
 
-                        {/* P/E */}
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="font-serif text-[14px] text-[#0A1628]">
                             {h.pe_ratio > 0 ? fmtNum(h.pe_ratio, 1) : '—'}
                           </span>
                         </td>
 
-                        {/* 52W High */}
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="font-serif text-[14px] text-[#0A1628]">
                             {h.week52_high > 0 ? `$${fmtPrice(h.week52_high)}` : '—'}
                           </span>
                         </td>
 
-                        {/* vs High */}
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className={cn('font-serif text-[14px]', vsHighColor(h.current_vs_52w_high))}>
                             {h.current_vs_52w_high > 0 ? `-${fmtNum(h.current_vs_52w_high, 1)}%` : 'AT HIGH'}
                           </span>
                         </td>
 
-                        {/* Sentiment */}
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className={cn('text-[12px] font-medium', sentimentColor(h.sentiment_label))}>
                             {h.sentiment_label}
                           </span>
                         </td>
 
-                        {/* AI Thesis — click to expand */}
                         <td className="px-4 py-3 max-w-[240px]">
                           <button
                             onClick={() => setExpandedTicker(expandedTicker === h.ticker ? null : h.ticker)}
@@ -419,7 +366,6 @@ export default function IntelligencePage() {
           {/* ── S4: Rebalancing + Sector Exposure ──────────────────────────── */}
           <section className="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-[#E2E8F0]">
 
-            {/* Left 60%: Rebalancing */}
             <div className="lg:col-span-3 bg-white">
               <div className="flex items-center justify-between px-5 py-3 border-b border-[#E2E8F0]">
                 <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">AI Rebalancing Recommendations</p>
@@ -445,7 +391,7 @@ export default function IntelligencePage() {
                 </div>
               ) : (
                 <div className="divide-y divide-[#E2E8F0]">
-                  {data.rebalancing_suggestions.map((r) => (
+                  {data.rebalancing_suggestions.map((r: RebalancingSuggestion) => (
                     <div key={r.ticker} className="flex items-start gap-4 px-5 py-4">
                       <span className={cn(
                         'shrink-0 mt-0.5 px-2 py-0.5 text-[9px] tracking-[0.12em] uppercase font-semibold',
@@ -463,13 +409,11 @@ export default function IntelligencePage() {
               )}
             </div>
 
-            {/* Right 40%: Sector Exposure */}
             <div className="lg:col-span-2 bg-white flex flex-col">
               <div className="px-5 py-3 border-b border-[#E2E8F0]">
                 <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Sector Exposure</p>
               </div>
 
-              {/* Warning banner */}
               {data.correlation_warning && (
                 <div className="mx-5 mt-4 border border-[#C41E3A]/30 bg-[#C41E3A]/5 px-4 py-3">
                   <p className="text-[11px] text-[#C41E3A] leading-snug">

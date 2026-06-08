@@ -30,6 +30,9 @@ export interface NewsItem {
   data_source:  'alpaca' | 'finnhub' | 'rss';
 }
 
+// Legacy alias for backward compat
+export type Article = NewsItem;
+
 // ── Geopolitical keyword detection ────────────────────────────────────────────
 
 const GEO_PATTERNS = [
@@ -146,7 +149,7 @@ export async function GET() {
     rssResult.status            === 'fulfilled' ? rssResult.value            : [],
   ];
 
-  // Dedup: by id first, then by 50-char lowercased headline prefix across sources
+  // Dedup by id, then by 50-char headline prefix across sources
   const seenIds      = new Set<string>();
   const seenPrefixes = new Set<string>();
   const all: NewsItem[] = [];
@@ -165,7 +168,6 @@ export async function GET() {
 
   all.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
 
-  // Annotate categories
   for (const item of all) {
     const cats: NewsCategory[] = [];
     if (item.symbols.some((s) => holdingTickers.has(s)))   cats.push('positions');

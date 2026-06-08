@@ -14,12 +14,12 @@ const FILTERS: { label: string; value: InsightType | 'all' }[] = [
   { label: 'Hold',      value: 'hold'      },
 ];
 
-const TYPE_STYLE: Record<InsightType, string> = {
-  buy:       'text-[#B8960C] border-[#B8960C]/30',
-  sell:      'text-[#C41E3A] border-[#C41E3A]/30',
-  hold:      'text-[#0A1628]/40 border-[#E2E8F0]',
-  rebalance: 'text-[#0A1628] border-[#0A1628]/20',
-  outlook:   'text-[#4A5568] border-[#E2E8F0]',
+const TYPE_BADGE: Record<InsightType, string> = {
+  buy:       'text-[#B8960C]',
+  sell:      'text-[#C41E3A]',
+  hold:      'text-[#4A5568]',
+  rebalance: 'text-[#0A1628]',
+  outlook:   'text-[#4A5568]',
 };
 
 export default function InsightsPage() {
@@ -55,20 +55,26 @@ export default function InsightsPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <TopBar title="AI Insights" />
-      <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6">
-        <div className="mx-auto max-w-5xl">
+      <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-8">
+        <div className="mx-auto max-w-5xl space-y-8">
 
-          {/* Filter bar */}
-          <div className="flex w-fit border border-[#E2E8F0] bg-white mb-6">
+          {/* Page header */}
+          <div className="border-b border-[#E2E8F0] pb-6">
+            <h2 className="font-serif text-2xl font-light text-[#0A1628]">AI Insights</h2>
+            <p className="mt-1 text-sm text-[#4A5568]">AI-generated signals from your portfolio analysis</p>
+          </div>
+
+          {/* Filter tabs — text with gold underline on active */}
+          <div className="flex items-center gap-6 border-b border-[#E2E8F0]">
             {FILTERS.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setFilter(f.value)}
                 className={cn(
-                  'px-5 py-2.5 text-xs tracking-[0.15em] uppercase transition-colors',
+                  'pb-3 text-[11px] tracking-[0.15em] uppercase transition-colors',
                   filter === f.value
-                    ? 'bg-[#0A1628] text-white'
-                    : 'text-[#4A5568] hover:text-[#0A1628] hover:bg-[#F8F9FA]',
+                    ? 'border-b-2 border-[#B8960C] text-[#0A1628] -mb-px'
+                    : 'text-[#4A5568] hover:text-[#0A1628]',
                 )}
               >
                 {f.label}
@@ -79,7 +85,7 @@ export default function InsightsPage() {
           {/* Content */}
           {loading ? (
             <div className="bg-white border border-[#E2E8F0] px-6 py-12 text-center">
-              <p className="text-sm text-[#4A5568]">Loading...</p>
+              <p className="text-[11px] tracking-[0.12em] uppercase text-[#4A5568]">Loading</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="bg-white border border-[#E2E8F0] px-6 py-12 text-center">
@@ -92,11 +98,11 @@ export default function InsightsPage() {
             </div>
           ) : (
             <div className="bg-white border border-[#E2E8F0] overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm tabular-nums">
                 <thead>
                   <tr className="border-b border-[#E2E8F0]">
                     {['Type', 'Ticker', 'Message', 'Confidence', 'Date', 'Status'].map((h) => (
-                      <th key={h} className="px-6 py-3 text-left text-[11px] tracking-[0.1em] uppercase text-[#4A5568] font-medium whitespace-nowrap">
+                      <th key={h} className="px-6 py-3 text-left text-[11px] tracking-[0.12em] uppercase text-[#4A5568] font-medium whitespace-nowrap">
                         {h}
                       </th>
                     ))}
@@ -104,28 +110,28 @@ export default function InsightsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((insight) => (
-                    <tr key={insight.id} className="border-b border-[#E2E8F0] hover:bg-[#F8F9FA]">
+                    <tr key={insight.id} className="border-b border-[#E2E8F0] hover:bg-[#F8F9FA] transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={cn('text-[10px] tracking-[0.15em] uppercase border px-2 py-0.5', TYPE_STYLE[insight.type])}>
+                        <span className={cn('text-[10px] tracking-[0.15em] uppercase font-medium', TYPE_BADGE[insight.type])}>
                           {insight.type}
                         </span>
                       </td>
-                      <td className="px-6 py-4 font-medium text-[#0A1628]">
+                      <td className="px-6 py-4 font-mono text-xs font-bold text-[#0A1628] tracking-wide">
                         {insight.ticker ?? '—'}
                       </td>
                       <td className="px-6 py-4 text-[#4A5568] max-w-sm">
-                        <p className="line-clamp-2">{insight.message}</p>
+                        <p className="line-clamp-2 text-xs leading-relaxed">{insight.message}</p>
                       </td>
-                      <td className="px-6 py-4 text-[#4A5568] whitespace-nowrap">
+                      <td className="px-6 py-4 text-[#4A5568] whitespace-nowrap text-xs">
                         {insight.confidence_score !== null ? `${insight.confidence_score}%` : '—'}
                       </td>
-                      <td className="px-6 py-4 text-[#4A5568] whitespace-nowrap">
+                      <td className="px-6 py-4 text-[#4A5568] whitespace-nowrap text-xs">
                         {new Date(insight.created_at).toLocaleDateString('en-US', {
                           month: 'short', day: 'numeric', year: 'numeric',
                         })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={cn('text-[11px] tracking-[0.1em] uppercase', insight.executed ? 'text-green-600' : 'text-[#4A5568]/60')}>
+                        <span className={cn('text-[11px] tracking-[0.12em] uppercase', insight.executed ? 'text-[#166534]' : 'text-[#4A5568]/60')}>
                           {insight.executed ? 'Executed' : 'Pending'}
                         </span>
                       </td>

@@ -139,8 +139,14 @@ export default function HoldingsPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <TopBar title="Holdings" />
-      <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-8">
+        <div className="mx-auto max-w-7xl space-y-10">
+
+          {/* ── Page header ───────────────────────────────────────────────── */}
+          <div className="border-b border-[#E2E8F0] pb-6">
+            <h2 className="font-serif text-2xl font-light text-[#0A1628]">Holdings</h2>
+            <p className="mt-1 text-sm text-[#4A5568]">Current positions</p>
+          </div>
 
           {/* ── Positions ─────────────────────────────────────────────────── */}
           <div className="bg-white border border-[#E2E8F0]">
@@ -185,64 +191,66 @@ export default function HoldingsPage() {
           </div>
 
           {/* ── Watchlist ─────────────────────────────────────────────────── */}
-          <div className="bg-white border border-[#E2E8F0]">
-            <div className="px-6 py-4 border-b border-[#E2E8F0]">
-              <h2 className="font-serif text-lg font-light text-[#0A1628]">Watchlist</h2>
-              <p className="text-xs text-[#4A5568] mt-0.5">Tickers in your watchlist are included in AI analysis.</p>
-            </div>
+          <section>
+            <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Watchlist</p>
+            <div className="bg-white border border-[#E2E8F0]">
+              <div className="px-6 py-4 border-b border-[#E2E8F0]">
+                <p className="text-xs text-[#4A5568]">Tickers in your watchlist are included in AI analysis.</p>
+              </div>
 
-            <div className="px-6 py-4 border-b border-[#E2E8F0]">
-              <div className="flex gap-3 items-end">
-                <div className="flex-1">
-                  <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-1">
-                    Ticker symbol
-                  </label>
-                  <input
-                    type="text"
-                    value={tickerInput}
-                    onChange={(e) => { setError(null); setTickerInput(e.target.value.toUpperCase()); }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                    placeholder="AAPL"
-                    maxLength={10}
-                    className="w-full border-b border-[#E2E8F0] py-2 text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent placeholder:text-[#0A1628]/25 transition-colors"
-                  />
-                </div>
-                <button
-                  onClick={handleAdd}
-                  disabled={adding || !tickerInput.trim()}
-                  className="bg-[#0A1628] text-white text-xs tracking-[0.2em] uppercase px-6 h-10 hover:bg-[#1a2f4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                >
-                  {adding ? 'Adding...' : 'Add'}
-                </button>
-              </div>
-              {error && <p className="mt-2 text-xs text-[#C41E3A]">{error}</p>}
-            </div>
-
-            {loadingWatchlist ? (
-              <div className="px-6 py-8 space-y-2">
-                <div className="h-8 w-1/3 animate-pulse bg-[#E2E8F0]" />
-                <div className="h-8 w-1/4 animate-pulse bg-[#E2E8F0]" />
-              </div>
-            ) : watchlist.length === 0 ? (
-              <div className="px-6 py-8 text-center">
-                <p className="text-sm text-[#4A5568]">Add tickers to your watchlist to enable AI analysis.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-[#E2E8F0]">
-                {watchlist.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between px-6 py-3">
-                    <span className="font-medium text-sm text-[#0A1628]">{item.ticker}</span>
-                    <button
-                      onClick={() => handleRemove(item.id, item.ticker)}
-                      className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568]/50 hover:text-[#C41E3A] transition-colors"
-                    >
-                      Remove
-                    </button>
+              <div className="px-6 py-5 border-b border-[#E2E8F0]">
+                <div className="flex gap-4 items-end">
+                  <div className="flex-1">
+                    <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-2">
+                      Ticker symbol
+                    </label>
+                    <input
+                      type="text"
+                      value={tickerInput}
+                      onChange={(e) => { setError(null); setTickerInput(e.target.value.toUpperCase()); }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                      placeholder="AAPL"
+                      maxLength={10}
+                      className="w-full border-b border-[#E2E8F0] py-2 font-mono text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent placeholder:text-[#0A1628]/25 transition-colors tracking-wide"
+                    />
                   </div>
-                ))}
+                  <button
+                    onClick={handleAdd}
+                    disabled={adding || !tickerInput.trim()}
+                    className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase px-6 h-9 hover:bg-[#1a2f4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >
+                    {adding ? 'Adding' : 'Add'}
+                  </button>
+                </div>
+                {error && <p className="mt-2 text-[11px] text-[#C41E3A]">{error}</p>}
               </div>
-            )}
-          </div>
+
+              {loadingWatchlist ? (
+                <div className="px-6 py-8 space-y-2">
+                  <div className="h-8 w-1/3 animate-pulse bg-[#E2E8F0]" />
+                  <div className="h-8 w-1/4 animate-pulse bg-[#E2E8F0]" />
+                </div>
+              ) : watchlist.length === 0 ? (
+                <div className="px-6 py-8 text-center">
+                  <p className="text-sm text-[#4A5568]">Add tickers to your watchlist to enable AI analysis.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E2E8F0]">
+                  {watchlist.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between px-6 py-3">
+                      <span className="font-mono text-xs font-bold text-[#0A1628] tracking-wide">{item.ticker}</span>
+                      <button
+                        onClick={() => handleRemove(item.id, item.ticker)}
+                        className="text-[11px] tracking-[0.12em] uppercase text-[#4A5568]/50 hover:text-[#C41E3A] transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
 
         </div>
       </main>

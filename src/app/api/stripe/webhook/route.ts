@@ -90,6 +90,19 @@ async function handleCheckoutSessionCompleted(
   console.log('[stripe/webhook] checkout.session.completed:', stripeSessionId, 'amount:', amountTotal, 'user:', userId);
 
   const supabase = await createClient();
+
+  // Idempotency: skip if this session was already recorded
+  const { data: existing } = await supabase
+    .from('deposits')
+    .select('id')
+    .eq('stripe_session_id', stripeSessionId)
+    .maybeSingle();
+
+  if (existing) {
+    console.log('[stripe/webhook] deposit already recorded for session', stripeSessionId, '— skipping');
+    return;
+  }
+
   const { error } = await supabase.from('deposits').insert({
     user_id:           userId,
     amount:            amountTotal,

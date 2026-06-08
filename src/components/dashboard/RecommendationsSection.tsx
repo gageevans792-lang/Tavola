@@ -7,10 +7,10 @@ import { AutoInvestResult, ExecutedRecommendation, TradeRecommendation, Portfoli
 import { cn } from '@/lib/utils';
 
 const HEALTH_CONFIG: Record<PortfolioHealth, { label: string; color: string }> = {
-  poor:      { label: 'Poor',      color: 'text-[#C41E3A]' },
+  poor:      { label: 'Poor',      color: 'text-[#991b1b]' },
   fair:      { label: 'Fair',      color: 'text-amber-600'  },
   good:      { label: 'Good',      color: 'text-[#B8960C]'  },
-  excellent: { label: 'Excellent', color: 'text-green-600'  },
+  excellent: { label: 'Excellent', color: 'text-[#166534]'  },
 };
 
 const container = {

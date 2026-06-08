@@ -20,7 +20,23 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-[#E2E8F0] bg-white px-6">
       <h1 className="font-serif text-lg font-light text-[#0A1628]">{title}</h1>
 
+      {/* Market status pill */}
+      <div className="hidden lg:flex items-center gap-1.5 ml-4">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#166534]" />
+        <span className="text-[11px] text-[#4A5568] tracking-[0.06em]">NYSE Open</span>
+      </div>
+
       <div className="ml-auto flex items-center gap-3">
+        {/* ⌘K hint — opens command palette */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('tavola:open-palette'))}
+          className="hidden md:flex items-center border border-[#E2E8F0] px-2 h-6 gap-1 text-[10px] text-[#4A5568] hover:border-[#0A1628] hover:text-[#0A1628] transition-colors"
+          aria-label="Open command palette"
+        >
+          <span className="font-mono">⌘K</span>
+        </button>
+
         {/* Mode toggle */}
         {hasAnalysis && mode && onModeChange && (
           <div className="flex items-center border border-[#E2E8F0]">

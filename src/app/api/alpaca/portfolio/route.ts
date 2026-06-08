@@ -168,7 +168,7 @@ export async function GET() {
         .from('holdings')
         .delete()
         .eq('user_id', user.id)
-        .not('ticker', 'in', `(${currentTickers.map((t) => `"${t}"`).join(',')})`);
+        .not('ticker', 'in', `(${currentTickers.join(',')})`);
 
       if (deleteErr) {
         console.warn('[portfolio] stale delete failed (non-fatal):', deleteErr.message);
