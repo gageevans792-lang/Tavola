@@ -10,6 +10,9 @@ import { AllocationChart }        from '@/components/dashboard/AllocationChart';
 import { AIFeed }                 from '@/components/dashboard/AIFeed';
 import { AnalysisOverlay }        from '@/components/dashboard/AnalysisOverlay';
 import { RecommendationsSection } from '@/components/dashboard/RecommendationsSection';
+import { NewsPanel }              from '@/components/dashboard/NewsPanel';
+import { MarketOverview }         from '@/components/dashboard/MarketOverview';
+import { Watchlist }              from '@/components/dashboard/Watchlist';
 import { Toast }                  from '@/components/ui/Toast';
 import type { ToastData }         from '@/components/ui/Toast';
 import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
@@ -281,6 +284,17 @@ export default function DashboardPage() {
           <section>
             <AIFeed insights={MOCK_INSIGHTS} />
           </section>
+
+          {/* ── Market intelligence + news ──────────────────────────────────── */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <NewsPanel />
+            </div>
+            <div className="flex flex-col gap-6">
+              <MarketOverview />
+              <Watchlist />
+            </div>
+          </div>
         </div>
       </main>
 
