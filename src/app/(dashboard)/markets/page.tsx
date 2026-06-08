@@ -416,7 +416,7 @@ export default function MarketsPage() {
                       <p className="text-[9px] text-[#4A5568]/60 mb-0.5">{tile.symbol}</p>
                       <p className={cn(
                         'mt-1 font-serif text-[18px] font-light leading-none',
-                        pos ? 'text-[#16A34A]' : neg ? 'text-[#C41E3A]' : 'text-[#4A5568]',
+                        pos ? 'text-[#166534]' : neg ? 'text-[#991b1b]' : 'text-[#4A5568]',
                       )}>
                         {pos ? '▲' : neg ? '▼' : ''} {tile.change_pct ? Math.abs(tile.change_pct).toFixed(2) + '%' : '—'}
                       </p>

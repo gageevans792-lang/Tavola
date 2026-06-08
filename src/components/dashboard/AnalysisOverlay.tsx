@@ -27,6 +27,8 @@ export function AnalysisOverlay() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
+      role="dialog"
+      aria-label="AI Analysis in progress"
       className="absolute inset-0 z-50 flex items-center justify-center bg-white/95"
     >
       <motion.div
@@ -50,6 +52,7 @@ export function AnalysisOverlay() {
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
+          aria-live="polite"
           className="mt-6 text-center text-[11px] tracking-[0.12em] uppercase text-[#4A5568]"
         >
           {STEPS[stepIndex]}

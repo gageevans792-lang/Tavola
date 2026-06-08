@@ -166,7 +166,7 @@ export function Watchlist() {
       <p className="mb-4 text-[11px] tracking-[0.15em] uppercase text-[#4A5568]">Watchlist</p>
 
       {error && (
-        <p className="mb-3 text-xs text-red-500">{error}</p>
+        <p className="mb-3 text-xs text-[#991b1b]">{error}</p>
       )}
 
       {/* Table */}
@@ -252,7 +252,7 @@ export function Watchlist() {
       </div>
 
       {addError && (
-        <p className="mt-1 text-[10px] text-red-500">{addError}</p>
+        <p className="mt-1 text-[10px] text-[#991b1b]">{addError}</p>
       )}
     </div>
   );

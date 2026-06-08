@@ -434,7 +434,7 @@ function ConnectedView({
                       value={customAmount}
                       onChange={(e) => setCustomAmount(e.target.value)}
                       placeholder="Enter amount"
-                      className="w-40 border border-[#E2E8F0] bg-white px-3 py-2 font-mono text-sm text-[#0A1628] focus:border-[#0A1628] focus:outline-none"
+                      className="w-full sm:w-40 border border-[#E2E8F0] bg-white px-3 py-2 font-mono text-sm text-[#0A1628] focus:border-[#0A1628] focus:outline-none"
                     />
                   </div>
                 )}
