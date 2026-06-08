@@ -19,7 +19,7 @@ export function StatCard({ title, value, change, changePositive, loading }: Stat
         </div>
       ) : (
         <>
-          <p className="mt-0.5 font-mono text-[17px] font-medium leading-tight text-[#0A1628] tabular-nums">{value}</p>
+          <p className="mt-0.5 font-mono text-lg sm:text-2xl font-medium leading-tight text-[#0A1628] tabular-nums truncate">{value}</p>
           {change && (
             <p className={cn('mt-0.5 text-[11px] tabular-nums', changePositive ? 'text-[#166534]' : 'text-[#991b1b]')}>
               {change}

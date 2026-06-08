@@ -216,43 +216,41 @@ export default function DashboardPage() {
 
         <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
           {/* ── Compact stat strip ────────────────────────────────────────────── */}
-          <div className="border border-[#E2E8F0] bg-[#E2E8F0]">
-            <div className="grid grid-cols-2 gap-px sm:grid-cols-4">
-              <div className="relative bg-white">
-                <div className="absolute inset-y-0 left-0 w-0.5 bg-[#B8960C]" />
-                <StatCard
-                  title="Portfolio Value"
-                  value={portfolioValue}
-                  change={dayPlChange}
-                  changePositive={p ? p.day_pl >= 0 : undefined}
-                  loading={loading}
-                />
-              </div>
-              <div className="bg-white">
-                <StatCard
-                  title="Day P&L"
-                  value={dayPl}
-                  change={dayPlPct}
-                  changePositive={p ? p.day_pl >= 0 : undefined}
-                  loading={loading}
-                />
-              </div>
-              <div className="bg-white">
-                <StatCard
-                  title="Total Return"
-                  value={totalReturn}
-                  change={totalReturnPct}
-                  changePositive={p ? p.total_return >= 0 : undefined}
-                  loading={loading}
-                />
-              </div>
-              <div className="bg-white">
-                <StatCard
-                  title="Cash Available"
-                  value={cashAvailable}
-                  loading={loading}
-                />
-              </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="relative bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
+              <div className="absolute inset-y-0 left-0 w-0.5 bg-[#B8960C]" />
+              <StatCard
+                title="Portfolio Value"
+                value={portfolioValue}
+                change={dayPlChange}
+                changePositive={p ? p.day_pl >= 0 : undefined}
+                loading={loading}
+              />
+            </div>
+            <div className="bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
+              <StatCard
+                title="Day P&L"
+                value={dayPl}
+                change={dayPlPct}
+                changePositive={p ? p.day_pl >= 0 : undefined}
+                loading={loading}
+              />
+            </div>
+            <div className="bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
+              <StatCard
+                title="Total Return"
+                value={totalReturn}
+                change={totalReturnPct}
+                changePositive={p ? p.total_return >= 0 : undefined}
+                loading={loading}
+              />
+            </div>
+            <div className="bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
+              <StatCard
+                title="Cash Available"
+                value={cashAvailable}
+                loading={loading}
+              />
             </div>
           </div>
 

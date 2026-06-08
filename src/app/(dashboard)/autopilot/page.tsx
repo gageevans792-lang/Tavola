@@ -318,6 +318,17 @@ function RunRow({ run }: RunRowProps) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+const DEFAULT_SETTINGS: AutopilotSettings = {
+  user_id:        '',
+  enabled:        false,
+  frequency:      'daily',
+  max_trade_size: 5000,
+  last_run_at:    null,
+  next_run_at:    null,
+  created_at:     new Date().toISOString(),
+  updated_at:     new Date().toISOString(),
+};
+
 const FREQUENCY_OPTIONS = [
   { value: 'daily',   label: 'Daily'   },
   { value: 'weekly',  label: 'Weekly'  },
@@ -352,14 +363,16 @@ export default function AutopilotPage() {
   const loadSettings = useCallback(async () => {
     try {
       const res = await fetch('/api/ai/autopilot/status');
-      if (!res.ok) throw new Error('Failed to load settings');
+      if (!res.ok) throw new Error('non-ok');
       const { settings: s } = await res.json() as { settings: AutopilotSettings };
       setSettings(s);
       setLocalFrequency(s.frequency);
       setLocalMaxTrade(s.max_trade_size);
-    } catch (err) {
-      console.error('[autopilot] load settings:', err);
-      setError('Failed to load AutoPilot settings.');
+    } catch {
+      // Table missing or fetch failed — use defaults silently
+      setSettings(DEFAULT_SETTINGS);
+      setLocalFrequency(DEFAULT_SETTINGS.frequency);
+      setLocalMaxTrade(DEFAULT_SETTINGS.max_trade_size);
     } finally {
       setSettingsLoading(false);
     }
