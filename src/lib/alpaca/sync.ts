@@ -61,16 +61,12 @@ export async function syncHoldingsToSupabase(userId: string): Promise<SyncedHold
 
     // ── Delete holdings that are no longer in Alpaca positions ────────────────
     const currentTickers = positions.map((p: AlpacaPosition) => p.symbol);
-    const { error: deleteErr } = await supabase
+    // Non-fatal: stale rows stay but won't break anything
+    await supabase
       .from('holdings')
       .delete()
       .eq('user_id', userId)
       .not('ticker', 'in', `(${currentTickers.map((t) => `"${t}"`).join(',')})`);
-
-    if (deleteErr) {
-      // Non-fatal: stale rows stay but won't break anything
-      console.warn('[sync] stale holdings delete:', deleteErr.message);
-    }
   } else {
     // No open positions — clear all holdings for this user
     await supabase.from('holdings').delete().eq('user_id', userId);

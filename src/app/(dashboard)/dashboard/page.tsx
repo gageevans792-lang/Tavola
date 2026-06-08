@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 
 import { TopBar }                 from '@/components/layout/TopBar';
@@ -56,6 +57,10 @@ function fmtPL(n: number): string {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const searchParams = useSearchParams();
+  const depositSuccess = searchParams.get('deposit') === 'success';
+  const [depositBannerDismissed, setDepositBannerDismissed] = useState(false);
+
   const [mode, setMode]           = useLocalStorage<InvestMode>('tavola:invest-mode', 'review');
   const [firstName, setFirstName] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
@@ -81,14 +86,11 @@ export default function DashboardPage() {
   const refreshPortfolio = useCallback(async () => {
     try {
       const res = await fetch('/api/alpaca/portfolio');
-      if (!res.ok) {
-        console.warn('[dashboard] portfolio fetch:', res.status, res.statusText);
-        return;
-      }
+      if (!res.ok) return;
       const data: PortfolioData = await res.json();
       setPortfolio(data);
-    } catch (err) {
-      console.warn('[dashboard] portfolio fetch error:', err instanceof Error ? err.message : err);
+    } catch {
+      // non-fatal — portfolio will stay null or stale
     } finally {
       setStatsLoading(false);
     }
@@ -195,6 +197,20 @@ export default function DashboardPage() {
         <AnimatePresence>{analyzing && <AnalysisOverlay />}</AnimatePresence>
 
         <div className="mx-auto max-w-7xl space-y-10">
+
+          {/* ── Deposit success banner ──────────────────────────────────────── */}
+          {depositSuccess && !depositBannerDismissed && (
+            <div className="flex items-center justify-between border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+              <span>Deposit successful. Funds will appear in your account shortly.</span>
+              <button
+                onClick={() => setDepositBannerDismissed(true)}
+                className="ml-4 text-green-600 hover:text-green-900 transition-colors text-lg leading-none"
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+          )}
 
           {/* ── Stat cards ─────────────────────────────────────────────────── */}
           <section>

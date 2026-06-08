@@ -103,8 +103,8 @@ export async function GET() {
     let holdings: SyncedHolding[] = [];
     try {
       holdings = await syncHoldingsToSupabase(user.id);
-    } catch (syncErr) {
-      console.warn('[portfolio] sync:', syncErr instanceof Error ? syncErr.message : syncErr);
+    } catch {
+      // non-fatal: holdings will be stale but portfolio data still returns
     }
 
     // ── Portfolio history → chart data (30-day daily) ─────────────────────────
@@ -125,11 +125,7 @@ export async function GET() {
       } else {
         chart = buildFlatChart(equity);
       }
-    } catch (histErr) {
-      console.warn(
-        '[portfolio] getPortfolioHistory failed:',
-        histErr instanceof Error ? histErr.message : histErr,
-      );
+    } catch {
       chart = buildFlatChart(equity);
     }
 

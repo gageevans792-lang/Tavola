@@ -48,10 +48,7 @@ export default function OnboardingPage() {
         .from('risk_profiles')
         .upsert({ user_id: user.id, level: risk }, { onConflict: 'user_id' });
 
-      if (upsertError) {
-        // Non-fatal if table doesn't exist yet — log and continue
-        console.warn('[onboarding] risk profile save:', upsertError.message);
-      }
+      // Non-fatal if table doesn't exist yet — continue
 
       setStep(3);
     } catch (err) {
