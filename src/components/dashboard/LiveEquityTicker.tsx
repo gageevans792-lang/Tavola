@@ -20,8 +20,8 @@ function fmtEquity(n: number): string {
 }
 
 function fmtDayPl(n: number): string {
-  const sign   = n >= 0 ? '+' : '-';
-  const abs    = Math.abs(n);
+  const sign    = n >= 0 ? '+' : '-';
+  const abs     = Math.abs(n);
   const dollars = '$' + abs.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -33,47 +33,6 @@ function fmtPct(n: number): string {
   return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 }
 
-// ── Count-up animation ────────────────────────────────────────────────────────
-
-function useCountUp(target: number, duration = 600): number {
-  const [display, setDisplay] = useState(target);
-  const prevRef               = useRef(target);
-  const rafRef                = useRef<number | null>(null);
-
-  useEffect(() => {
-    const from  = prevRef.current;
-    const start = performance.now();
-
-    if (Math.abs(target - from) < 0.01) {
-      prevRef.current = target;
-      setDisplay(target);
-      return;
-    }
-
-    function tick(now: number) {
-      const elapsed  = now - start;
-      const progress = Math.min(elapsed / duration, 1);
-      // ease-out cubic
-      const eased    = 1 - Math.pow(1 - progress, 3);
-      setDisplay(from + (target - from) * eased);
-
-      if (progress < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        prevRef.current = target;
-        setDisplay(target);
-      }
-    }
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
-  }, [target, duration]);
-
-  return display;
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function LiveEquityTicker({
@@ -81,9 +40,6 @@ export function LiveEquityTicker({
   dayPl    = 0,
   dayPlPct = 0,
 }: LiveEquityTickerProps) {
-  // Animate transitions between equity values
-  const displayEquity = useCountUp(equity);
-
   // Track last update time: whenever equity prop changes to a real value
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const prevEquityRef = useRef(equity);
@@ -142,7 +98,7 @@ export function LiveEquityTicker({
             transition: 'color 0.3s',
           }}
         >
-          {fmtEquity(displayEquity)}
+          {equity > 0 ? fmtEquity(equity) : <span style={{ opacity: 0.3 }}>—</span>}
         </p>
 
         {/* Day P&L */}
