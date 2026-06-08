@@ -119,7 +119,7 @@ export async function POST() {
   const holdings = holdingsRes.status === 'fulfilled' ? (holdingsRes.value.data ?? []) : [];
   const holdingsSummary = holdings.length > 0
     ? holdings.map((h) => {
-        const pct = (parseFloat(h.unrealized_plpc) * 100).toFixed(1);
+        const pct = parseFloat(h.unrealized_plpc).toFixed(1);
         return `${h.ticker} ($${Math.round(parseFloat(h.market_value)).toLocaleString()}, ${pct}%)`;
       }).join(', ')
     : 'No positions';

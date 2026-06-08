@@ -56,7 +56,7 @@ export async function syncHoldingsToSupabase(
         current_price:   parseFloat(p.current_price),
         market_value:    marketValue,
         unrealized_pl:   parseFloat(p.unrealized_pl),
-        unrealized_plpc: parseFloat(p.unrealized_plpc),
+        unrealized_plpc: parseFloat(p.unrealized_plpc) * 100,
         weight_pct:      portfolioValue > 0 ? (marketValue / portfolioValue) * 100 : 0,
         updated_at:      new Date().toISOString(),
       };

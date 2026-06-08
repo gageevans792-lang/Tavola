@@ -12,9 +12,8 @@ function fmtPL(n: number): string {
 }
 
 function fmtPct(n: number): string {
-  // unrealized_plpc from Alpaca is a decimal (e.g. 0.053 = 5.3%)
-  const pct = n * 100;
-  return (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+  // unrealized_plpc is stored as a percentage (e.g. 5.3 = 5.3%)
+  return (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 }
 
 interface HoldingsTableProps {

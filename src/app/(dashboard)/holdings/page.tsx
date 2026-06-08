@@ -5,14 +5,13 @@ import { TopBar } from '@/components/layout/TopBar';
 import { HoldingsTable } from '@/components/dashboard/HoldingsTable';
 import { createClient } from '@/lib/supabase/client';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
-import type { PortfolioData } from '@/app/api/alpaca/portfolio/route';
 
 interface WatchlistItem {
   id: string;
   ticker: string;
 }
 
-async function fetchFromSupabase(userId: string): Promise<SyncedHolding[]> {
+async function fetchHoldingsFromSupabase(userId: string): Promise<SyncedHolding[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from('holdings')
@@ -23,61 +22,60 @@ async function fetchFromSupabase(userId: string): Promise<SyncedHolding[]> {
 }
 
 export default function HoldingsPage() {
-  const [holdings, setHoldings]         = useState<SyncedHolding[]>([]);
-  const [syncing, setSyncing]           = useState(true);
-  const [syncWarning, setSyncWarning]   = useState<string | null>(null);
-  const [watchlist, setWatchlist]       = useState<WatchlistItem[]>([]);
+  const [holdings, setHoldings]               = useState<SyncedHolding[]>([]);
+  const [syncing, setSyncing]                 = useState(true);
+  const [syncWarning, setSyncWarning]         = useState<string | null>(null);
+  const [lastSynced, setLastSynced]           = useState<string | null>(null);
+  const [watchlist, setWatchlist]             = useState<WatchlistItem[]>([]);
   const [loadingWatchlist, setLoadingWatchlist] = useState(true);
-  const [tickerInput, setTickerInput]   = useState('');
-  const [adding, setAdding]             = useState(false);
-  const [error, setError]               = useState<string | null>(null);
+  const [tickerInput, setTickerInput]         = useState('');
+  const [adding, setAdding]                   = useState(false);
+  const [error, setError]                     = useState<string | null>(null);
 
-  // ── Sync via /api/alpaca/portfolio then fall back to cached Supabase data ──
+  // ── Sync via /api/alpaca/sync, then read holdings from Supabase ───────────
   const syncAndLoad = useCallback(async () => {
     setSyncing(true);
     setSyncWarning(null);
 
-    const controller = new AbortController();
-    const timeoutId  = setTimeout(() => controller.abort(), 15_000);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSyncing(false); return; }
 
+    // Step 1: trigger sync
     try {
-      const res = await fetch('/api/alpaca/portfolio', { signal: controller.signal });
+      const controller = new AbortController();
+      const timeoutId  = setTimeout(() => controller.abort(), 20_000);
+      const res = await fetch('/api/alpaca/sync', { signal: controller.signal });
       clearTimeout(timeoutId);
 
       if (res.ok) {
-        const data: PortfolioData = await res.json();
-        setHoldings(data.holdings);
-        return;
+        const { count } = await res.json();
+        console.log('[holdings] sync OK — positions:', count);
+        setLastSynced(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }));
+      } else {
+        console.warn('[holdings] sync returned', res.status);
+        setSyncWarning('Unable to sync with Alpaca. Showing cached data.');
       }
-      console.warn('[holdings] portfolio API returned', res.status);
     } catch (err) {
-      clearTimeout(timeoutId);
       const isTimeout = err instanceof Error && err.name === 'AbortError';
-      console.warn('[holdings] portfolio sync failed:', isTimeout ? 'timeout' : err);
+      console.warn('[holdings] sync failed:', isTimeout ? 'timeout' : err);
       setSyncWarning('Unable to sync positions. Showing cached data.');
     }
 
-    // Fallback: read directly from Supabase
+    // Step 2: read fresh holdings from Supabase
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const cached = await fetchFromSupabase(user.id);
-        setHoldings(cached);
-      }
+      const fresh = await fetchHoldingsFromSupabase(user.id);
+      setHoldings(fresh);
     } catch (err) {
-      console.error('[holdings] fallback Supabase fetch failed:', err);
-    } finally {
-      setSyncing(false);
+      console.error('[holdings] Supabase read failed:', err);
     }
+
     setSyncing(false);
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    syncAndLoad().finally(() => { if (!cancelled) setSyncing(false); });
+    syncAndLoad();
     loadWatchlist();
-    return () => { cancelled = true; };
   }, [syncAndLoad]);
 
   async function loadWatchlist() {
@@ -154,15 +152,19 @@ export default function HoldingsPage() {
                     Syncing positions...
                   </p>
                 )}
+                {!syncing && lastSynced && (
+                  <p className="text-[11px] text-[#4A5568]/60 mt-0.5">
+                    Synced at {lastSynced}
+                  </p>
+                )}
               </div>
-              {!syncing && (
-                <button
-                  onClick={syncAndLoad}
-                  className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors"
-                >
-                  Refresh
-                </button>
-              )}
+              <button
+                onClick={syncAndLoad}
+                disabled={syncing}
+                className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors disabled:opacity-40"
+              >
+                {syncing ? 'Syncing...' : 'Sync Positions'}
+              </button>
             </div>
 
             {syncWarning && (

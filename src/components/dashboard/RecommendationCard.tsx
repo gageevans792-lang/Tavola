@@ -53,6 +53,10 @@ export function RecommendationCard({ rec, variant, onExecute, onExecuted, execut
       await onExecute(rec as TradeRecommendation);
       setSelfExecuted(true);
       onExecuted?.(rec as TradeRecommendation);
+      // Sync positions after trade so holdings table reflects new position
+      setTimeout(() => {
+        fetch('/api/alpaca/sync').catch(() => {});
+      }, 2_000);
     } catch {
       // error is handled upstream (dashboard page sets error state)
     }

@@ -152,6 +152,11 @@ export default function IntelligencePage() {
     setError(false);
 
     try {
+      // Ensure holdings are fresh before running analysis
+      await fetch('/api/alpaca/sync').catch(() => {
+        console.warn('[intelligence] sync failed — continuing with cached holdings');
+      });
+
       const res = await fetch('/api/portfolio/intelligence', { method: 'POST' });
       if (!res.ok) throw new Error(`${res.status}`);
       setData(await res.json());

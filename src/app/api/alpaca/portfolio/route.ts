@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import {
   getAccount,
   getPositions,
   getPortfolioHistory,
 } from '@/lib/alpaca/client';
-import { syncHoldingsToSupabase } from '@/lib/alpaca/sync';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
 import type { AlpacaPosition } from '@/types';
 
@@ -16,7 +16,7 @@ const ALLOC_COLORS = [
   '#6B7280', '#94A3B8', '#CBD5E1',
 ];
 
-// ── Shared types (imported by dashboard + holdings pages) ──────────────────────
+// ── Shared types (imported by dashboard + holdings pages) ─────────────────────
 
 export interface PortfolioData {
   equity:             number;
@@ -32,11 +32,11 @@ export interface PortfolioData {
   chart:              Array<{ date: string; value: number }>;
   allocation:         Array<{ name: string; value: number; color: string }>;
   holdings:           SyncedHolding[];
+  positions_synced:   number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Race a promise against a deadline; throws with a descriptive message on timeout
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
     promise,
@@ -84,11 +84,17 @@ function buildFlatChart(equity: number): PortfolioData['chart'] {
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function GET() {
+  // ── Auth ────────────────────────────────────────────────────────────────────
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // ── Step 1: Fetch Alpaca account (required — bail if this fails) ─────────────
+  const supabaseAdmin = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  // ── Step 1: Fetch Alpaca account (required) ──────────────────────────────────
   console.log('[portfolio] Fetching Alpaca account...');
   let account: Awaited<ReturnType<typeof getAccount>>;
   try {
@@ -112,7 +118,7 @@ export async function GET() {
   const totalReturn    = equity - PAPER_BASELINE;
   const totalReturnPct = (totalReturn / PAPER_BASELINE) * 100;
 
-  // ── Step 2: Fetch positions (non-fatal — degrade gracefully) ─────────────────
+  // ── Step 2: Fetch positions ──────────────────────────────────────────────────
   console.log('[portfolio] Fetching positions...');
   let positions: AlpacaPosition[] = [];
   try {
@@ -122,19 +128,76 @@ export async function GET() {
     console.warn('[portfolio] getPositions failed (continuing):', err instanceof Error ? err.message : err);
   }
 
-  // ── Step 3: Sync to Supabase (non-fatal) ─────────────────────────────────────
+  // ── Step 3: Upsert positions to Supabase via service role ────────────────────
+  console.log('[portfolio] Syncing', positions.length, 'positions to Supabase for user', user.id);
   let holdings: SyncedHolding[] = [];
+
   try {
-    holdings = await withTimeout(
-      syncHoldingsToSupabase(user.id, positions, portValue),
-      10_000,
-      'syncHoldings',
-    );
+    if (positions.length > 0) {
+      for (const pos of positions) {
+        const mv = parseFloat(pos.market_value);
+        const row = {
+          user_id:         user.id,
+          ticker:          pos.symbol,
+          name:            pos.symbol,
+          qty:             parseFloat(pos.qty),
+          avg_entry_price: parseFloat(pos.avg_entry_price),
+          current_price:   parseFloat(pos.current_price || pos.avg_entry_price),
+          market_value:    mv,
+          unrealized_pl:   parseFloat(pos.unrealized_pl || '0'),
+          unrealized_plpc: parseFloat(pos.unrealized_plpc || '0') * 100,
+          weight_pct:      portValue > 0 ? (mv / portValue) * 100 : 0,
+          updated_at:      new Date().toISOString(),
+        };
+        console.log('[portfolio] upserting', pos.symbol, 'qty=', row.qty, 'market_value=', row.market_value);
+
+        const { error: upsertErr } = await supabaseAdmin
+          .from('holdings')
+          .upsert(row, { onConflict: 'user_id,ticker' });
+
+        if (upsertErr) {
+          console.error('[portfolio] upsert failed for', pos.symbol, ':', upsertErr.message);
+        } else {
+          console.log('[portfolio] upserted', pos.symbol, 'OK');
+        }
+      }
+
+      // Delete holdings no longer in Alpaca positions
+      const currentTickers = positions.map((p) => p.symbol);
+      const { error: deleteErr } = await supabaseAdmin
+        .from('holdings')
+        .delete()
+        .eq('user_id', user.id)
+        .not('ticker', 'in', `(${currentTickers.map((t) => `"${t}"`).join(',')})`);
+
+      if (deleteErr) {
+        console.warn('[portfolio] stale delete failed (non-fatal):', deleteErr.message);
+      } else {
+        console.log('[portfolio] stale holdings deleted');
+      }
+    } else {
+      console.log('[portfolio] No positions — wiping holdings for user', user.id);
+      await supabaseAdmin.from('holdings').delete().eq('user_id', user.id);
+    }
+
+    // Fetch the now-fresh holdings from Supabase
+    const { data: freshData, error: fetchErr } = await supabaseAdmin
+      .from('holdings')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('market_value', { ascending: false });
+
+    if (fetchErr) {
+      console.error('[portfolio] holdings fetch failed:', fetchErr.message);
+    } else {
+      holdings = (freshData ?? []) as SyncedHolding[];
+      console.log('[portfolio] fresh holdings loaded:', holdings.length);
+    }
   } catch (err) {
-    console.warn('[portfolio] sync failed (continuing):', err instanceof Error ? err.message : err);
+    console.error('[portfolio] sync block threw:', err instanceof Error ? err.message : err);
   }
 
-  // ── Step 4: Portfolio history → chart (non-fatal) ─────────────────────────────
+  // ── Step 4: Portfolio history → chart (non-fatal) ────────────────────────────
   let chart: PortfolioData['chart'];
   try {
     const history = await withTimeout(
@@ -146,14 +209,12 @@ export async function GET() {
     const equities   = history.equity    ?? [];
     const firstNonZero = equities.find((v) => v > 0) ?? equity;
 
-    if (timestamps.length > 0) {
-      chart = timestamps.map((ts, i) => ({
-        date:  new Date(ts * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: equities[i] > 0 ? equities[i] : firstNonZero,
-      }));
-    } else {
-      chart = buildFlatChart(equity);
-    }
+    chart = timestamps.length > 0
+      ? timestamps.map((ts, i) => ({
+          date:  new Date(ts * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          value: equities[i] > 0 ? equities[i] : firstNonZero,
+        }))
+      : buildFlatChart(equity);
   } catch (err) {
     console.warn('[portfolio] getPortfolioHistory failed (using flat chart):', err instanceof Error ? err.message : err);
     chart = buildFlatChart(equity);
@@ -175,5 +236,6 @@ export async function GET() {
     chart,
     allocation,
     holdings,
+    positions_synced:   positions.length,
   } satisfies PortfolioData);
 }
