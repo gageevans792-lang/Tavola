@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { MobileMenuButton } from '@/components/layout/MobileNav';
@@ -14,6 +15,28 @@ interface TopBarProps {
   onModeChange?: (mode: InvestMode) => void;
 }
 
+function MarketStatus() {
+  const [isOpen, setIsOpen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/market/clock')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d != null) setIsOpen(Boolean(d.is_open)); })
+      .catch(() => {});
+  }, []);
+
+  if (isOpen === null) return null;
+
+  return (
+    <div className="hidden lg:flex items-center gap-1.5 ml-4 shrink-0">
+      <span className={`h-1.5 w-1.5 rounded-full ${isOpen ? 'bg-[#166534]' : 'bg-[#9CA3AF]'}`} />
+      <span className="text-[11px] text-[#4A5568] tracking-[0.06em]">
+        NYSE {isOpen ? 'Open' : 'Closed'}
+      </span>
+    </div>
+  );
+}
+
 export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: TopBarProps) {
   const hasAnalysis = !!onRunAnalysis;
 
@@ -21,14 +44,9 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-[#E2E8F0] bg-white px-4 sm:px-6">
       <h1 className="font-serif text-base sm:text-lg font-light text-[#0A1628] truncate min-w-0">{title}</h1>
 
-      {/* Market status pill — desktop only */}
-      <div className="hidden lg:flex items-center gap-1.5 ml-4 shrink-0">
-        <span className="h-1.5 w-1.5 rounded-full bg-[#166534]" />
-        <span className="text-[11px] text-[#4A5568] tracking-[0.06em]">NYSE Open</span>
-      </div>
+      <MarketStatus />
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
-{/* Mode toggle — hidden on mobile */}
         {hasAnalysis && mode && onModeChange && (
           <div className="hidden sm:flex items-center border border-[#E2E8F0]">
             {(['review', 'auto'] as InvestMode[]).map((m) => (
