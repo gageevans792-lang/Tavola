@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { CommandPaletteMount } from '@/components/layout/CommandPaletteMount';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -22,6 +23,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
       {/* Bottom nav: mobile only */}
       <BottomNav />
+      {/* Command palette — global, client-side */}
+      <CommandPaletteMount />
     </div>
   );
 }
