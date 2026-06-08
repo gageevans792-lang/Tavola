@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { TopBar } from '@/components/layout/TopBar';
 import { cn } from '@/lib/utils';
 import type { NewsItem, NewsCategory } from '@/app/api/market/news/route';
+
+type NewsSourceFilter = 'reuters' | 'wsj';
+type NewsFilter = 'all' | NewsCategory | NewsSourceFilter;
 import type { SignalsResponse, MarketEvent } from '@/app/api/market/brief/route';
 import type { SnapshotTile, SnapshotResponse } from '@/app/api/market/snapshot/route';
 
@@ -81,13 +84,13 @@ const IMPACT_LABEL: Record<string, string> = {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-type NewsFilter = 'all' | NewsCategory;
-
 const NEWS_FILTERS: { key: NewsFilter; label: string }[] = [
   { key: 'all',          label: 'ALL'          },
   { key: 'positions',    label: 'POSITIONS'    },
   { key: 'macro',        label: 'MACRO'        },
   { key: 'geopolitical', label: 'GEOPOLITICAL' },
+  { key: 'reuters',      label: 'REUTERS'      },
+  { key: 'wsj',          label: 'WSJ'          },
 ];
 
 const SIGNAL_CARDS: Array<{
@@ -167,9 +170,12 @@ export default function MarketsPage() {
 
   // ── Derived data ──────────────────────────────────────────────────────────────
 
-  const filteredNews = newsFilter === 'all'
-    ? news
-    : news.filter((item) => item.categories.includes(newsFilter as NewsCategory));
+  const filteredNews = (() => {
+    if (newsFilter === 'all')     return news;
+    if (newsFilter === 'reuters') return news.filter((item) => item.source.startsWith('REUTERS'));
+    if (newsFilter === 'wsj')     return news.filter((item) => item.source.startsWith('WSJ'));
+    return news.filter((item) => item.categories.includes(newsFilter as NewsCategory));
+  })();
 
   const visibleNews    = filteredNews.slice(0, visibleCount);
   const hasMoreNews    = filteredNews.length > visibleCount;

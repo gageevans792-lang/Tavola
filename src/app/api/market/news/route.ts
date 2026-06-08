@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getMarketNews as getFinnhubNews } from '@/lib/finnhub/client';
+import { fetchAllRssFeeds } from '@/lib/rss/client';
 import type { FinnhubNewsItem } from '@/lib/finnhub/client';
 
 const DATA_BASE = 'https://data.alpaca.markets';
@@ -26,7 +27,7 @@ export interface NewsItem {
   symbols:      string[];
   sentiment:    null;
   categories:   NewsCategory[];
-  data_source:  'alpaca' | 'finnhub';
+  data_source:  'alpaca' | 'finnhub' | 'rss';
 }
 
 // ── Geopolitical keyword detection ────────────────────────────────────────────
@@ -76,7 +77,7 @@ async function fetchAlpacaNews(params: URLSearchParams): Promise<NewsItem[]> {
   }
 }
 
-// ── Finnhub news normalizer ───────────────────────────────────────────────────
+// ── Finnhub normalizer ────────────────────────────────────────────────────────
 
 function normalizeFinnhubNews(items: FinnhubNewsItem[]): NewsItem[] {
   return items.map((item) => ({
@@ -92,6 +93,23 @@ function normalizeFinnhubNews(items: FinnhubNewsItem[]): NewsItem[] {
     sentiment:    null,
     categories:   [] as NewsCategory[],
     data_source:  'finnhub' as const,
+  }));
+}
+
+// ── RSS normalizer ────────────────────────────────────────────────────────────
+
+function normalizeRssNews(items: Awaited<ReturnType<typeof fetchAllRssFeeds>>): NewsItem[] {
+  return items.map((item) => ({
+    id:           item.id,
+    headline:     item.title,
+    summary:      item.summary,
+    source:       item.source,
+    url:          item.url,
+    published_at: item.published_at,
+    symbols:      [],
+    sentiment:    null,
+    categories:   [] as NewsCategory[],
+    data_source:  'rss' as const,
   }));
 }
 
@@ -111,27 +129,31 @@ export async function GET() {
   const watchlistTickers = new Set((watchlistRes.data ?? []).map((w) => w.ticker as string));
   const allTickers       = new Set([...holdingTickers, ...watchlistTickers]);
 
-  const [alpacaTargetedResult, alpacaGeneralResult, finnhubResult] = await Promise.allSettled([
-    allTickers.size > 0
-      ? fetchAlpacaNews(new URLSearchParams({ limit: '20', sort: 'desc', symbols: [...allTickers].join(',') }))
-      : Promise.resolve([] as NewsItem[]),
-    fetchAlpacaNews(new URLSearchParams({ limit: '15', sort: 'desc' })),
-    getFinnhubNews('general').then(normalizeFinnhubNews),
-  ]);
+  const [alpacaTargetedResult, alpacaGeneralResult, finnhubResult, rssResult] =
+    await Promise.allSettled([
+      allTickers.size > 0
+        ? fetchAlpacaNews(new URLSearchParams({ limit: '20', sort: 'desc', symbols: [...allTickers].join(',') }))
+        : Promise.resolve([] as NewsItem[]),
+      fetchAlpacaNews(new URLSearchParams({ limit: '15', sort: 'desc' })),
+      getFinnhubNews('general').then(normalizeFinnhubNews),
+      fetchAllRssFeeds().then(normalizeRssNews),
+    ]);
 
   const batches: NewsItem[][] = [
     alpacaTargetedResult.status === 'fulfilled' ? alpacaTargetedResult.value : [],
     alpacaGeneralResult.status  === 'fulfilled' ? alpacaGeneralResult.value  : [],
     finnhubResult.status        === 'fulfilled' ? finnhubResult.value        : [],
+    rssResult.status            === 'fulfilled' ? rssResult.value            : [],
   ];
 
-  // Dedup: by id within source, then by 50-char headline prefix across sources
+  // Dedup: by id first, then by 50-char lowercased headline prefix across sources
   const seenIds      = new Set<string>();
   const seenPrefixes = new Set<string>();
   const all: NewsItem[] = [];
 
   for (const batch of batches) {
     for (const item of batch) {
+      if (!item.headline) continue;
       if (seenIds.has(item.id)) continue;
       const prefix = item.headline.toLowerCase().slice(0, 50);
       if (seenPrefixes.has(prefix)) continue;
@@ -153,5 +175,5 @@ export async function GET() {
     item.categories = cats;
   }
 
-  return NextResponse.json(all.slice(0, 30));
+  return NextResponse.json(all.slice(0, 40));
 }
