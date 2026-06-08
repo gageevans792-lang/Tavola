@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Article, NewsResponse } from '@/app/api/market/news/route';
+import type { Article } from '@/app/api/market/news/route';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -64,7 +64,7 @@ function ArticleRow({ article, holdingSymbols }: ArticleRowProps) {
           )}
           <span className="text-[10px] text-[#4A5568] font-medium">{article.source}</span>
         </div>
-        <span className="shrink-0 text-[10px] text-[#4A5568]/70">{fmtDate(article.created_at)}</span>
+        <span className="shrink-0 text-[10px] text-[#4A5568]/70">{fmtDate(article.published_at)}</span>
       </div>
 
       {safeUrl(article.url) ? (
@@ -142,8 +142,8 @@ export function NewsPanel() {
     try {
       const res = await fetch('/api/market/news');
       if (!res.ok) throw new Error('fetch failed');
-      const data: NewsResponse = await res.json();
-      setArticles(data.articles);
+      const data: Article[] = await res.json();
+      setArticles(data);
       setError(false);
     } catch {
       setError(true);

@@ -97,6 +97,7 @@ export async function GET() {
   // ── Step 1: Fetch Alpaca account (required) ──────────────────────────────────
   console.log('[portfolio] Fetching Alpaca account...');
   let account: Awaited<ReturnType<typeof getAccount>>;
+  try {
     account = await withTimeout(getAccount(), 10_000, 'getAccount');
     console.log('[portfolio] Account fetched: equity =', account.equity);
   } catch (err) {
