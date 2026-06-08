@@ -43,7 +43,7 @@ export function MobileMenuButton() {
     <button
       type="button"
       onClick={() => window.dispatchEvent(new CustomEvent('tavola:open-mobile-menu'))}
-      className="sm:hidden flex items-center justify-center h-8 w-8 border border-[#E2E8F0] text-[#0A1628] hover:border-[#0A1628] transition-colors"
+      className="flex items-center justify-center h-8 w-8 border border-[#E2E8F0] text-[#0A1628] hover:border-[#0A1628] transition-colors"
       aria-label="Open navigation"
     >
       <LayoutGrid className="h-3.5 w-3.5" />
@@ -94,7 +94,7 @@ export function MobileNav() {
       {/* Overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-50 sm:hidden"
+          className="fixed inset-0 z-50"
           aria-modal="true"
           role="dialog"
         >
