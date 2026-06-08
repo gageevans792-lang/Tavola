@@ -63,7 +63,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
-        'relative inline-flex h-5 w-9 items-center transition-colors shrink-0',
+        'relative inline-flex h-5 w-9 items-center transition-colors shrink-0 border border-[#E2E8F0]',
         checked ? 'bg-[#0A1628]' : 'bg-[#E2E8F0]',
       )}
     >
@@ -308,7 +308,7 @@ export default function SettingsPage() {
                           type="email"
                           value={email}
                           disabled
-                          className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628]/40 outline-none bg-transparent cursor-not-allowed"
+                          className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628]/40 outline-none bg-transparent cursor-not-allowed opacity-60"
                         />
                       </div>
                       <div className="flex items-center gap-4 pt-2">

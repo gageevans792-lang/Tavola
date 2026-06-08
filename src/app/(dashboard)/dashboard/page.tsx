@@ -214,7 +214,7 @@ export default function DashboardPage() {
             </p>
             <p
               className="font-serif font-light leading-none"
-              style={{ fontSize: 52, color: '#FFFFFF' }}
+              style={{ fontSize: 'clamp(32px, 8vw, 52px)', color: '#FFFFFF' }}
             >
               {p
                 ? '$' + p.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

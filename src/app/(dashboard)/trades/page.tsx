@@ -98,6 +98,7 @@ export default function TradesPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [offset,    setOffset]    = useState(0);
   const [filter,    setFilter]    = useState<FilterTab>('all');
+  const [error,     setError]     = useState<string | null>(null);
 
   const PAGE_SIZE = 50;
 
@@ -114,6 +115,7 @@ export default function TradesPage() {
       setOffset(off + fetched.length);
     } catch (err) {
       console.error('[trades page] fetch error:', err);
+      setError('Failed to load trades. Please try again.');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -194,6 +196,13 @@ export default function TradesPage() {
               </button>
             ))}
           </div>
+
+          {/* Error banner */}
+          {error && (
+            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#991b1b]">
+              {error}
+            </div>
+          )}
 
           {/* Trades table */}
           <div className="border border-[#E2E8F0] bg-white overflow-x-auto">

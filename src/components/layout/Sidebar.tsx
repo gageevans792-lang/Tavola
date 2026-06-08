@@ -19,7 +19,7 @@ const navItems: NavItem[] = [
   { href: '/intelligence', label: 'Intelligence' },
   { href: '/markets',      label: 'Markets'      },
   { divider: true },
-  { href: '/holdings',     label: 'Holdings'     },
+  { href: '/holdings',     label: 'Portfolio'    },
   { href: '/trades',       label: 'Trade History' },
   { href: '/bank',         label: 'Banking'      },
   { divider: true },
