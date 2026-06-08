@@ -5,6 +5,7 @@ import { getAccount, getPositions, getTickerPrices, placeMarketOrder } from '@/l
 import type { TickerPrice } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
+import { getMacroContext, buildMacroPromptSection } from '@/lib/macro/client';
 import type { AlpacaPosition, AutoInvestConfig, TradeRecommendation } from '@/types';
 import type { AutopilotDecision, AutopilotRun } from '../history/route';
 
@@ -154,9 +155,10 @@ export async function POST() {
     // (localStorage state is the source of truth for enabled)
 
     // ── 2. Fetch Alpaca account + positions ────────────────────────────────────
-    const [account, positions] = await Promise.all([
+    const [account, positions, macroCtx] = await Promise.all([
       getAccount(),
       getPositions(),
+      getMacroContext().catch(() => null),
     ]);
 
     const equity      = parseFloat(account.equity);
@@ -203,10 +205,13 @@ export async function POST() {
       equity, buyingPower, cash, positions, prices, watchlistTickers,
     );
 
+    const macroSection = macroCtx ? buildMacroPromptSection(macroCtx) : '';
+
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,
-      system: `You are an automated portfolio manager building a diversified long-term portfolio using ETFs and index funds.
+      system: `${macroSection}
+You are an automated portfolio manager building a diversified long-term portfolio using ETFs and index funds.
 
 Strategy: Core-satellite. Build a diversified core (VTI, VOO, BND, VEA, VWO) and add satellite positions in sector ETFs (VGT, SCHD, QQQ, IWM) and alternatives (GLD) based on market conditions.
 
@@ -222,7 +227,13 @@ Rules:
 • If buying power is available, ALWAYS find at least one buy to deploy capital efficiently
 • Do not recommend cumulative buys exceeding available buying power
 • Provide 2–3 sentence reasoning per recommendation referencing the portfolio data
-• You MUST call submit_portfolio_analysis — do not reply in plain text.`,
+• You MUST call submit_portfolio_analysis — do not reply in plain text.
+
+Macro-Aware Rules (apply based on current data):
+• If VIX > 30: reduce all recommended position sizes by 50%, increase cash allocation recommendation
+• If Fed is hawkish (recent communications): underweight growth/tech, overweight value/dividends (SCHD, VYM, BND)
+• If major high-impact event < 3 days away: recommend holding cash until clarity — note the event
+• If insider buying detected in any held ticker: increase position weight`,
       tools:       [ANALYSIS_TOOL],
       tool_choice: { type: 'tool', name: 'submit_portfolio_analysis' },
       messages: [

@@ -17,6 +17,7 @@ import { Toast }                  from '@/components/ui/Toast';
 import type { ToastData }         from '@/components/ui/Toast';
 import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
 import type { ChartApiResponse }  from '@/app/api/portfolio/chart/route';
+import type { PredictiveSignal }  from '@/app/api/ai/predict/route';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient }    from '@/lib/supabase/client';
@@ -66,6 +67,8 @@ export default function DashboardPage() {
   const [chartData, setChartData] = useState<ChartApiResponse | null>(null);
   const [chartLoading, setChartLoading] = useState(true);
   const [marketOpen, setMarketOpen] = useState<boolean | null>(null);
+  const [signals, setSignals] = useState<PredictiveSignal[]>([]);
+  const [signalsLoading, setSignalsLoading] = useState(true);
 
   // ── Load user name ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -112,6 +115,15 @@ export default function DashboardPage() {
       .then((d: ChartApiResponse | null) => setChartData(d))
       .catch(() => null)
       .finally(() => setChartLoading(false));
+  }, []);
+
+  // ── Fetch predictive signals ───────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/ai/predict')
+      .then(r => r.ok ? r.json() : { signals: [] })
+      .then((d: { signals: PredictiveSignal[] }) => setSignals(d.signals ?? []))
+      .catch(() => {})
+      .finally(() => setSignalsLoading(false));
   }, []);
 
   // ── Fetch market clock ─────────────────────────────────────────────────────
@@ -377,6 +389,82 @@ export default function DashboardPage() {
           {/* ── AI feed ─────────────────────────────────────────────────────── */}
           <section>
             <AIFeed insights={MOCK_INSIGHTS} />
+          </section>
+
+          {/* ── Upcoming Catalysts ──────────────────────────────────────────── */}
+          <section>
+            <div className="bg-white border border-[#E2E8F0]">
+              <div className="px-6 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] tracking-[0.2em] uppercase text-[#B8960C]">AI Predictive Engine</p>
+                  <h3 className="font-serif text-lg font-light text-[#0A1628] mt-0.5">Upcoming Catalysts</h3>
+                </div>
+              </div>
+
+              {signalsLoading ? (
+                <div className="px-6 py-8 space-y-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-16 animate-pulse bg-[#F8F9FA]" />
+                  ))}
+                </div>
+              ) : signals.length === 0 ? (
+                <div className="px-6 py-8 text-center">
+                  <p className="text-sm text-[#4A5568]">No high-impact events in the next 14 days.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E2E8F0]">
+                  {signals.slice(0, 3).map((signal, i) => {
+                    const actionColors: Record<string, string> = {
+                      increase: '#166534',
+                      reduce:   '#991b1b',
+                      hedge:    '#B8960C',
+                      hold:     '#4A5568',
+                    };
+                    const actionColor = actionColors[signal.recommended_action] ?? '#4A5568';
+                    return (
+                      <div key={i} className="px-6 py-5">
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-medium text-[#0A1628] truncate">{signal.event}</p>
+                            <p className="text-[11px] text-[#4A5568] mt-0.5">
+                              {signal.date} · {signal.days_until === 0 ? 'Today' : `in ${signal.days_until}d`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span
+                              className="text-[9px] tracking-[0.15em] uppercase font-medium px-2 py-1 border"
+                              style={{ color: actionColor, borderColor: actionColor }}
+                            >
+                              {signal.recommended_action}
+                            </span>
+                            <span className="font-mono text-[11px] text-[#4A5568] tabular-nums">
+                              {signal.confidence}%
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Affected tickers */}
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {signal.affected_tickers.slice(0, 4).map(ticker => (
+                            <span key={ticker} className="font-mono text-[10px] bg-[#F8F9FA] border border-[#E2E8F0] px-2 py-0.5 text-[#0A1628]">
+                              {ticker}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Confidence bar */}
+                        <div className="h-0.5 bg-[#F8F9FA] mt-3">
+                          <div
+                            className="h-full transition-all"
+                            style={{ width: `${signal.confidence}%`, background: actionColor }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </section>
 
           {/* ── Market intelligence (tabbed) ────────────────────────────────── */}
