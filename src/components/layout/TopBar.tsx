@@ -2,6 +2,7 @@
 
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { MobileMenuButton } from '@/components/layout/MobileNav';
 import { cn } from '@/lib/utils';
 import type { InvestMode } from '@/types';
 
@@ -72,9 +73,11 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
           </Button>
         )}
 
-        <Button variant="ghost" size="sm" aria-label="Notifications">
+        <Button variant="ghost" size="sm" aria-label="Notifications" className="hidden sm:flex">
           <Bell className="h-4 w-4" />
         </Button>
+
+        <MobileMenuButton />
       </div>
     </header>
   );

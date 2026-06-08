@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { BottomNav } from '@/components/layout/BottomNav';
+import { MobileNav } from '@/components/layout/MobileNav';
 import { CommandPaletteMount } from '@/components/layout/CommandPaletteMount';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -18,11 +18,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <div className="hidden sm:block">
         <Sidebar />
       </div>
-      <div className="flex flex-1 flex-col overflow-hidden pb-14 sm:pb-0">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {children}
       </div>
-      {/* Bottom nav: mobile only */}
-      <BottomNav />
+      {/* Mobile nav drawer — triggered from TopBar menu button */}
+      <MobileNav />
       {/* Command palette — global, client-side */}
       <CommandPaletteMount />
     </div>

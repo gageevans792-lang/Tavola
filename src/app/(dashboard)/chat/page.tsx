@@ -255,8 +255,8 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Input area — mb-16 sm:mb-0 clears the fixed mobile bottom nav */}
-        <div className="border-t border-[#E2E8F0] bg-white px-4 py-4 mb-16 sm:mb-0">
+        {/* Input area */}
+        <div className="border-t border-[#E2E8F0] bg-white px-4 py-4">
           <div className="max-w-2xl mx-auto flex gap-3 items-end">
             <textarea
               ref={inputRef}
