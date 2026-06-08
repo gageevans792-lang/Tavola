@@ -4,39 +4,39 @@ import { WaitlistForm } from '@/components/landing/WaitlistForm';
 const faqItems = [
   { q: 'Is my money safe?', a: 'Paper trading only during beta. Real accounts coming Q3 2025.' },
   { q: 'How does the AI work?', a: 'Claude AI analyzes market data 24/7 and executes trades automatically.' },
-  { q: 'What returns can I expect?', a: 'Historical backtests show 35–82% annual returns depending on risk profile.' },
+  { q: 'What returns can I expect?', a: 'Target annual returns range from 4–13% depending on your risk profile. Conservative strategies target 4–6%, balanced 6–8%, growth 8–10%, and aggressive 10–13%.' },
   { q: 'Is there a minimum deposit?', a: 'No minimums. Start with any amount.' },
   { q: 'When can I withdraw?', a: 'Anytime. No lock-up periods.' },
 ];
 
 const stats = [
   { value: '$2.4B',   label: 'Assets Under Management' },
-  { value: '94.2%',  label: 'Win Rate' },
-  { value: '82.4%',  label: 'Avg Annual Return' },
+  { value: '4–13%',  label: 'Target Annual Return' },
+  { value: '1.6×',   label: 'Sharpe Ratio' },
   { value: '47,000', label: 'Active Investors' },
 ];
 
 const strategies = [
   {
     name: 'Conservative',
-    range: '6–12%',
+    range: '4–6%',
     description:
       'Capital preservation with consistent income generation. Systematic rebalancing across investment-grade fixed income and dividend equities.',
     allocation: 'Fixed income 60% · Dividend equity 30% · Cash 10%',
   },
   {
     name: 'Growth',
-    range: '30–50%',
+    range: '8–10%',
     description:
-      'Aggressive equity positioning with momentum-driven rotation. Concentrated exposure to high-conviction sector themes identified by our models.',
+      'Diversified equity positioning with factor-based rotation. Broad exposure to large-cap and international equities with disciplined rebalancing.',
     allocation: 'Large cap 50% · Mid cap 30% · Emerging markets 20%',
   },
   {
     name: 'Aggressive',
-    range: '50%+',
+    range: '10–13%',
     description:
-      'Maximum return potential through concentrated positioning and tactical options strategies. Designed for investors with high risk tolerance and long time horizons.',
-    allocation: 'Equity 70% · Options 20% · Alternatives 10%',
+      'Maximum return potential through concentrated equity positioning across high-growth sectors. Designed for investors with high risk tolerance and long time horizons.',
+    allocation: 'Equity 80% · REITs 10% · Alternatives 10%',
   },
 ];
 

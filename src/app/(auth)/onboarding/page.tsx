@@ -55,22 +55,22 @@ const RISK_CONFIG: Record<RiskLevel, {
 }> = {
   conservative: {
     label: 'Conservative', accent: '#22C55E',
-    returnLow: 0.06, returnHigh: 0.08, returnMid: 0.07,
+    returnLow: 0.04, returnHigh: 0.06, returnMid: 0.05,
     tagline: 'Capital preservation with steady, predictable growth.',
   },
   balanced: {
     label: 'Balanced', accent: '#3B82F6',
-    returnLow: 0.10, returnHigh: 0.12, returnMid: 0.11,
+    returnLow: 0.06, returnHigh: 0.08, returnMid: 0.07,
     tagline: 'Moderate growth across diversified asset classes.',
   },
   growth: {
     label: 'Growth', accent: '#B8960C',
-    returnLow: 0.14, returnHigh: 0.18, returnMid: 0.16,
+    returnLow: 0.08, returnHigh: 0.10, returnMid: 0.09,
     tagline: 'Higher return potential with quality growth equities.',
   },
   aggressive: {
     label: 'Aggressive', accent: '#EF4444',
-    returnLow: 0.20, returnHigh: 0.25, returnMid: 0.225,
+    returnLow: 0.10, returnHigh: 0.13, returnMid: 0.115,
     tagline: 'Maximum return potential with full market exposure.',
   },
 };
