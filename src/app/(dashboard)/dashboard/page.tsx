@@ -188,44 +188,47 @@ export default function DashboardPage() {
         onModeChange={setMode}
       />
 
-      <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6">
+      <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-8">
         <AnimatePresence>{analyzing && <AnalysisOverlay />}</AnimatePresence>
 
-        <div className="mx-auto max-w-7xl space-y-6">
+        <div className="mx-auto max-w-7xl space-y-10">
 
           {/* ── Stat cards ─────────────────────────────────────────────────── */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              title="Portfolio Value"
-              value={portfolioValue}
-              change={dayPlChange}
-              changePositive={p ? p.day_pl >= 0 : undefined}
-              loading={loading}
-            />
-            <StatCard
-              title="Day P&L"
-              value={dayPl}
-              change={dayPlPct}
-              changePositive={p ? p.day_pl >= 0 : undefined}
-              loading={loading}
-            />
-            <StatCard
-              title="Total Return"
-              value={totalReturn}
-              change={totalReturnPct}
-              changePositive={p ? p.total_return >= 0 : undefined}
-              loading={loading}
-            />
-            <StatCard
-              title="Cash Available"
-              value={cashAvailable}
-              loading={loading}
-            />
-          </div>
+          <section>
+            <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Portfolio Overview</p>
+            <div className="grid gap-px bg-[#E2E8F0] sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="Portfolio Value"
+                value={portfolioValue}
+                change={dayPlChange}
+                changePositive={p ? p.day_pl >= 0 : undefined}
+                loading={loading}
+              />
+              <StatCard
+                title="Day P&L"
+                value={dayPl}
+                change={dayPlPct}
+                changePositive={p ? p.day_pl >= 0 : undefined}
+                loading={loading}
+              />
+              <StatCard
+                title="Total Return"
+                value={totalReturn}
+                change={totalReturnPct}
+                changePositive={p ? p.total_return >= 0 : undefined}
+                loading={loading}
+              />
+              <StatCard
+                title="Cash Available"
+                value={cashAvailable}
+                loading={loading}
+              />
+            </div>
+          </section>
 
           {/* ── Error banner ────────────────────────────────────────────────── */}
           {error && (
-            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#C41E3A]">
+            <div className="border border-[#C41E3A]/20 bg-[#C41E3A]/5 px-4 py-3 text-sm text-[#C41E3A]">
               {error}
             </div>
           )}
@@ -233,30 +236,36 @@ export default function DashboardPage() {
           {/* ── AI recommendations ──────────────────────────────────────────── */}
           <AnimatePresence>
             {result && !analyzing && (
-              <RecommendationsSection
-                result={result}
-                onDismiss={() => setResult(null)}
-                onExecuteOne={executeOne}
-                onExecuted={handleExecuted}
-                executingSymbol={executingSymbol}
-              />
+              <section>
+                <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">AI Recommendations</p>
+                <RecommendationsSection
+                  result={result}
+                  onDismiss={() => setResult(null)}
+                  onExecuteOne={executeOne}
+                  onExecuted={handleExecuted}
+                  executingSymbol={executingSymbol}
+                />
+              </section>
             )}
           </AnimatePresence>
 
           {/* ── Charts ──────────────────────────────────────────────────────── */}
           {chartData.length > 0 ? (
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div className="lg:col-span-2">
-                <PortfolioChart data={chartData} />
-              </div>
-              {allocData.length > 0 ? (
-                <AllocationChart data={allocData} />
-              ) : (
-                <div className="border border-[#E2E8F0] bg-white flex items-center justify-center p-8">
-                  <p className="text-sm text-[#4A5568] text-center">No positions to display.</p>
+            <section>
+              <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Performance</p>
+              <div className="grid gap-px bg-[#E2E8F0] lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                  <PortfolioChart data={chartData} />
                 </div>
-              )}
-            </div>
+                {allocData.length > 0 ? (
+                  <AllocationChart data={allocData} />
+                ) : (
+                  <div className="border border-[#E2E8F0] bg-white flex items-center justify-center p-8">
+                    <p className="text-sm text-[#4A5568] text-center">No positions to display.</p>
+                  </div>
+                )}
+              </div>
+            </section>
           ) : (
             !loading && (
               <div className="border border-[#E2E8F0] bg-white px-8 py-12 text-center">
@@ -269,7 +278,9 @@ export default function DashboardPage() {
           )}
 
           {/* ── AI feed ─────────────────────────────────────────────────────── */}
-          <AIFeed insights={MOCK_INSIGHTS} />
+          <section>
+            <AIFeed insights={MOCK_INSIGHTS} />
+          </section>
         </div>
       </main>
 

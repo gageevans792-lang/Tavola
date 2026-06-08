@@ -15,26 +15,26 @@ interface RecommendationCardProps {
   executing?:   boolean;
 }
 
-const ACTION_STYLE: Record<string, string> = {
-  buy:  'text-[#B8960C] border-[#B8960C]/30',
-  sell: 'text-[#C41E3A] border-[#C41E3A]/30',
-  hold: 'text-[#0A1628]/40 border-[#E2E8F0]',
+// Badge background per action
+const ACTION_BADGE: Record<string, string> = {
+  buy:  'bg-[#B8960C] text-[#0A1628]',
+  sell: 'bg-[#C41E3A] text-white',
+  hold: 'bg-[#E2E8F0] text-[#4A5568]',
 };
 
 const RISK_STYLE: Record<string, string> = {
-  low:    'text-green-600',
+  low:    'text-[#166534]',
   medium: 'text-amber-600',
-  high:   'text-[#C41E3A]',
+  high:   'text-[#991b1b]',
 };
 
 function ConfidenceBar({ value }: { value: number }) {
-  const color = value >= 80 ? 'bg-green-500' : value >= 65 ? 'bg-amber-500' : 'bg-[#C41E3A]';
   return (
     <div className="flex items-center gap-2">
       <div className="h-px flex-1 bg-[#E2E8F0]">
-        <div className={cn('h-px transition-all', color)} style={{ width: `${value}%` }} />
+        <div className="h-px bg-[#B8960C] transition-all" style={{ width: `${value}%` }} />
       </div>
-      <span className="w-8 text-right text-xs text-[#4A5568]">{value}%</span>
+      <span className="w-8 text-right text-[11px] tabular-nums text-[#4A5568]">{value}%</span>
     </div>
   );
 }
@@ -61,21 +61,22 @@ export function RecommendationCard({ rec, variant, onExecute, onExecuted, execut
   return (
     <div
       className={cn(
-        'border p-4 transition-opacity',
-        isRejected || isExecuted ? 'border-[#E2E8F0] opacity-60' : 'border-[#E2E8F0] bg-white',
+        'border p-4 transition-opacity bg-white',
+        isRejected ? 'border-l-2 border-l-[#C41E3A] border-t-[#E2E8F0] border-r-[#E2E8F0] border-b-[#E2E8F0] opacity-70' : 'border-[#E2E8F0]',
+        isExecuted && !isRejected ? 'opacity-60' : '',
       )}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className={cn('text-[10px] tracking-[0.15em] uppercase border px-2 py-0.5', ACTION_STYLE[rec.action])}>
+          <span className={cn('text-[10px] tracking-[0.15em] uppercase px-2 py-0.5 font-medium', ACTION_BADGE[rec.action])}>
             {rec.action}
           </span>
-          <span className="font-serif text-base font-light text-[#0A1628]">{rec.symbol}</span>
+          <span className="font-mono text-sm font-bold text-[#0A1628] tracking-wide">{rec.symbol}</span>
           {rec.action !== 'hold' && (
-            <span className="text-xs text-[#4A5568]">
-              {rec.qty} {rec.qty === 1 ? 'share' : 'shares'}
-              {rec.estimated_value ? ` · $${rec.estimated_value.toFixed(0)}` : ''}
+            <span className="text-[11px] text-[#4A5568] tabular-nums">
+              {rec.qty} {rec.qty === 1 ? 'sh' : 'sh'}
+              {rec.estimated_value ? ` · $${rec.estimated_value.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : ''}
             </span>
           )}
         </div>
@@ -98,7 +99,7 @@ export function RecommendationCard({ rec, variant, onExecute, onExecuted, execut
         <div className="mt-3">
           <div className="mb-1.5 flex items-center justify-between">
             <span className="text-[11px] tracking-[0.08em] uppercase text-[#4A5568]">Confidence</span>
-            <span className={cn('text-xs', RISK_STYLE[rec.risk_level])}>
+            <span className={cn('text-[11px]', RISK_STYLE[rec.risk_level])}>
               {rec.risk_level} risk
             </span>
           </div>
@@ -111,7 +112,7 @@ export function RecommendationCard({ rec, variant, onExecute, onExecuted, execut
 
       {/* Rejection reason */}
       {isRejected && 'rejection_reason' in rec && (
-        <p className="mt-2 text-xs text-[#C41E3A]">Blocked: {rec.rejection_reason}</p>
+        <p className="mt-2 text-[11px] text-[#C41E3A]">Blocked: {rec.rejection_reason}</p>
       )}
 
       {/* Execute button — hidden once self-executed */}

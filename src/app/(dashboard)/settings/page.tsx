@@ -89,109 +89,124 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <TopBar title="Settings" />
-      <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6">
-        <div className="mx-auto max-w-2xl space-y-6">
+      <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-8">
+        <div className="mx-auto max-w-2xl space-y-10">
+
+          {/* Page header */}
+          <div className="border-b border-[#E2E8F0] pb-6">
+            <h2 className="font-serif text-2xl font-light text-[#0A1628]">Settings</h2>
+            <p className="mt-1 text-sm text-[#4A5568]">Manage your account and preferences</p>
+          </div>
 
           {/* Profile */}
-          <form onSubmit={handleSaveProfile} className="bg-white border border-[#E2E8F0] p-8">
-            <h2 className="font-serif text-xl font-light text-[#0A1628] mb-6">Profile</h2>
-            <div className="space-y-8">
-              <div>
-                <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-1">
-                  Full name
-                </label>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  disabled
-                  className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628]/50 outline-none bg-transparent cursor-not-allowed"
-                />
-              </div>
-              <div className="flex items-center gap-4">
-                <button
-                  type="submit"
-                  disabled={savingProfile}
-                  className="bg-[#0A1628] text-white text-xs tracking-[0.2em] uppercase h-10 px-6 hover:bg-[#1a2f4a] transition-colors disabled:opacity-50"
-                >
-                  {savingProfile ? 'Saving...' : 'Save changes'}
-                </button>
-                {profileMsg && (
-                  <p className={cn('text-xs', profileMsg.type === 'success' ? 'text-green-600' : 'text-[#C41E3A]')}>
-                    {profileMsg.text}
-                  </p>
-                )}
-              </div>
-            </div>
-          </form>
-
-          {/* Investment Preferences */}
-          <form onSubmit={handleSaveRisk} className="bg-white border border-[#E2E8F0] p-8">
-            <h2 className="font-serif text-xl font-light text-[#0A1628] mb-6">Investment Preferences</h2>
-            <div className="space-y-8">
-              <div>
-                <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-3">
-                  Risk tolerance
-                </label>
-                <div className="space-y-2">
-                  {riskOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setRiskLevel(opt.value)}
-                      className={cn(
-                        'w-full border px-5 py-3.5 text-left transition-colors flex items-center justify-between',
-                        riskLevel === opt.value
-                          ? 'border-[#0A1628] bg-[#F8F9FA]'
-                          : 'border-[#E2E8F0] hover:border-[#0A1628]/30',
-                      )}
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-[#0A1628]">{opt.label}</p>
-                        <p className="text-xs text-[#4A5568] mt-0.5">{opt.description}</p>
-                      </div>
-                      {riskLevel === opt.value && (
-                        <span className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Selected</span>
-                      )}
-                    </button>
-                  ))}
+          <section>
+            <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Account</p>
+            <form onSubmit={handleSaveProfile} className="bg-white border border-[#E2E8F0] p-8">
+              <h3 className="font-serif text-xl font-light text-[#0A1628] mb-6">Profile</h3>
+              <div className="space-y-8">
+                <div>
+                  <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-2">
+                    Full name
+                  </label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    disabled
+                    className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628]/40 outline-none bg-transparent cursor-not-allowed"
+                  />
+                </div>
+                <div className="flex items-center gap-4 pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingProfile}
+                    className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase h-10 px-6 hover:bg-[#1a2f4a] transition-colors disabled:opacity-50"
+                  >
+                    {savingProfile ? 'Saving' : 'Save changes'}
+                  </button>
+                  {profileMsg && (
+                    <p className={cn('text-xs', profileMsg.type === 'success' ? 'text-[#166534]' : 'text-[#C41E3A]')}>
+                      {profileMsg.text}
+                    </p>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <button
-                  type="submit"
-                  disabled={savingRisk}
-                  className="bg-[#0A1628] text-white text-xs tracking-[0.2em] uppercase h-10 px-6 hover:bg-[#1a2f4a] transition-colors disabled:opacity-50"
-                >
-                  {savingRisk ? 'Saving...' : 'Update preferences'}
-                </button>
-                {riskMsg && (
-                  <p className={cn('text-xs', riskMsg.type === 'success' ? 'text-green-600' : 'text-[#C41E3A]')}>
-                    {riskMsg.text}
-                  </p>
-                )}
+            </form>
+          </section>
+
+          {/* Investment Preferences */}
+          <section>
+            <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Preferences</p>
+            <form onSubmit={handleSaveRisk} className="bg-white border border-[#E2E8F0] p-8">
+              <h3 className="font-serif text-xl font-light text-[#0A1628] mb-6">Investment Preferences</h3>
+              <div className="space-y-8">
+                <div>
+                  <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-3">
+                    Risk tolerance
+                  </label>
+                  <div className="space-y-2">
+                    {riskOptions.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setRiskLevel(opt.value)}
+                        className={cn(
+                          'w-full border px-5 py-4 text-left transition-colors flex items-center justify-between',
+                          riskLevel === opt.value
+                            ? 'border-[#0A1628] bg-[#F8F9FA]'
+                            : 'border-[#E2E8F0] hover:border-[#0A1628]/30',
+                        )}
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-[#0A1628]">{opt.label}</p>
+                          <p className="text-[11px] text-[#4A5568] mt-0.5">{opt.description}</p>
+                        </div>
+                        {riskLevel === opt.value && (
+                          <span className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C] shrink-0">Selected</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 pt-2">
+                  <button
+                    type="submit"
+                    disabled={savingRisk}
+                    className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase h-10 px-6 hover:bg-[#1a2f4a] transition-colors disabled:opacity-50"
+                  >
+                    {savingRisk ? 'Saving' : 'Update preferences'}
+                  </button>
+                  {riskMsg && (
+                    <p className={cn('text-xs', riskMsg.type === 'success' ? 'text-[#166534]' : 'text-[#C41E3A]')}>
+                      {riskMsg.text}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          </form>
+            </form>
+          </section>
 
           {/* Danger Zone */}
-          <div className="bg-white border border-red-200 p-8">
-            <h2 className="font-serif text-xl font-light text-[#0A1628] mb-2">Danger Zone</h2>
-            <p className="text-sm text-[#4A5568] mb-6">Permanently delete your account and all associated data.</p>
-            <button className="border border-[#C41E3A] text-[#C41E3A] text-xs tracking-[0.2em] uppercase h-10 px-6 hover:bg-red-50 transition-colors">
-              Delete account
-            </button>
-          </div>
+          <section>
+            <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#C41E3A]">Danger Zone</p>
+            <div className="bg-white border border-[#C41E3A]/20 p-8">
+              <h3 className="font-serif text-xl font-light text-[#0A1628] mb-2">Delete Account</h3>
+              <p className="text-sm text-[#4A5568] mb-6">Permanently delete your account and all associated data. This action cannot be undone.</p>
+              <button className="border border-[#C41E3A] text-[#C41E3A] text-[11px] tracking-[0.2em] uppercase h-10 px-6 hover:bg-[#C41E3A]/5 transition-colors">
+                Delete account
+              </button>
+            </div>
+          </section>
 
         </div>
       </main>

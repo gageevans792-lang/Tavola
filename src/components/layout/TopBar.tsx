@@ -1,6 +1,5 @@
 'use client';
 
-import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import type { InvestMode } from '@/types';
@@ -18,10 +17,10 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-[#E2E8F0] bg-white px-6">
-      <h1 className="font-serif text-lg font-light text-[#0A1628]">{title}</h1>
+      <h1 className="font-serif text-[22px] font-light text-[#0A1628]">{title}</h1>
 
       <div className="ml-auto flex items-center gap-3">
-        {/* Mode toggle */}
+        {/* Mode toggle pill */}
         {hasAnalysis && mode && onModeChange && (
           <div className="flex items-center border border-[#E2E8F0]">
             {(['review', 'auto'] as InvestMode[]).map((m) => (
@@ -30,7 +29,7 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
                 onClick={() => onModeChange(m)}
                 disabled={analyzing}
                 className={cn(
-                  'px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed',
+                  'px-4 py-1.5 text-[11px] tracking-[0.12em] uppercase font-medium transition-colors disabled:cursor-not-allowed',
                   mode === m
                     ? m === 'auto'
                       ? 'bg-[#0A1628] text-white'
@@ -50,17 +49,10 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
             onClick={onRunAnalysis}
             loading={analyzing}
             disabled={analyzing}
-            className="text-xs tracking-[0.2em] uppercase"
           >
-            {analyzing ? 'Analyzing…' : 'Run Analysis'}
+            {analyzing ? 'Analyzing' : 'Run Analysis'}
           </Button>
         )}
-
-        {hasAnalysis && <div className="h-5 w-px bg-[#E2E8F0]" />}
-
-        <Button variant="ghost" size="sm" aria-label="Notifications">
-          <Bell className="h-4 w-4" />
-        </Button>
       </div>
     </header>
   );

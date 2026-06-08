@@ -1,4 +1,3 @@
-import { Card, CardHeader, CardTitle } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 import type { AIInsight, InsightType } from '@/types';
 
@@ -6,46 +5,66 @@ interface AIFeedProps {
   insights: AIInsight[];
 }
 
-const TYPE_STYLE: Record<InsightType, string> = {
-  buy:       'text-[#B8960C] border-[#B8960C]/30',
-  sell:      'text-[#C41E3A] border-[#C41E3A]/30',
-  hold:      'text-[#0A1628]/40 border-[#E2E8F0]',
-  rebalance: 'text-[#0A1628] border-[#0A1628]/20',
-  outlook:   'text-[#4A5568] border-[#E2E8F0]',
+// Left border color per type
+const LEFT_BORDER: Record<InsightType, string> = {
+  buy:       'border-l-[#B8960C]',
+  sell:      'border-l-[#C41E3A]',
+  hold:      'border-l-[#6b7280]',
+  rebalance: 'border-l-[#0A1628]',
+  outlook:   'border-l-[#6b7280]',
+};
+
+// Badge style per type
+const BADGE_STYLE: Record<InsightType, string> = {
+  buy:       'text-[#B8960C]',
+  sell:      'text-[#C41E3A]',
+  hold:      'text-[#4A5568]',
+  rebalance: 'text-[#0A1628]',
+  outlook:   'text-[#4A5568]',
 };
 
 export function AIFeed({ insights }: AIFeedProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>AI Insights</CardTitle>
-      </CardHeader>
-      <div className="space-y-3">
-        {insights.map((insight) => {
-          const title = insight.ticker
-            ? `${insight.ticker} — ${insight.type.charAt(0).toUpperCase() + insight.type.slice(1)}`
-            : insight.type.charAt(0).toUpperCase() + insight.type.slice(1);
-          return (
-            <div key={insight.id} className="border border-[#E2E8F0] p-4">
-              <div className="flex items-start gap-3">
-                <span className={cn('text-[10px] tracking-[0.15em] uppercase border px-2 py-0.5 mt-0.5 shrink-0', TYPE_STYLE[insight.type])}>
-                  {insight.type}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-[#0A1628]">{title}</p>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-[#4A5568]">{insight.message}</p>
-                  {insight.confidence_score !== null && (
-                    <p className="mt-1 text-xs text-[#4A5568]/60">Confidence: {insight.confidence_score}%</p>
+    <div>
+      <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">AI Signals</p>
+      <div className="divide-y divide-[#E2E8F0] border border-[#E2E8F0] bg-white">
+        {insights.map((insight) => (
+          <div
+            key={insight.id}
+            className={cn('border-l-2 px-5 py-4', LEFT_BORDER[insight.type])}
+          >
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={cn('text-[10px] tracking-[0.15em] uppercase font-medium', BADGE_STYLE[insight.type])}>
+                    {insight.type}
+                  </span>
+                  {insight.ticker && (
+                    <span className="font-mono text-xs font-bold text-[#0A1628] tracking-wide">{insight.ticker}</span>
                   )}
                 </div>
+                <p className="text-xs leading-relaxed text-[#4A5568]">{insight.message}</p>
+                {insight.confidence_score !== null && (
+                  <div className="mt-2">
+                    <div className="h-px bg-[#E2E8F0]">
+                      <div
+                        className="h-px bg-[#B8960C] transition-all"
+                        style={{ width: `${insight.confidence_score}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[10px] text-[#4A5568]/60 tabular-nums">{insight.confidence_score}% confidence</p>
+                  </div>
+                )}
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
         {insights.length === 0 && (
-          <p className="text-sm text-[#4A5568]">No insights yet.</p>
+          <div className="px-5 py-8 text-center">
+            <p className="text-sm text-[#4A5568]">No insights yet. Run an analysis to get started.</p>
+          </div>
         )}
       </div>
-    </Card>
+    </div>
   );
 }
