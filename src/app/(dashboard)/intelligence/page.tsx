@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { TopBar } from '@/components/layout/TopBar';
 import type { SignalsResponse, MarketSignal, SignalType } from '@/app/api/market/signals/route';
 import type { Article } from '@/app/api/market/news/route';
 import type { Mover } from '@/app/api/market/movers/route';
 import type { PortfolioAnalytics } from '@/app/api/portfolio/analytics/route';
+import { MarketCommentary } from '@/components/intelligence/MarketCommentary';
+import { MarketRegime } from '@/components/intelligence/MarketRegime';
+import { PortfolioAlerts } from '@/components/intelligence/PortfolioAlerts';
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -241,6 +244,18 @@ export default function IntelligencePage() {
     ? timeAgo(signals.generated_at)
     : null;
 
+  // ── Market regime (computed from movers data) ───────────────────────────────
+
+  const regime = useMemo(() => {
+    if (!movers) return 'neutral' as const;
+    const g = movers.gainers.length, l = movers.losers.length;
+    const topGain = movers.gainers[0]?.changePct ?? 0;
+    const topLoss = Math.abs(movers.losers[0]?.changePct ?? 0);
+    if (topGain > 2 && g > l) return 'bull' as const;
+    if (topLoss > 2 && l > g) return 'bear' as const;
+    return 'neutral' as const;
+  }, [movers]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -249,6 +264,9 @@ export default function IntelligencePage() {
 
       <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-8">
         <div className="mx-auto max-w-7xl space-y-10">
+
+          {/* ── Portfolio Alerts (prominent, at top) ─────────────────────────── */}
+          <PortfolioAlerts signals={signals?.signals ?? []} />
 
           {/* ── Header ──────────────────────────────────────────────────────── */}
           <div>
@@ -283,6 +301,13 @@ export default function IntelligencePage() {
               Auto-refreshing in {refreshIn}s
             </div>
           </div>
+
+          {/* ── Market Regime strip ──────────────────────────────────────────── */}
+          <MarketRegime
+            regime={regime}
+            gainersCount={movers?.gainers.length ?? 0}
+            losersCount={movers?.losers.length ?? 0}
+          />
 
           {/* ── Main Grid ────────────────────────────────────────────────────── */}
           <div className="grid gap-6 lg:grid-cols-3">
@@ -405,6 +430,9 @@ export default function IntelligencePage() {
                   </div>
                 )}
               </div>
+
+              {/* ── AI Market Commentary ──────────────────────────────────── */}
+              <MarketCommentary />
 
               {/* ── Portfolio Analytics ───────────────────────────────────── */}
               <div className="border border-[#E2E8F0] bg-white">
