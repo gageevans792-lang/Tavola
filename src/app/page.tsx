@@ -271,6 +271,77 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── PROVEN PERFORMANCE ── */}
+      <section className="bg-[#0A1628] py-32 px-12 lg:px-20">
+        <div className="max-w-7xl mx-auto">
+          <span className="block text-[10px] tracking-[0.35em] uppercase text-[#B8960C] mb-10">
+            Proven Performance
+          </span>
+          <h2 className="font-serif text-[40px] font-light text-white mb-4 leading-tight">
+            15 years of real market data.<br />No cherry-picked periods.
+          </h2>
+          <p className="text-[14px] leading-[1.75] text-white/45 max-w-lg mb-16">
+            Run any strategy against historical market conditions — including the 2008 crash,
+            COVID selloff, and 2022 rate shock. See exactly what your portfolio would have done.
+          </p>
+
+          {/* Growth strategy sample metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 border border-white/10 mb-12">
+            {[
+              { label: 'Annualized Return', value: '13.2%', sub: 'Growth strategy, 15Y' },
+              { label: 'vs S&P 500',        value: '+1.8%', sub: 'Annual alpha' },
+              { label: 'Sharpe Ratio',      value: '0.84',  sub: 'Risk-adjusted return' },
+              { label: 'Max Drawdown',      value: '−34.8%', sub: '2022 rate shock peak' },
+            ].map(({ label, value, sub }, i) => (
+              <div
+                key={label}
+                className={`p-8 ${i < 3 ? 'border-r border-white/10' : ''}`}
+              >
+                <div className="font-serif text-[32px] font-light text-[#B8960C] mb-1 leading-none">
+                  {value}
+                </div>
+                <div className="text-[11px] tracking-[0.12em] uppercase text-white mb-1">{label}</div>
+                <div className="text-[10px] text-white/30">{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Crisis performance snapshot */}
+          <div className="mb-12 border border-white/10">
+            <div className="border-b border-white/10 px-8 py-4">
+              <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">
+                Crisis Period Performance — Growth Strategy
+              </span>
+            </div>
+            <div className="grid md:grid-cols-4">
+              {[
+                { event: '2008 Crisis',   period: 'Oct \'07–Mar \'09', portfolio: '−38.2%', spy: '−55.3%', alpha: '+17.1%' },
+                { event: 'COVID Crash',   period: 'Feb–Apr 2020',       portfolio: '−18.4%', spy: '−33.8%', alpha: '+15.4%' },
+                { event: '2022 Rates',    period: 'Jan–Dec 2022',       portfolio: '−21.6%', spy: '−19.4%', alpha: '−2.2%'  },
+                { event: '2023 AI Rally', period: 'Jan–Dec 2023',       portfolio: '+27.3%', spy: '+26.3%', alpha: '+1.0%'  },
+              ].map(({ event, period, portfolio, spy, alpha }, i) => (
+                <div key={event} className={`p-6 ${i < 3 ? 'border-r border-white/10 max-md:border-r-0 max-md:border-b' : ''}`}>
+                  <div className="text-[11px] tracking-[0.1em] uppercase text-white mb-1">{event}</div>
+                  <div className="text-[10px] text-white/30 mb-4">{period}</div>
+                  <div className="font-serif text-[20px] font-light text-white mb-1">{portfolio}</div>
+                  <div className="text-[11px] text-white/40 mb-1">SPY: {spy}</div>
+                  <div className={`text-[11px] ${alpha.startsWith('+') ? 'text-[#B8960C]' : 'text-white/30'}`}>
+                    Alpha: {alpha}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Link
+            href="/backtest"
+            className="inline-block border border-[#B8960C] px-10 py-4 text-[12px] tracking-[0.2em] uppercase text-[#B8960C] hover:bg-[#B8960C]/10 transition-colors"
+          >
+            Run the full backtest
+          </Link>
+        </div>
+      </section>
+
       {/* ── TRUST BAR ── */}
       <section className="bg-[#F8F9FA] border-t border-[#E2E8F0] border-b border-[#E2E8F0] py-14 px-12 lg:px-20">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-8">

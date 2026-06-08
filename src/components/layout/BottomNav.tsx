@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils';
 const MOBILE_NAV = [
   { href: '/dashboard',    label: 'Home'        },
   { href: '/markets',      label: 'Markets'     },
+  { href: '/backtest',     label: 'Backtest'    },
   { href: '/holdings',     label: 'Portfolio'   },
-  { href: '/performance',  label: 'Performance' },
   { href: '/settings',     label: 'Settings'    },
 ];
 
