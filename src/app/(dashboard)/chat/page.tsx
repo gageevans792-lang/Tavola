@@ -41,11 +41,11 @@ interface Message {
 }
 
 const SUGGESTED_PROMPTS = [
-  "What's my portfolio risk level?",
-  "Buy 5 shares of VTI",
-  "Make my portfolio more conservative",
-  "What happens if the market drops 20%?",
-  "Show me my best performing position",
+  "What's my biggest risk right now?",
+  "Should I buy more of my top position?",
+  "How can I protect my portfolio from a crash?",
+  "How am I doing vs the S&P 500?",
+  "What would you buy with my available cash?",
 ];
 
 function ActionCard({ action, onConfirm, onDismiss }: {
@@ -198,7 +198,10 @@ export default function ChatPage() {
                 {SUGGESTED_PROMPTS.map(prompt => (
                   <button
                     key={prompt}
-                    onClick={() => sendMessage(prompt)}
+                    onClick={() => {
+                      setInput(prompt);
+                      setTimeout(() => inputRef.current?.focus(), 0);
+                    }}
                     className="text-left border border-[#E2E8F0] bg-white px-4 py-3 text-[13px] text-[#0A1628] hover:border-[#0A1628] transition-colors"
                   >
                     {prompt}

@@ -7,6 +7,7 @@ import { MobileMenuButton } from '@/components/layout/MobileNav';
 import { cn } from '@/lib/utils';
 import type { InvestMode } from '@/types';
 
+
 interface TopBarProps {
   title: string;
   onRunAnalysis?: () => void;
@@ -39,6 +40,29 @@ function MarketStatus() {
 
 export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: TopBarProps) {
   const hasAnalysis = !!onRunAnalysis;
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    async function fetchUnreadCount() {
+      try {
+        const res = await fetch('/api/notifications/unread-count');
+        if (res.ok) {
+          const data = await res.json() as { count: number };
+          setUnreadCount(data.count ?? 0);
+        }
+      } catch { /* non-fatal */ }
+    }
+    fetchUnreadCount();
+
+    // Listen for read events to refresh count
+    const handler = () => fetchUnreadCount();
+    window.addEventListener('tavola:notifications-read', handler);
+    return () => window.removeEventListener('tavola:notifications-read', handler);
+  }, []);
+
+  function openNotifications() {
+    window.dispatchEvent(new CustomEvent('tavola:open-notifications'));
+  }
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-[#E2E8F0] bg-white px-4 sm:px-6">
@@ -81,8 +105,11 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
           </Button>
         )}
 
-        <Button variant="ghost" size="sm" aria-label="Notifications">
+        <Button variant="ghost" size="sm" aria-label="Notifications" onClick={openNotifications} className="relative">
           <Bell className="h-4 w-4" />
+          {unreadCount > 0 && (
+            <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-[#B8960C]" />
+          )}
         </Button>
 
         <MobileMenuButton />

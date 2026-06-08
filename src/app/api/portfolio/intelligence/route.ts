@@ -77,6 +77,12 @@ export interface RebalancingSuggestion {
   reason: string;
 }
 
+export interface HealthAlert {
+  type:     'concentration' | 'drawdown' | 'cash_drag' | 'diversification';
+  severity: 'critical' | 'warning' | 'info';
+  message:  string;
+}
+
 export interface IntelligenceResponse {
   health_score:          number;
   risk_score:            number;
@@ -88,6 +94,7 @@ export interface IntelligenceResponse {
   rebalancing_suggestions: RebalancingSuggestion[];
   portfolio_summary:     string;
   generated_at:          string;
+  health_alerts:         HealthAlert[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -171,6 +178,7 @@ export async function POST() {
       diversification_score: 0, holdings_analysis: [],
       rebalancing_suggestions: [], portfolio_summary: 'No holdings to analyze.',
       generated_at: new Date().toISOString(),
+      health_alerts: [],
     } satisfies IntelligenceResponse);
   }
 
@@ -335,6 +343,52 @@ export async function POST() {
     ai_thesis: aiTheses.get(h.ticker) ?? `${h.ticker} represents a ${h.weight_pct.toFixed(1)}% portfolio position.`,
   }));
 
+  // ── Compute health alerts ──────────────────────────────────────────────────
+  const healthAlerts: HealthAlert[] = [];
+  const totalEquity = accountResult ? parseFloat(accountResult.equity) : 0;
+  const totalCash   = accountResult ? parseFloat(accountResult.cash ?? '0') : 0;
+
+  // Concentration alert: any single position > 25% of total equity
+  for (const h of holdings) {
+    const weight = Number(h.weight_pct);
+    if (weight > 25) {
+      healthAlerts.push({
+        type:     'concentration',
+        severity: 'warning',
+        message:  `${h.ticker} represents ${weight.toFixed(0)}% of your portfolio. Consider reducing concentration.`,
+      });
+    }
+  }
+
+  // Drawdown alert: total unrealized loss > 10% (from unrealized_plpc)
+  const avgPlpc = holdings.reduce((sum, h) => sum + Number(h.unrealized_plpc), 0) / holdings.length;
+  if (avgPlpc < -0.10) {
+    healthAlerts.push({
+      type:     'drawdown',
+      severity: 'critical',
+      message:  `Your portfolio is down ${Math.abs(avgPlpc * 100).toFixed(1)}% from recent highs. Consider defensive positioning.`,
+    });
+  }
+
+  // Cash drag alert: cash > 50% of equity and equity > $1000
+  if (totalEquity > 1000 && totalCash / totalEquity > 0.50) {
+    const cashPct = Math.round((totalCash / totalEquity) * 100);
+    healthAlerts.push({
+      type:     'cash_drag',
+      severity: 'info',
+      message:  `${cashPct}% of your portfolio is uninvested cash. Run Analysis to find deployment opportunities.`,
+    });
+  }
+
+  // Diversification alert: fewer than 3 positions and equity > $5000
+  if (holdings.length < 3 && totalEquity > 5000) {
+    healthAlerts.push({
+      type:     'diversification',
+      severity: 'warning',
+      message:  `Your portfolio holds only ${holdings.length} position${holdings.length === 1 ? '' : 's'}. Broader diversification reduces single-stock risk.`,
+    });
+  }
+
   return NextResponse.json({
     health_score:            healthScore,
     risk_score:              riskScore,
@@ -346,5 +400,6 @@ export async function POST() {
     rebalancing_suggestions: rebalancingSuggestions,
     portfolio_summary:       portfolioSummary,
     generated_at:            new Date().toISOString(),
+    health_alerts:           healthAlerts,
   } satisfies IntelligenceResponse);
 }

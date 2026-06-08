@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { CommandPaletteMount } from '@/components/layout/CommandPaletteMount';
+import { NotificationPanel } from '@/components/layout/NotificationPanel';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -19,6 +20,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
       {/* Nav drawer — triggered from TopBar grid button, all screen sizes */}
       <MobileNav />
+      {/* Notification panel — triggered from TopBar bell icon */}
+      <NotificationPanel />
       {/* Command palette — global, client-side */}
       <CommandPaletteMount />
     </div>

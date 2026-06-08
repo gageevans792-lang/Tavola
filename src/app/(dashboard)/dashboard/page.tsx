@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { RefreshCw, X } from 'lucide-react';
 
 import { TopBar }                 from '@/components/layout/TopBar';
 import { StatCard }               from '@/components/dashboard/StatCard';
@@ -18,6 +19,7 @@ import type { ToastData }         from '@/components/ui/Toast';
 import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
 import type { ChartApiResponse }  from '@/app/api/portfolio/chart/route';
 import type { PredictiveSignal }  from '@/app/api/ai/predict/route';
+import type { HealthAlert }       from '@/app/api/portfolio/intelligence/route';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient }    from '@/lib/supabase/client';
@@ -56,6 +58,28 @@ function fmtPL(n: number): string {
   return (n >= 0 ? '+' : '-') + fmtUSD(n, 0);
 }
 
+// ── Time helpers ──────────────────────────────────────────────────────────────
+
+function timeAgo(iso: string | null): string {
+  if (!iso) return 'No analysis yet';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1)  return 'Just now';
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  return `${Math.floor(hrs / 24)} day${Math.floor(hrs / 24) === 1 ? '' : 's'} ago`;
+}
+
+function briefTimeAgo(iso: string | null): string {
+  if (!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1)  return 'Updated just now';
+  if (mins < 60) return `Updated ${mins} min ago`;
+  return `Updated ${Math.floor(mins / 60)}h ago`;
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -69,6 +93,18 @@ export default function DashboardPage() {
   const [marketOpen, setMarketOpen] = useState<boolean | null>(null);
   const [signals, setSignals] = useState<PredictiveSignal[]>([]);
   const [signalsLoading, setSignalsLoading] = useState(true);
+
+  // Feature 3: Health alerts
+  const [healthAlerts, setHealthAlerts] = useState<HealthAlert[]>([]);
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+
+  // Feature 4: AI Status
+  const [lastAnalysisAt, setLastAnalysisAt] = useState<string | null>(null);
+
+  // Feature 5: AI Portfolio Brief
+  const [brief, setBrief] = useState<string | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefUpdatedAt, setBriefUpdatedAt] = useState<string | null>(null);
 
   // ── Load user name ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -135,6 +171,62 @@ export default function DashboardPage() {
       })
       .catch(() => {});
   }, []);
+
+  // ── Feature 3: Fetch portfolio intelligence for health alerts ──────────────
+  useEffect(() => {
+    fetch('/api/portfolio/intelligence', { method: 'POST' })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { health_alerts?: HealthAlert[] } | null) => {
+        if (d?.health_alerts) setHealthAlerts(d.health_alerts);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Feature 4: Fetch last analysis time ───────────────────────────────────
+  useEffect(() => {
+    async function fetchLastAnalysis() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('ai_insights')
+          .select('created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (data?.created_at) setLastAnalysisAt(data.created_at);
+      } catch { /* non-fatal */ }
+    }
+    fetchLastAnalysis();
+  }, []);
+
+  // ── Feature 5: Fetch AI Portfolio Brief ───────────────────────────────────
+  const fetchBrief = useCallback(async () => {
+    setBriefLoading(true);
+    try {
+      const res = await fetch('/api/market/brief', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json() as { signals?: { your_portfolio?: string; market_sentiment?: string; top_opportunity?: string }; generated_at?: string };
+        if (data.signals) {
+          const parts = [
+            data.signals.market_sentiment,
+            data.signals.your_portfolio,
+            data.signals.top_opportunity,
+          ].filter(Boolean);
+          setBrief(parts.join(' '));
+          setBriefUpdatedAt(data.generated_at ?? new Date().toISOString());
+        }
+      }
+    } catch { /* non-fatal */ } finally {
+      setBriefLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBrief();
+  }, [fetchBrief]);
 
   // ── Analysis state ─────────────────────────────────────────────────────────
   const [analyzing, setAnalyzing]             = useState(false);
@@ -283,6 +375,32 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* ── Feature 3: Health Alerts ────────────────────────────────────── */}
+          {healthAlerts.filter((a) => !dismissedAlerts.has(`${a.type}-${a.message}`)).map((alert) => {
+            const key = `${alert.type}-${alert.message}`;
+            const borderColor =
+              alert.severity === 'critical' ? 'border-l-[#991b1b]' :
+              alert.severity === 'warning'  ? 'border-l-[#B8960C]' : 'border-l-[#4A5568]';
+            const textColor =
+              alert.severity === 'critical' ? 'text-[#991b1b]' :
+              alert.severity === 'warning'  ? 'text-[#B8960C]' : 'text-[#4A5568]';
+            const bgColor =
+              alert.severity === 'critical' ? 'bg-red-50' :
+              alert.severity === 'warning'  ? 'bg-amber-50' : 'bg-[#F8F9FA]';
+            return (
+              <div key={key} className={`flex items-start justify-between border border-[#E2E8F0] border-l-2 ${borderColor} ${bgColor} px-4 py-3`}>
+                <p className={`text-sm ${textColor}`}>{alert.message}</p>
+                <button
+                  onClick={() => setDismissedAlerts((prev) => new Set([...prev, key]))}
+                  className="ml-3 shrink-0 text-[#4A5568]/50 hover:text-[#0A1628] transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            );
+          })}
+
           {/* ── Error banner ────────────────────────────────────────────────── */}
           {error && (
             <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#C41E3A]">
@@ -326,6 +444,71 @@ export default function DashboardPage() {
               </div>
             </section>
           )}
+
+          {/* ── Feature 4: Tavola AI Status ──────────────────────────────────── */}
+          <section>
+            <div className="bg-white border border-[#E2E8F0] px-4 sm:px-6 py-4">
+              <div className="flex flex-wrap items-center divide-x divide-[#E2E8F0] gap-y-3">
+                <div className="pr-6 min-w-[130px]">
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Last Analysis</p>
+                  <p className="text-[13px] font-medium text-[#0A1628]">{timeAgo(lastAnalysisAt)}</p>
+                </div>
+                <div className="px-6 min-w-[130px]">
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Positions Monitored</p>
+                  <p className="text-[13px] font-medium text-[#0A1628]">{holdings.length} position{holdings.length === 1 ? '' : 's'}</p>
+                </div>
+                <div className="px-6 min-w-[130px]">
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Market Status</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`h-1.5 w-1.5 rounded-full ${marketOpen ? 'bg-[#166534]' : 'bg-[#9CA3AF]'}`} />
+                    <p className="text-[13px] font-medium text-[#0A1628]">
+                      {marketOpen === null ? '—' : marketOpen ? 'Market Open' : 'After Hours'}
+                    </p>
+                  </div>
+                </div>
+                <div className="pl-6 min-w-[130px]">
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">AI Status</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C] animate-pulse" />
+                    <p className="text-[13px] font-medium text-[#0A1628]">Monitoring 24/7</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Feature 5: AI Portfolio Brief ────────────────────────────────── */}
+          <section>
+            <div className="bg-white border border-[#E2E8F0] border-l-2 border-l-[#B8960C] px-6 py-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[9px] tracking-[0.2em] uppercase text-[#B8960C]">AI Portfolio Brief</p>
+                <button
+                  onClick={fetchBrief}
+                  disabled={briefLoading}
+                  className="text-[#4A5568] hover:text-[#0A1628] transition-colors disabled:opacity-40"
+                  aria-label="Refresh brief"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${briefLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              {briefLoading ? (
+                <div className="space-y-2">
+                  <div className="h-4 animate-pulse bg-[#E2E8F0] rounded w-full" />
+                  <div className="h-4 animate-pulse bg-[#E2E8F0] rounded w-5/6" />
+                  <div className="h-4 animate-pulse bg-[#E2E8F0] rounded w-4/5" />
+                </div>
+              ) : brief ? (
+                <>
+                  <p className="font-serif text-[18px] font-light text-[#0A1628] leading-relaxed">{brief}</p>
+                  {briefUpdatedAt && (
+                    <p className="mt-2 text-[10px] text-[#4A5568]/60">{briefTimeAgo(briefUpdatedAt)}</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-[#4A5568] italic">Click refresh to generate your AI portfolio brief.</p>
+              )}
+            </div>
+          </section>
 
           {/* ── Portfolio chart (90-day area chart with benchmark) ───────────── */}
           <section>
