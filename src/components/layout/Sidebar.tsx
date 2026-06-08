@@ -5,21 +5,29 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
-const navItems = [
+type NavLink = { href: string; label: string };
+type NavDivider = { divider: true };
+type NavItem = NavLink | NavDivider;
+
+const navItems: NavItem[] = [
   { href: '/dashboard',    label: 'Dashboard'    },
   { href: '/autopilot',    label: 'AutoPilot'    },
   { href: '/autonomous',   label: 'AI Agent'     },
   { href: '/strategy',     label: 'Strategy'     },
   { href: '/insights',     label: 'AI Insights'  },
   { href: '/intelligence', label: 'Intelligence' },
+  { divider: true },
   { href: '/holdings',     label: 'Holdings'     },
-  { divider: true },
-  { href: '/bank',         label: 'Banking'      },
   { href: '/trades',       label: 'Trade History' },
-  { href: '/deposit',      label: 'Deposit'      },
+  { href: '/bank',         label: 'Banking'      },
   { divider: true },
+  { href: '/deposit',      label: 'Deposit'      },
   { href: '/settings',     label: 'Settings'     },
-] as const;
+];
+
+function isDivider(item: NavItem): item is NavDivider {
+  return 'divider' in item;
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -30,7 +38,7 @@ export function Sidebar() {
 
   useEffect(() => {
     fetch('/api/alpaca/portfolio')
-      .then((r) => r.ok ? r.json() : null)
+      .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d) return;
         setEquity('$' + Math.abs(d.equity).toLocaleString('en-US', { maximumFractionDigits: 0 }));
@@ -60,9 +68,9 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4">
-        {navItems.map((item, i) => {
-          if ('divider' in item) {
-            return <div key={i} className="mx-6 my-2 border-t border-white/10" />;
+        {navItems.map((item, idx) => {
+          if (isDivider(item)) {
+            return <div key={`divider-${idx}`} className="mx-6 my-2 h-px bg-white/10" />;
           }
           const active = pathname === item.href;
           return (
@@ -81,7 +89,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Portfolio mini */}
       {equity && (
         <div className="border-t border-white/10 px-6 py-4">
           <p className="text-[9px] tracking-[0.15em] uppercase text-white/30 mb-1">Portfolio</p>
