@@ -10,8 +10,27 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: 'Tavola',
-  description: 'AI-powered investment platform',
+  title: {
+    default: 'Tavola — AI Investment Platform',
+    template: '%s | Tavola',
+  },
+  description: 'Institutional-grade AI investing, available to everyone. Build a diversified portfolio with Claude AI managing your investments automatically.',
+  keywords: ['AI investing', 'automated portfolio', 'ETF investing', 'robo advisor'],
+  openGraph: {
+    title: 'Tavola — AI Investment Platform',
+    description: 'Institutional-grade AI investing, available to everyone.',
+    type: 'website',
+    siteName: 'Tavola',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Tavola — AI Investment Platform',
+    description: 'Institutional-grade AI investing, available to everyone.',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

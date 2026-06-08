@@ -216,6 +216,25 @@ export default function PerformancePage() {
             <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#C41E3A]">{error}</div>
           )}
 
+          {/* ── Empty state when no equity history ──────────────────────────────── */}
+          {!loading && d && d.equity_curve.length === 0 && (
+            <div className="bg-white border border-[#E2E8F0] px-8 py-16 text-center">
+              <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-4">No Data Yet</p>
+              <h3 className="font-serif text-[28px] font-light text-[#0A1628] mb-3">
+                Performance tracking begins with your first trade.
+              </h3>
+              <p className="text-[14px] text-[#4A5568] max-w-sm mx-auto mb-8 leading-relaxed">
+                Once you make your first trade, Tavola will track your portfolio performance over time.
+              </p>
+              <a
+                href="/dashboard"
+                className="inline-block bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase px-8 py-3 hover:bg-[#162035] transition-colors"
+              >
+                Go to Dashboard
+              </a>
+            </div>
+          )}
+
           {/* ── 1. PERFORMANCE HEADER ────────────────────────────────────────── */}
           <section className="bg-white border border-[#E2E8F0] px-8 py-8">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">

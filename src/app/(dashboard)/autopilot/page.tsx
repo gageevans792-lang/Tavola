@@ -167,7 +167,7 @@ function RunResultModal({ result, onClose }: RunResultModalProps) {
         )}
 
         {/* Footer */}
-        <div className="px-6 py-4 flex items-center justify-between">
+        <div className="px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
           <a
             href="#history"
             onClick={onClose}
@@ -175,13 +175,21 @@ function RunResultModal({ result, onClose }: RunResultModalProps) {
           >
             View Full History
           </a>
-          <button
-            type="button"
-            onClick={onClose}
-            className="border border-[#0A1628] px-4 py-2 text-[11px] tracking-[0.15em] uppercase text-[#0A1628] hover:bg-[#0A1628] hover:text-white transition-colors"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-3">
+            <a
+              href="/holdings"
+              className="border border-[#B8960C] px-4 py-2 text-[11px] tracking-[0.15em] uppercase text-[#B8960C] hover:bg-[#B8960C] hover:text-white transition-colors"
+            >
+              View Holdings
+            </a>
+            <button
+              type="button"
+              onClick={onClose}
+              className="border border-[#0A1628] px-4 py-2 text-[11px] tracking-[0.15em] uppercase text-[#0A1628] hover:bg-[#0A1628] hover:text-white transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -511,6 +519,8 @@ export default function AutopilotPage() {
         market_outlook: data.market_outlook ?? '',
         summary:        data.summary ?? '',
       });
+      // Sync holdings after run (best-effort)
+      fetch('/api/alpaca/sync', { method: 'POST' }).catch(() => {});
       // Refresh history after run
       await loadHistory();
       await loadSettings();

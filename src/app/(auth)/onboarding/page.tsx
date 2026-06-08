@@ -137,6 +137,7 @@ export default function OnboardingPage() {
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [saving, setSaving]       = useState(false);
+  const [showReady, setShowReady] = useState(false);
 
   const riskLevel  = calcRisk(quiz);
   const rc         = RISK_CONFIG[riskLevel];
@@ -215,7 +216,7 @@ export default function OnboardingPage() {
         { onConflict: 'user_id' },
       );
 
-      router.push('/deposit');
+      setShowReady(true);
     } catch {
       router.push('/dashboard');
     } finally {
@@ -258,6 +259,59 @@ export default function OnboardingPage() {
 
       {/* ── Content ─────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex justify-center px-6 py-12">
+
+        {/* ── READY SCREEN ────────────────────────────────────────────────────── */}
+        {showReady ? (
+          <div className="w-full max-w-[640px] py-8">
+            <div className="w-12 h-12 bg-[#B8960C] flex items-center justify-center mb-8">
+              <span className="text-white text-xl">✓</span>
+            </div>
+            <p className="text-[10px] tracking-[0.3em] uppercase text-[#B8960C] mb-4">Account Ready</p>
+            <h1 className="font-serif text-[40px] font-light text-[#0A1628] leading-tight mb-6">
+              Your Tavola account<br />is ready.
+            </h1>
+
+            {/* Risk profile summary */}
+            <div
+              className="border-l-[3px] px-6 py-5 mb-6"
+              style={{ borderColor: rc.accent, background: '#F8F9FA' }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Your Risk Profile</p>
+                <span
+                  className="text-[10px] tracking-[0.12em] uppercase px-2.5 py-1 font-medium text-white"
+                  style={{ background: rc.accent }}
+                >
+                  {rc.label}
+                </span>
+              </div>
+              <p className="font-serif text-[22px] font-light text-[#0A1628]">{rc.tagline}</p>
+            </div>
+
+            {/* Expected return range */}
+            <div className="border border-[#E2E8F0] px-6 py-4 mb-8">
+              <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568] mb-1">Expected Annual Return</p>
+              <p className="font-mono text-[28px] font-medium text-[#0A1628] tabular-nums">
+                {(rc.returnLow * 100).toFixed(0)}–{(rc.returnHigh * 100).toFixed(0)}%
+              </p>
+              <p className="text-[12px] text-[#4A5568] mt-1">Based on historical backtests at your risk level</p>
+            </div>
+
+            {/* CTAs */}
+            <a
+              href="/deposit"
+              className="block w-full bg-[#B8960C] text-white text-[11px] tracking-[0.2em] uppercase h-12 flex items-center justify-center hover:bg-[#9a7d0a] transition-colors mb-3"
+            >
+              Fund Your Account
+            </a>
+            <a
+              href="/dashboard"
+              className="block w-full text-center text-[12px] text-[#0A1628]/40 hover:text-[#0A1628] transition-colors py-3"
+            >
+              Explore Dashboard →
+            </a>
+          </div>
+        ) : (
         <div className="w-full max-w-[640px]">
 
           <p className="text-[10px] tracking-[0.18em] uppercase text-[#0A1628]/35 mb-10">
@@ -804,6 +858,7 @@ export default function OnboardingPage() {
           )}
 
         </div>
+        )}
       </div>
     </div>
   );

@@ -168,7 +168,30 @@ export default function IntelligencePage() {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <TopBar title="Portfolio Intelligence" />
+        <div className="flex flex-1 flex-col items-center justify-center bg-[#F8F9FA]">
+          <div className="bg-white border border-[#E2E8F0] px-8 py-16 text-center max-w-md">
+            <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-4">No Data</p>
+            <h3 className="font-serif text-[28px] font-light text-[#0A1628] mb-3 leading-tight">
+              No intelligence data available.
+            </h3>
+            <p className="text-[14px] text-[#4A5568] max-w-sm mx-auto mb-8 leading-relaxed">
+              Add holdings to your portfolio and run a fresh analysis to unlock AI-powered portfolio intelligence.
+            </p>
+            <a
+              href="/holdings"
+              className="inline-block bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase px-8 py-3 hover:bg-[#162035] transition-colors"
+            >
+              View Holdings
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const hasHoldings = data.holdings_analysis.length > 0;
 
@@ -276,8 +299,20 @@ export default function IntelligencePage() {
             </div>
 
             {!hasHoldings ? (
-              <div className="px-5 py-10 text-center">
-                <p className="text-[13px] text-[#4A5568]">No holdings to analyze. Make your first trade to unlock portfolio intelligence.</p>
+              <div className="px-8 py-16 text-center">
+                <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-4">Empty Portfolio</p>
+                <h3 className="font-serif text-[28px] font-light text-[#0A1628] mb-3 leading-tight">
+                  No holdings to analyze.
+                </h3>
+                <p className="text-[14px] text-[#4A5568] max-w-sm mx-auto mb-8 leading-relaxed">
+                  Make your first trade to unlock deep AI portfolio intelligence and per-stock insights.
+                </p>
+                <a
+                  href="/dashboard"
+                  className="inline-block bg-[#B8960C] text-white text-[11px] tracking-[0.2em] uppercase px-8 py-3 hover:bg-[#9a7d0a] transition-colors"
+                >
+                  Go to Dashboard
+                </a>
               </div>
             ) : (
               <div className="overflow-x-auto">

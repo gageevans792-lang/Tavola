@@ -65,6 +65,7 @@ export default function DashboardPage() {
   const [toast, setToast]         = useState<ToastData | null>(null);
   const [chartData, setChartData] = useState<ChartApiResponse | null>(null);
   const [chartLoading, setChartLoading] = useState(true);
+  const [marketOpen, setMarketOpen] = useState<boolean | null>(null);
 
   // ── Load user name ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -111,6 +112,16 @@ export default function DashboardPage() {
       .then((d: ChartApiResponse | null) => setChartData(d))
       .catch(() => null)
       .finally(() => setChartLoading(false));
+  }, []);
+
+  // ── Fetch market clock ─────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/market/clock')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { is_open?: boolean } | null) => {
+        if (d && typeof d.is_open === 'boolean') setMarketOpen(d.is_open);
+      })
+      .catch(() => {});
   }, []);
 
   // ── Analysis state ─────────────────────────────────────────────────────────
@@ -206,33 +217,10 @@ export default function DashboardPage() {
       <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA]">
         <AnimatePresence>{analyzing && <AnalysisOverlay />}</AnimatePresence>
 
-        {/* ── Hero portfolio value ─────────────────────────────────────────── */}
-        <div style={{ background: '#0A1628' }} className="w-full px-6 py-6">
-          <div className="mx-auto max-w-7xl">
-            <p className="text-[10px] tracking-[0.18em] uppercase mb-2" style={{ color: '#4A5568' }}>
-              Total Portfolio Value
-            </p>
-            <p
-              className="font-serif font-light leading-none"
-              style={{ fontSize: 'clamp(32px, 8vw, 52px)', color: '#FFFFFF' }}
-            >
-              {p
-                ? '$' + p.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                : <span style={{ opacity: 0.3 }}>—</span>}
-            </p>
-            {p && (
-              <p className="font-mono mt-2" style={{ fontSize: 14, color: p.day_pl >= 0 ? '#22C55E' : '#EF4444' }}>
-                {p.day_pl >= 0 ? '+' : '-'}${Math.abs(p.day_pl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} today{' '}
-                <span style={{ opacity: 0.7 }}>({p.day_pl >= 0 ? '+' : ''}{p.day_pl_pct.toFixed(2)}%)</span>
-              </p>
-            )}
-          </div>
-        </div>
-
-
         <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
           {/* ── Compact stat strip ────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            {/* Portfolio Value — gold left accent */}
             <div className="relative bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
               <div className="absolute inset-y-0 left-0 w-0.5 bg-[#B8960C]" />
               <StatCard
@@ -243,6 +231,7 @@ export default function DashboardPage() {
                 loading={loading}
               />
             </div>
+            {/* Day P&L */}
             <div className="bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
               <StatCard
                 title="Day P&L"
@@ -252,6 +241,7 @@ export default function DashboardPage() {
                 loading={loading}
               />
             </div>
+            {/* Total Return */}
             <div className="bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
               <StatCard
                 title="Total Return"
@@ -261,11 +251,22 @@ export default function DashboardPage() {
                 loading={loading}
               />
             </div>
+            {/* Cash Available */}
             <div className="bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
               <StatCard
                 title="Cash Available"
                 value={cashAvailable}
                 loading={loading}
+              />
+            </div>
+            {/* Market Status */}
+            <div className="bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
+              <StatCard
+                title="Market Status"
+                value={marketOpen === null ? '—' : marketOpen ? 'Open' : 'Closed'}
+                change={marketOpen === null ? undefined : marketOpen ? 'NYSE · Live' : 'NYSE · After hours'}
+                changePositive={marketOpen === true ? true : undefined}
+                loading={false}
               />
             </div>
           </div>
@@ -293,6 +294,27 @@ export default function DashboardPage() {
             )}
           </AnimatePresence>
 
+          {/* ── Empty state when no positions ─────────────────────────────────── */}
+          {!loading && holdings.length === 0 && (
+            <section>
+              <div className="bg-white border border-[#E2E8F0] px-8 py-12 text-center">
+                <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-4">Get Started</p>
+                <h3 className="font-serif text-[28px] font-light text-[#0A1628] mb-3 leading-tight">
+                  Start your AI investment journey.
+                </h3>
+                <p className="text-[14px] text-[#4A5568] max-w-sm mx-auto mb-8 leading-relaxed">
+                  Deposit funds and let Tavola AI build your portfolio with institutional-grade strategies.
+                </p>
+                <a
+                  href="/deposit"
+                  className="inline-block bg-[#B8960C] text-white text-[11px] tracking-[0.2em] uppercase px-8 py-3 hover:bg-[#9a7d0a] transition-colors"
+                >
+                  Deposit Now
+                </a>
+              </div>
+            </section>
+          )}
+
           {/* ── Portfolio chart (90-day area chart with benchmark) ───────────── */}
           <section>
             <PortfolioChart data={chartData} loading={chartLoading} />
@@ -308,7 +330,7 @@ export default function DashboardPage() {
                 <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568] mb-4">
                   Top Holdings</p>
                 {holdings.length === 0 ? (
-                  <p className="text-sm text-[#4A5568]">No positions</p>
+                  <p className="text-sm text-[#4A5568] italic">Your portfolio is empty — make your first trade to see holdings here.</p>
                 ) : (
                   <div className="space-y-3">
                     {holdings.slice(0, 8).map((h) => {

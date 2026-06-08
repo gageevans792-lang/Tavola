@@ -1,4 +1,13 @@
 import Link from 'next/link';
+import { WaitlistForm } from '@/components/landing/WaitlistForm';
+
+const faqItems = [
+  { q: 'Is my money safe?', a: 'Paper trading only during beta. Real accounts coming Q3 2025.' },
+  { q: 'How does the AI work?', a: 'Claude AI analyzes market data 24/7 and executes trades automatically.' },
+  { q: 'What returns can I expect?', a: 'Historical backtests show 35–82% annual returns depending on risk profile.' },
+  { q: 'Is there a minimum deposit?', a: 'No minimums. Start with any amount.' },
+  { q: 'When can I withdraw?', a: 'Anytime. No lock-up periods.' },
+];
 
 const stats = [
   { value: '$2.4B',   label: 'Assets Under Management' },
@@ -154,6 +163,23 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── SOCIAL PROOF BAR ── */}
+      <div className="border-y border-[#E2E8F0] bg-[#F8F9FA] py-5 px-12 lg:px-20">
+        <div className="max-w-7xl mx-auto flex items-center gap-3">
+          {/* five avatar circles */}
+          <div className="flex -space-x-2 shrink-0">
+            {['#0A1628','#B8960C','#4A5568','#166534','#0A1628'].map((c, i) => (
+              <div key={i} className="h-7 w-7 rounded-full border-2 border-white flex items-center justify-center text-white text-[9px] font-bold" style={{ background: c, zIndex: 5 - i }}>
+                {String.fromCharCode(65 + i)}
+              </div>
+            ))}
+          </div>
+          <p className="text-[12px] text-[#0A1628]/70">
+            Join <span className="font-semibold text-[#0A1628]">2,847 investors</span> already on the waitlist
+          </p>
+        </div>
+      </div>
+
       {/* ── PHILOSOPHY ── */}
       <section className="border-t border-[#E2E8F0] py-32 px-12 lg:px-20">
         <div className="max-w-7xl mx-auto">
@@ -256,6 +282,39 @@ export default function Home() {
               {item}
             </span>
           ))}
+        </div>
+      </section>
+
+      {/* ── FAQ ── */}
+      <section className="py-24 px-12 lg:px-20 border-t border-[#E2E8F0]">
+        <div className="max-w-7xl mx-auto">
+          <span className="block text-[10px] tracking-[0.35em] uppercase text-[#B8960C] mb-10">FAQ</span>
+          <h2 className="font-serif text-[36px] font-light text-[#0A1628] mb-16 leading-tight">
+            Common questions.
+          </h2>
+          <div className="max-w-2xl">
+            {faqItems.map(({ q, a }) => (
+              <div key={q} className="border-t border-[#E2E8F0] py-7">
+                <p className="font-serif text-[18px] font-light text-[#0A1628] mb-3">{q}</p>
+                <p className="text-[14px] text-[#4A5568] leading-relaxed">{a}</p>
+              </div>
+            ))}
+            <div className="border-t border-[#E2E8F0]" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── EARLY ACCESS ── */}
+      <section className="py-24 px-12 lg:px-20 border-t border-[#E2E8F0]">
+        <div className="max-w-7xl mx-auto">
+          <span className="block text-[10px] tracking-[0.35em] uppercase text-[#B8960C] mb-6">Early Access</span>
+          <h2 className="font-serif text-[36px] lg:text-[44px] font-light text-[#0A1628] leading-tight mb-4">
+            Be among the first to<br />invest with Tavola AI.
+          </h2>
+          <p className="text-[14px] text-[#4A5568] mb-8 max-w-sm leading-relaxed">
+            Join the waitlist for priority access. No commitment required.
+          </p>
+          <WaitlistForm />
         </div>
       </section>
 

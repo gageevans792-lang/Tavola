@@ -192,6 +192,22 @@ export default function HoldingsPage() {
                   <div key={i} className="h-10 animate-pulse bg-[#E2E8F0]" />
                 ))}
               </div>
+            ) : holdings.length === 0 ? (
+              <div className="bg-white border border-[#E2E8F0] px-8 py-16 text-center">
+                <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-4">Empty Portfolio</p>
+                <h3 className="font-serif text-[28px] font-light text-[#0A1628] mb-3">
+                  Your portfolio is empty.
+                </h3>
+                <p className="text-[14px] text-[#4A5568] max-w-sm mx-auto mb-8 leading-relaxed">
+                  Run an AI analysis to get your first recommendations and start building your portfolio.
+                </p>
+                <a
+                  href="/dashboard"
+                  className="inline-block border border-[#0A1628] text-[#0A1628] text-[11px] tracking-[0.2em] uppercase px-8 py-3 hover:bg-[#0A1628] hover:text-white transition-colors"
+                >
+                  Run Analysis
+                </a>
+              </div>
             ) : (
               <HoldingsTable holdings={holdings} />
             )}

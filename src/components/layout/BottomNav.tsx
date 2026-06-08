@@ -2,35 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const MOBILE_NAV = [
-  { href: '/dashboard',    label: 'Home'      },
-  { href: '/autopilot',   label: 'AutoPilot'  },
-  { href: '/markets',     label: 'Markets'    },
-  { href: '/holdings',    label: 'Portfolio'  },
-  { href: '/settings',    label: 'Settings'   },
+  { href: '/dashboard',    label: 'Home'        },
+  { href: '/markets',      label: 'Markets'     },
+  { href: '/holdings',     label: 'Portfolio'   },
+  { href: '/performance',  label: 'Performance' },
+  { href: '/settings',     label: 'Settings'    },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
-  const [autopilotActive, setAutopilotActive] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/autopilot/status')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { enabled?: boolean } | null) => {
-        if (d && typeof d.enabled === 'boolean') setAutopilotActive(d.enabled);
-      })
-      .catch(() => {});
-  }, []);
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-40 flex border-t border-[#E2E8F0] bg-white sm:hidden">
       {MOBILE_NAV.map(({ href, label }) => {
         const active = pathname === href;
-        const isAutopilot = href === '/autopilot';
         return (
           <Link
             key={href}
@@ -40,9 +28,6 @@ export function BottomNav() {
               active ? 'text-[#0A1628] font-medium border-t-2 border-[#B8960C] -mt-px' : 'text-[#4A5568]',
             )}
           >
-            {isAutopilot && autopilotActive && !active && (
-              <span className="absolute top-2 w-1.5 h-1.5 bg-[#B8960C]" />
-            )}
             {label}
           </Link>
         );
