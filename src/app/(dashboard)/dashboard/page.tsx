@@ -6,6 +6,8 @@ import { AnimatePresence } from 'framer-motion';
 import { TopBar }                 from '@/components/layout/TopBar';
 import { StatCard }               from '@/components/dashboard/StatCard';
 import { PortfolioChart }         from '@/components/dashboard/PortfolioChart';
+import { LiveEquityTicker }       from '@/components/dashboard/LiveEquityTicker';
+import { SectorAllocation }       from '@/components/dashboard/SectorAllocation';
 import { AllocationChart }        from '@/components/dashboard/AllocationChart';
 import { AIFeed }                 from '@/components/dashboard/AIFeed';
 import { AnalysisOverlay }        from '@/components/dashboard/AnalysisOverlay';
@@ -14,10 +16,12 @@ import { MarketTabs }             from '@/components/dashboard/MarketTabs';
 import { Toast }                  from '@/components/ui/Toast';
 import type { ToastData }         from '@/components/ui/Toast';
 import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
+import type { ChartApiResponse }  from '@/app/api/portfolio/chart/route';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient }    from '@/lib/supabase/client';
 import type { AIInsight, AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
+import type { SyncedHolding } from '@/lib/alpaca/sync';
 
 // ── Fallback mock insights (dashboard feed) ───────────────────────────────────
 
@@ -59,6 +63,8 @@ export default function DashboardPage() {
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [toast, setToast]         = useState<ToastData | null>(null);
+  const [chartData, setChartData] = useState<ChartApiResponse | null>(null);
+  const [chartLoading, setChartLoading] = useState(true);
 
   // ── Load user name ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -97,6 +103,15 @@ export default function DashboardPage() {
     const id = setInterval(refreshPortfolio, 30_000);
     return () => clearInterval(id);
   }, [refreshPortfolio]);
+
+  // ── Fetch chart data ───────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/portfolio/chart')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: ChartApiResponse | null) => setChartData(d))
+      .catch(() => null)
+      .finally(() => setChartLoading(false));
+  }, []);
 
   // ── Analysis state ─────────────────────────────────────────────────────────
   const [analyzing, setAnalyzing]             = useState(false);
@@ -175,9 +190,8 @@ export default function DashboardPage() {
   const dayPlPct       = loading ? undefined : p ? fmtPct(p.day_pl_pct) : undefined;
   const dayPlChange    = loading ? undefined : p ? `${fmtPL(p.day_pl)} today` : undefined;
 
-  // Chart: use real Alpaca history if available, otherwise empty (shows empty state)
-  const chartData  = p?.chart       ?? [];
-  const allocData  = p?.allocation  ?? [];
+  const allocData  = p?.allocation ?? [];
+  const holdings: SyncedHolding[] = p?.holdings ?? [];
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -189,11 +203,18 @@ export default function DashboardPage() {
         onModeChange={setMode}
       />
 
-      <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6">
+      <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA]">
         <AnimatePresence>{analyzing && <AnalysisOverlay />}</AnimatePresence>
 
-        <div className="mx-auto max-w-7xl space-y-6">
+        {/* ── Live equity ticker (navy dark band) ─────────────────────────── */}
+        <LiveEquityTicker
+          initialEquity={p?.equity ?? 0}
+          initialDayPl={p?.day_pl ?? 0}
+          initialDayPlPct={p?.day_pl_pct ?? 0}
+        />
 
+
+        <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
           {/* ── Compact stat strip ────────────────────────────────────────────── */}
           <div className="border border-[#E2E8F0] bg-white flex items-stretch divide-x divide-[#E2E8F0] overflow-x-auto">
             <div className="w-0.5 shrink-0 bg-[#B8960C]" />
@@ -256,31 +277,63 @@ export default function DashboardPage() {
             )}
           </AnimatePresence>
 
-          {/* ── Charts ──────────────────────────────────────────────────────── */}
-          {chartData.length > 0 ? (
-            <section>
-              <div className="grid gap-px bg-[#E2E8F0] lg:grid-cols-3">
-                <div className="lg:col-span-2">
-                  <PortfolioChart data={chartData} />
-                </div>
-                {allocData.length > 0 ? (
-                  <AllocationChart data={allocData} />
+          {/* ── Portfolio chart (90-day area chart with benchmark) ───────────── */}
+          <section>
+            <PortfolioChart data={chartData} loading={chartLoading} />
+          </section>
+
+          {/* ── Sector allocation + top holdings ────────────────────────────── */}
+          <section>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <SectorAllocation holdings={holdings} />
+
+              {/* Top holdings list */}
+              <div className="bg-white border border-[#E2E8F0] px-6 py-5">
+                <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568] mb-4">
+                  Top Holdings</p>
+                {holdings.length === 0 ? (
+                  <p className="text-sm text-[#4A5568]">No positions</p>
                 ) : (
-                  <div className="border border-[#E2E8F0] bg-white flex items-center justify-center p-8">
-                    <p className="text-sm text-[#4A5568] text-center">No positions to display.</p>
+                  <div className="space-y-3">
+                    {holdings.slice(0, 8).map((h) => {
+                      const plPos = h.unrealized_pl >= 0;
+                      return (
+                        <div key={h.ticker} className="flex items-center justify-between">
+                          <div>
+                            <span className="font-mono text-[13px] text-[#0A1628]">{h.ticker}</span>
+                            <span className="ml-2 text-[11px] text-[#4A5568]">
+                              {h.qty.toLocaleString('en-US', { maximumFractionDigits: 2 })} sh
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-mono text-[13px] text-[#0A1628]">
+                              ${h.market_value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            </p>
+                            <p
+                              className="font-mono text-[11px]"
+                              style={{ color: plPos ? '#166534' : '#991b1b' }}
+                            >
+                              {plPos ? '+' : ''}{(h.unrealized_plpc * 100).toFixed(2)}%
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-            </section>
-          ) : (
-            !loading && (
-              <div className="border border-[#E2E8F0] bg-white px-8 py-12 text-center">
-                <p className="font-serif text-xl font-light text-[#0A1628] mb-2">No portfolio data yet.</p>
-                <p className="text-sm text-[#4A5568]">
-                  {p ? 'Run an AI analysis to get started.' : 'Connect your Alpaca account to see live data.'}
-                </p>
+            </div>
+          </section>
+
+          {/* ── Allocation chart ─────────────────────────────────────────────── */}
+          {allocData.length > 0 && (
+            <section>
+              <div className="grid gap-px bg-[#E2E8F0] lg:grid-cols-3">
+                <div className="lg:col-span-1">
+                  <AllocationChart data={allocData} />
+                </div>
               </div>
-            )
+            </section>
           )}
 
           {/* ── AI feed ─────────────────────────────────────────────────────── */}
@@ -292,6 +345,7 @@ export default function DashboardPage() {
           <section>
             <MarketTabs />
           </section>
+
 
         </div>
       </main>
