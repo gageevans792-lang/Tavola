@@ -24,7 +24,7 @@ interface HoldingsTableProps {
 export function HoldingsTable({ holdings }: HoldingsTableProps) {
   if (holdings.length === 0) {
     return (
-      <div className="px-6 py-12 text-center">
+      <div className="px-6 py-8 text-center">
         <p className="font-serif text-lg font-light text-[#0A1628] mb-1">No positions yet.</p>
         <p className="text-sm text-[#4A5568]">Run an AI analysis to get started.</p>
       </div>
@@ -43,7 +43,7 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
             {COLS.map((h) => (
               <th
                 key={h}
-                className="px-6 py-3 text-left text-[11px] tracking-[0.12em] uppercase text-[#4A5568] font-medium whitespace-nowrap"
+                className="px-6 py-2 text-left text-[11px] tracking-[0.12em] uppercase text-[#4A5568] font-medium whitespace-nowrap"
               >
                 {h}
               </th>
@@ -55,21 +55,28 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
             const positive = h.unrealized_pl >= 0;
             return (
               <tr key={h.ticker} className="border-b border-[#E2E8F0] hover:bg-[#F8F9FA] transition-colors">
-                <td className="px-6 py-4">
-                  <p className="font-medium font-mono text-[#0A1628] text-xs tracking-wide">{h.ticker}</p>
-                  {h.name && <p className="text-[11px] text-[#4A5568] mt-0.5">{h.name}</p>}
+                <td className="px-6 py-2.5">
+                  <span className="font-medium font-mono text-[12px] text-[#0A1628] tracking-wide">{h.ticker}</span>
                 </td>
-                <td className="px-6 py-4 text-[#4A5568]">{h.qty}</td>
-                <td className="px-6 py-4 text-[#4A5568]">{fmt(h.avg_entry_price)}</td>
-                <td className="px-6 py-4 text-[#4A5568]">{fmt(h.current_price)}</td>
-                <td className="px-6 py-4 text-[#0A1628] font-medium">{fmt(h.market_value, 0)}</td>
-                <td className={cn('px-6 py-4 font-medium', positive ? 'text-[#166534]' : 'text-[#991b1b]')}>
+                <td className="px-6 py-2.5 text-[#4A5568]">{h.qty}</td>
+                <td className="px-6 py-2.5 text-[#4A5568]">{fmt(h.avg_entry_price)}</td>
+                <td className="px-6 py-2.5 text-[#4A5568]">{fmt(h.current_price)}</td>
+                <td className="px-6 py-2.5 text-[#0A1628] font-medium">{fmt(h.market_value, 0)}</td>
+                <td className={cn('px-6 py-2.5 font-medium', positive ? 'text-[#166534]' : 'text-[#991b1b]')}>
                   {fmtPL(h.unrealized_pl)}
                 </td>
-                <td className={cn('px-6 py-4 font-medium', positive ? 'text-[#166534]' : 'text-[#991b1b]')}>
-                  {fmtPct(h.unrealized_plpc)}
+                <td className={cn('px-6 py-2.5 font-medium', positive ? 'text-[#166534]' : 'text-[#991b1b]')}>
+                  <div className="flex items-center gap-2">
+                    <span>{fmtPct(h.unrealized_plpc)}</span>
+                    <div className="w-12 h-1 bg-[#E2E8F0] hidden sm:block">
+                      <div
+                        className={cn('h-full', positive ? 'bg-[#166534]' : 'bg-[#991b1b]')}
+                        style={{ width: `${Math.min(Math.abs(h.unrealized_plpc * 100) * 2, 100)}%` }}
+                      />
+                    </div>
+                  </div>
                 </td>
-                <td className="px-6 py-4 text-[#4A5568]">{h.weight_pct.toFixed(1)}%</td>
+                <td className="px-6 py-2.5 text-[#4A5568]">{h.weight_pct.toFixed(1)}%</td>
               </tr>
             );
           })}
@@ -77,11 +84,11 @@ export function HoldingsTable({ holdings }: HoldingsTableProps) {
         {/* Summary row */}
         <tfoot>
           <tr className="border-t-2 border-[#0A1628] bg-[#F8F9FA]">
-            <td className="px-6 py-3 text-[11px] tracking-[0.12em] uppercase text-[#0A1628] font-medium" colSpan={4}>
+            <td className="px-6 py-2 text-[11px] tracking-[0.12em] uppercase text-[#0A1628] font-medium" colSpan={4}>
               Total
             </td>
-            <td className="px-6 py-3 font-medium text-[#0A1628]">{fmt(totalValue, 0)}</td>
-            <td className={cn('px-6 py-3 font-medium', totalPositive ? 'text-[#166534]' : 'text-[#991b1b]')}>
+            <td className="px-6 py-2 font-medium text-[#0A1628]">{fmt(totalValue, 0)}</td>
+            <td className={cn('px-6 py-2 font-medium', totalPositive ? 'text-[#166534]' : 'text-[#991b1b]')}>
               {fmtPL(totalPL)}
             </td>
             <td colSpan={2} />

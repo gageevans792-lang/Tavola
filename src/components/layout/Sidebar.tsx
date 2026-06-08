@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 const navItems = [
@@ -18,6 +19,24 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+
+  const [equity, setEquity] = useState<string | null>(null);
+  const [dayPl, setDayPl] = useState<{ value: string; positive: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/alpaca/portfolio')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => {
+        if (!d) return;
+        setEquity('$' + Math.abs(d.equity).toLocaleString('en-US', { maximumFractionDigits: 0 }));
+        const pl = d.day_pl ?? 0;
+        setDayPl({
+          value: (pl >= 0 ? '+' : '-') + '$' + Math.abs(pl).toLocaleString('en-US', { maximumFractionDigits: 0 }),
+          positive: pl >= 0,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -53,6 +72,23 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Portfolio mini */}
+      {equity && (
+        <div className="border-t border-white/10 px-6 py-4">
+          <p className="text-[9px] tracking-[0.15em] uppercase text-white/30 mb-1">Portfolio</p>
+          <p className="font-mono text-[15px] text-white tabular-nums">{equity}</p>
+          {dayPl && (
+            <p className={`text-[11px] tabular-nums mt-0.5 ${dayPl.positive ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>
+              {dayPl.value} today
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="px-6 pb-1">
+        <p className="text-[9px] text-white/20 tracking-[0.1em]">⌘K quick nav</p>
+      </div>
 
       <div className="border-t border-white/10 py-4">
         <button
