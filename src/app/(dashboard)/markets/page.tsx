@@ -203,7 +203,7 @@ export default function MarketsPage() {
                       </p>
                       <p className={cn(
                         'mt-1 text-[13px] font-medium',
-                        pos ? 'text-[#16A34A]' : neg ? 'text-[#C41E3A]' : 'text-[#4A5568]',
+                        pos ? 'text-[#166534]' : neg ? 'text-[#991b1b]' : 'text-[#4A5568]',
                       )}>
                         {pos ? '▲' : neg ? '▼' : ''} {fmtChangePct(tile.change_pct)}
                       </p>

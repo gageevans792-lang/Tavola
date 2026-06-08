@@ -158,7 +158,7 @@ export function MarketOverview() {
               ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
               : movers?.gainers.length
                 ? movers.gainers.map((m) => <MoverRow key={m.symbol} mover={m} />)
-                : <p className="text-xs text-[#4A5568]">No data</p>
+                : <p className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] text-center py-4">No data available</p>
             }
           </div>
 
@@ -169,7 +169,7 @@ export function MarketOverview() {
               ? Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
               : movers?.losers.length
                 ? movers.losers.map((m) => <MoverRow key={m.symbol} mover={m} />)
-                : <p className="text-xs text-[#4A5568]">No data</p>
+                : <p className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] text-center py-4">No data available</p>
             }
           </div>
         </div>

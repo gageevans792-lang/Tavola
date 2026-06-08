@@ -531,7 +531,7 @@ function ConnectedView({
           ) : (
             <>
               {/* Table header */}
-              <div className="hidden sm:grid grid-cols-4 border-b border-[#E2E8F0] px-5 py-2.5 bg-[#F8F9FA]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 border-b border-[#E2E8F0] px-5 py-2.5 bg-[#F8F9FA]">
                 <span className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568]">Date</span>
                 <span className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568]">Type</span>
                 <span className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568] text-right">Amount</span>
