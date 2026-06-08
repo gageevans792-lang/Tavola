@@ -82,17 +82,21 @@ export function LiveEquityTicker({
   initialDayPl    = 0,
   initialDayPlPct = 0,
 }: LiveEquityTickerProps) {
-  const [equity,     setEquity]     = useState(initialEquity);
+  const [equity,     setEquity]     = useState(initialEquity ?? 0);
   const [dayPl,      setDayPl]      = useState(initialDayPl);
   const [dayPlPct,   setDayPlPct]   = useState(initialDayPlPct);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-  // Sync internal state when parent's fetched data arrives
+  // Only update equity when the parent has real data (non-zero)
   useEffect(() => {
-    setEquity(initialEquity);
+    if (initialEquity) setEquity(initialEquity);
+  }, [initialEquity]);
+
+  // Keep day P&L in sync separately
+  useEffect(() => {
     setDayPl(initialDayPl ?? 0);
     setDayPlPct(initialDayPlPct ?? 0);
-  }, [initialEquity, initialDayPl, initialDayPlPct]);
+  }, [initialDayPl, initialDayPlPct]);
 
   const displayEquity = useCountUp(equity);
 

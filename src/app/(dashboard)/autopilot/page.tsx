@@ -363,13 +363,15 @@ export default function AutopilotPage() {
   const loadSettings = useCallback(async () => {
     try {
       const res = await fetch('/api/ai/autopilot/status');
-      if (!res.ok) throw new Error('non-ok');
-      const { settings: s } = await res.json() as { settings: AutopilotSettings };
+      if (!res.ok) throw new Error('fetch failed');
+      const data = await res.json() as { settings?: AutopilotSettings };
+      const s = data.settings;
+      if (!s) throw new Error('no settings in response');
       setSettings(s);
       setLocalFrequency(s.frequency);
       setLocalMaxTrade(s.max_trade_size);
     } catch {
-      // Table missing or fetch failed — use defaults silently
+      // Any failure — table missing, network error, bad JSON — use defaults silently
       setSettings(DEFAULT_SETTINGS);
       setLocalFrequency(DEFAULT_SETTINGS.frequency);
       setLocalMaxTrade(DEFAULT_SETTINGS.max_trade_size);
