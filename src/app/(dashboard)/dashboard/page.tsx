@@ -6,7 +6,7 @@ import { AnimatePresence } from 'framer-motion';
 import { TopBar }                 from '@/components/layout/TopBar';
 import { StatCard }               from '@/components/dashboard/StatCard';
 import { PortfolioChart }         from '@/components/dashboard/PortfolioChart';
-import { LiveEquityTicker }       from '@/components/dashboard/LiveEquityTicker';
+
 import { SectorAllocation }       from '@/components/dashboard/SectorAllocation';
 import { AllocationChart }        from '@/components/dashboard/AllocationChart';
 import { AIFeed }                 from '@/components/dashboard/AIFeed';
@@ -206,12 +206,28 @@ export default function DashboardPage() {
       <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA]">
         <AnimatePresence>{analyzing && <AnalysisOverlay />}</AnimatePresence>
 
-        {/* ── Live equity ticker (navy dark band) ─────────────────────────── */}
-        <LiveEquityTicker
-          equity={p?.equity ?? 0}
-          dayPl={p?.day_pl ?? 0}
-          dayPlPct={p?.day_pl_pct ?? 0}
-        />
+        {/* ── Hero portfolio value ─────────────────────────────────────────── */}
+        <div style={{ background: '#0A1628' }} className="w-full px-6 py-6">
+          <div className="mx-auto max-w-7xl">
+            <p className="text-[10px] tracking-[0.18em] uppercase mb-2" style={{ color: '#4A5568' }}>
+              Total Portfolio Value
+            </p>
+            <p
+              className="font-serif font-light leading-none"
+              style={{ fontSize: 52, color: '#FFFFFF' }}
+            >
+              {p
+                ? '$' + p.equity.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : <span style={{ opacity: 0.3 }}>—</span>}
+            </p>
+            {p && (
+              <p className="font-mono mt-2" style={{ fontSize: 14, color: p.day_pl >= 0 ? '#22C55E' : '#EF4444' }}>
+                {p.day_pl >= 0 ? '+' : '-'}${Math.abs(p.day_pl).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} today{' '}
+                <span style={{ opacity: 0.7 }}>({p.day_pl >= 0 ? '+' : ''}{p.day_pl_pct.toFixed(2)}%)</span>
+              </p>
+            )}
+          </div>
+        </div>
 
 
         <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
