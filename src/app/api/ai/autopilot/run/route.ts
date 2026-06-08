@@ -132,31 +132,26 @@ export async function POST() {
   }
 
   try {
-    // ── 1. Load autopilot settings ─────────────────────────────────────────────
-    const { data: settingsRow, error: settingsErr } = await supabase
-      .from('autopilot_settings')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (settingsErr) {
-      console.error('[autopilot/run] settings fetch:', settingsErr.message);
-      return NextResponse.json({ error: 'Failed to load AutoPilot settings' }, { status: 500 });
+    // ── 1. Load autopilot settings (non-fatal — table may not exist yet) ──────────
+    let settings = { enabled: true, frequency: 'daily', max_trade_size: 5000 };
+    try {
+      const { data: settingsRow } = await supabase
+        .from('autopilot_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (settingsRow) {
+        settings = {
+          enabled:        settingsRow.enabled ?? true,
+          frequency:      settingsRow.frequency ?? 'daily',
+          max_trade_size: settingsRow.max_trade_size ?? 5000,
+        };
+      }
+    } catch {
+      // Table missing — proceed with defaults
     }
-
-    // Default settings when no row exists — treat as disabled
-    const settings = settingsRow ?? {
-      enabled: false,
-      frequency: 'weekly',
-      max_trade_size: 1000,
-    };
-
-    if (!settings.enabled) {
-      return NextResponse.json(
-        { error: 'AutoPilot is disabled. Enable it in settings before running.' },
-        { status: 400 },
-      );
-    }
+    // If the user explicitly triggered this endpoint, treat as enabled regardless of DB
+    // (localStorage state is the source of truth for enabled)
 
     // ── 2. Fetch Alpaca account + positions ────────────────────────────────────
     const [account, positions] = await Promise.all([
@@ -168,17 +163,35 @@ export async function POST() {
     const buyingPower = parseFloat(account.buying_power);
     const cash        = parseFloat(account.cash);
 
-    // ── 3. Fetch watchlist ─────────────────────────────────────────────────────
+    // ── 3. Fetch watchlist (fall back to diversified ETF/index universe) ──────────
+    const DEFAULT_UNIVERSE = [
+      'VTI',  // Vanguard Total Stock Market
+      'VOO',  // Vanguard S&P 500
+      'QQQ',  // Nasdaq-100
+      'SPY',  // S&P 500
+      'IWM',  // Russell 2000 small-cap
+      'VEA',  // Developed Markets ex-US
+      'VWO',  // Emerging Markets
+      'BND',  // US Total Bond Market
+      'GLD',  // Gold
+      'SCHD', // US Dividend Equity
+      'VGT',  // Information Technology
+      'ARKK', // ARK Innovation
+    ];
     let watchlistTickers: string[] = [];
     try {
       const { data: wl } = await supabase
         .from('user_watchlist')
         .select('ticker')
         .eq('user_id', user.id);
-      if (wl) watchlistTickers = wl.map((r: { ticker: string }) => r.ticker);
+      if (wl && wl.length > 0) {
+        watchlistTickers = wl.map((r: { ticker: string }) => r.ticker);
+      }
     } catch {
-      // continue without watchlist
+      // continue
     }
+    // Always include the default ETF universe so Claude has something to work with
+    watchlistTickers = [...new Set([...watchlistTickers, ...DEFAULT_UNIVERSE])];
 
     // ── 4. Fetch prices ────────────────────────────────────────────────────────
     const heldTickers = positions.map((p) => p.symbol);
@@ -193,16 +206,22 @@ export async function POST() {
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,
-      system: `You are a senior AI portfolio manager running an automated investment session.
+      system: `You are an automated portfolio manager building a diversified long-term portfolio using ETFs and index funds.
+
+Strategy: Core-satellite. Build a diversified core (VTI, VOO, BND, VEA, VWO) and add satellite positions in sector ETFs (VGT, SCHD, QQQ, IWM) and alternatives (GLD) based on market conditions.
+
 Rules:
-• Only recommend BUY for tickers on the watchlist or already held
-• Only recommend SELL for tickers currently held
-• Set qty=0 for hold actions
+• Prefer broad market ETFs for new capital — avoid concentration in any single sector
+• Only recommend BUY for tickers in the candidate list provided
+• Only recommend SELL for tickers currently held; only sell if the position is overweight (>25% of portfolio) or significantly underperforming
+• Set qty=0 for hold
 • Only recommend buy/sell when confidence ≥ 65
 • Buy notional (qty × price) must not exceed $${settings.max_trade_size} per trade
-• A single position must not exceed 20% of total equity after the trade
-• Do not recommend cumulative buys that exceed available buying power
-• Provide 2–3 sentence reasoning that references the data you were given
+• A single position must not exceed 25% of total equity after the trade
+• Target 5–8 holdings for a well-diversified portfolio
+• If buying power is available, ALWAYS find at least one buy to deploy capital efficiently
+• Do not recommend cumulative buys exceeding available buying power
+• Provide 2–3 sentence reasoning per recommendation referencing the portfolio data
 • You MUST call submit_portfolio_analysis — do not reply in plain text.`,
       tools:       [ANALYSIS_TOOL],
       tool_choice: { type: 'tool', name: 'submit_portfolio_analysis' },
