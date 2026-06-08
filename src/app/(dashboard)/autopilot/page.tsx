@@ -316,6 +316,29 @@ function RunRow({ run }: RunRowProps) {
   );
 }
 
+// ── localStorage persistence (fallback when DB table is missing) ──────────────
+
+const LS_KEY = 'tavola:autopilot';
+
+interface LocalSettings {
+  enabled?: boolean;
+  frequency?: 'daily' | 'weekly' | 'monthly';
+  max_trade_size?: number;
+}
+
+function readLocal(): LocalSettings {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(LS_KEY) : null;
+    return raw ? (JSON.parse(raw) as LocalSettings) : {};
+  } catch { return {}; }
+}
+
+function writeLocal(patch: LocalSettings) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ ...readLocal(), ...patch }));
+  } catch {}
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS: AutopilotSettings = {
@@ -367,14 +390,29 @@ export default function AutopilotPage() {
       const data = await res.json() as { settings?: AutopilotSettings };
       const s = data.settings;
       if (!s) throw new Error('no settings in response');
-      setSettings(s);
-      setLocalFrequency(s.frequency);
-      setLocalMaxTrade(s.max_trade_size);
+      // Merge: localStorage overrides API defaults so settings survive tab switches
+      const local = readLocal();
+      const merged: AutopilotSettings = {
+        ...s,
+        ...(local.enabled        !== undefined && { enabled:        local.enabled }),
+        ...(local.frequency      !== undefined && { frequency:      local.frequency }),
+        ...(local.max_trade_size !== undefined && { max_trade_size: local.max_trade_size }),
+      };
+      setSettings(merged);
+      setLocalFrequency(merged.frequency);
+      setLocalMaxTrade(merged.max_trade_size);
     } catch {
-      // Any failure — table missing, network error, bad JSON — use defaults silently
-      setSettings(DEFAULT_SETTINGS);
-      setLocalFrequency(DEFAULT_SETTINGS.frequency);
-      setLocalMaxTrade(DEFAULT_SETTINGS.max_trade_size);
+      // Any failure — table missing, network error — use defaults merged with local
+      const local = readLocal();
+      const merged: AutopilotSettings = {
+        ...DEFAULT_SETTINGS,
+        ...(local.enabled        !== undefined && { enabled:        local.enabled }),
+        ...(local.frequency      !== undefined && { frequency:      local.frequency }),
+        ...(local.max_trade_size !== undefined && { max_trade_size: local.max_trade_size }),
+      };
+      setSettings(merged);
+      setLocalFrequency(merged.frequency);
+      setLocalMaxTrade(merged.max_trade_size);
     } finally {
       setSettingsLoading(false);
     }
@@ -418,10 +456,10 @@ export default function AutopilotPage() {
       if (!res.ok) throw new Error('Failed to update AutoPilot status');
       const { settings: updated } = await res.json() as { settings: AutopilotSettings };
       setSettings(updated);
-    } catch (err) {
-      // Roll back optimistic update
-      setSettings((prev) => prev ? { ...prev, enabled: !newEnabled } : prev);
-      setError(err instanceof Error ? err.message : 'Failed to update AutoPilot');
+      writeLocal({ enabled: updated.enabled });
+    } catch {
+      // API failed — keep optimistic UI and persist locally so it survives tab switches
+      writeLocal({ enabled: newEnabled });
     } finally {
       setToggleLoading(false);
     }
@@ -446,8 +484,10 @@ export default function AutopilotPage() {
       }
       const { settings: updated } = await res.json() as { settings: AutopilotSettings };
       setSettings(updated);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save settings');
+      writeLocal({ frequency: updated.frequency, max_trade_size: updated.max_trade_size });
+    } catch {
+      // Persist locally even if API fails
+      writeLocal({ frequency: localFrequency, max_trade_size: localMaxTrade });
     } finally {
       setSaveLoading(false);
     }
