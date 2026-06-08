@@ -299,3 +299,39 @@ export interface AutoInvestResult {
 export interface StripeCheckoutSession {
   url: string;
 }
+
+// ── Strategy / Autonomous ─────────────────────────────────────────────────────
+
+export type StrategyRiskLevel = 'conservative' | 'moderate' | 'aggressive' | 'very_aggressive';
+
+export interface UserStrategyPrefs {
+  strategy_id: string;
+  auto_execute: boolean;
+  max_trade_value: number;
+}
+
+export interface AutonomousSessionRecord {
+  id: string;
+  strategy_id: string;
+  strategy_name: string;
+  status: 'running' | 'completed' | 'failed';
+  auto_executed: boolean;
+  trades_approved: number;
+  trades_executed: number;
+  total_trade_value: number;
+  market_outlook: string | null;
+  summary: string | null;
+  warnings: string[];
+  created_at: string;
+}
+
+export interface PortfolioAnalytics {
+  win_rate: number;
+  best_performer: { symbol: string; unrealized_plpc: number } | null;
+  worst_performer: { symbol: string; unrealized_plpc: number } | null;
+  concentration_risk: 'low' | 'medium' | 'high';
+  total_unrealized_pl: number;
+  total_unrealized_plpc: number;
+  position_count: number;
+  sector_exposure: Record<string, number>;
+}
