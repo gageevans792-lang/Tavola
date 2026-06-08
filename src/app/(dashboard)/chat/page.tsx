@@ -4,6 +4,33 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { TopBar } from '@/components/layout/TopBar';
 import { useRouter } from 'next/navigation';
 
+// Render **bold** and *italic* markdown inline, and line breaks
+function renderMarkdown(text: string): React.ReactNode[] {
+  const lines = text.split('\n');
+  return lines.map((line, li) => {
+    const parts: React.ReactNode[] = [];
+    let remaining = line;
+    let key = 0;
+    while (remaining.length > 0) {
+      const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
+      if (boldMatch && boldMatch.index !== undefined) {
+        if (boldMatch.index > 0) parts.push(remaining.slice(0, boldMatch.index));
+        parts.push(<strong key={key++}>{boldMatch[1]}</strong>);
+        remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+      } else {
+        parts.push(remaining);
+        break;
+      }
+    }
+    return (
+      <span key={li}>
+        {parts}
+        {li < lines.length - 1 && <br />}
+      </span>
+    );
+  });
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -191,7 +218,7 @@ export default function ChatPage() {
                     ) : (
                       <div>
                         <div className="border-l-2 border-[#B8960C] bg-white px-5 py-4 text-[14px] text-[#0A1628] leading-relaxed shadow-sm">
-                          {msg.content}
+                          {renderMarkdown(msg.content)}
                         </div>
                         {msg.action && pendingAction?.msgIdx === i && (
                           <ActionCard
@@ -228,8 +255,8 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Input area */}
-        <div className="border-t border-[#E2E8F0] bg-white px-4 py-4">
+        {/* Input area — mb-16 sm:mb-0 clears the fixed mobile bottom nav */}
+        <div className="border-t border-[#E2E8F0] bg-white px-4 py-4 mb-16 sm:mb-0">
           <div className="max-w-2xl mx-auto flex gap-3 items-end">
             <textarea
               ref={inputRef}
