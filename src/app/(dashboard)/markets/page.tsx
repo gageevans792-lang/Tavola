@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { TopBar } from '@/components/layout/TopBar';
 import { cn } from '@/lib/utils';
 import type { NewsItem, NewsCategory } from '@/app/api/market/news/route';
-import type { SignalsResponse } from '@/app/api/market/brief/route';
+import type { SignalsResponse, MarketEvent } from '@/app/api/market/brief/route';
 import type { SnapshotTile, SnapshotResponse } from '@/app/api/market/snapshot/route';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
@@ -32,48 +32,6 @@ function timeAgo(iso: string): string {
 
 function fmtSignalTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-}
-
-// ── Event extraction from news ────────────────────────────────────────────────
-
-interface MarketEvent {
-  name:    string;
-  date:    string;
-  impact:  'HIGH' | 'MED' | 'LOW';
-  ticker?: string;
-}
-
-const EVENT_PATTERNS: Array<{ re: RegExp; name: string; impact: 'HIGH' | 'MED' | 'LOW' }> = [
-  { re: /\bFOMC\b|\bFed\s+(meeting|minutes|decision|rate)\b|\bFederal Reserve\b/i, name: 'Fed / FOMC',       impact: 'HIGH' },
-  { re: /\bCPI\b|\bconsumer\s+price\s+index\b/i,                                    name: 'CPI Release',      impact: 'HIGH' },
-  { re: /\bcore\s+PCE\b|\bPCE\s+inflation\b/i,                                      name: 'PCE Inflation',    impact: 'HIGH' },
-  { re: /\bnonfarm\s+payroll|\bjobs\s+report\b|\bunemployment\s+rate\b/i,            name: 'Jobs Report',      impact: 'HIGH' },
-  { re: /\bGDP\b|\bgross\s+domestic\s+product\b/i,                                  name: 'GDP Data',         impact: 'HIGH' },
-  { re: /\bearnings\s+(report|season|release)\b/i,                                  name: 'Earnings Season',  impact: 'MED'  },
-  { re: /\btreasury\s+auction\b|\bbond\s+auction\b/i,                               name: 'Treasury Auction', impact: 'MED'  },
-  { re: /\bISM\s+(?:manufacturing|services)\b|\bPMI\b/i,                            name: 'PMI Data',         impact: 'MED'  },
-  { re: /\bretail\s+sales\b/i,                                                      name: 'Retail Sales',     impact: 'MED'  },
-  { re: /\bIPO\b|\binitial\s+public\s+offering\b/i,                                 name: 'IPO Activity',     impact: 'LOW'  },
-];
-
-function extractEvents(news: NewsItem[]): MarketEvent[] {
-  const found = new Map<string, MarketEvent>();
-  for (const item of news) {
-    const text = item.headline + ' ' + item.summary;
-    for (const { re, name, impact } of EVENT_PATTERNS) {
-      if (re.test(text) && !found.has(name)) {
-        found.set(name, {
-          name,
-          date:   item.published_at,
-          impact,
-          ticker: item.symbols[0],
-        });
-      }
-    }
-  }
-  return [...found.values()].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-  );
 }
 
 // ── Skeleton loaders ──────────────────────────────────────────────────────────
@@ -110,9 +68,15 @@ function SignalsSkeleton() {
 // ── Impact badge ──────────────────────────────────────────────────────────────
 
 const IMPACT_STYLE: Record<string, string> = {
-  HIGH: 'text-[#C41E3A] border border-[#C41E3A]/30',
-  MED:  'text-[#B8960C] border border-[#B8960C]/30',
-  LOW:  'text-[#4A5568] border border-[#E2E8F0]',
+  high:   'text-[#C41E3A] border border-[#C41E3A]/30',
+  medium: 'text-[#B8960C] border border-[#B8960C]/30',
+  low:    'text-[#4A5568] border border-[#E2E8F0]',
+};
+
+const IMPACT_LABEL: Record<string, string> = {
+  high:   'HIGH',
+  medium: 'MED',
+  low:    'LOW',
 };
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -146,7 +110,7 @@ export default function MarketsPage() {
   const [news, setNews]               = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
   const [newsFilter, setNewsFilter]   = useState<NewsFilter>('all');
-  const [visibleCount, setVisibleCount] = useState(8);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   const signalsTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const newsTimerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -209,7 +173,7 @@ export default function MarketsPage() {
 
   const visibleNews    = filteredNews.slice(0, visibleCount);
   const hasMoreNews    = filteredNews.length > visibleCount;
-  const marketEvents   = extractEvents(news);
+  const marketEvents   = (signals?.events ?? []) as MarketEvent[];
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -312,8 +276,8 @@ export default function MarketsPage() {
                         </span>
                       </div>
 
-                      {/* Event name */}
-                      <p className="flex-1 text-[13px] font-medium text-[#0A1628] truncate">{evt.name}</p>
+                      {/* Event title */}
+                      <p className="flex-1 text-[13px] font-medium text-[#0A1628] truncate">{evt.title}</p>
 
                       {/* Ticker (optional) */}
                       {evt.ticker && (
@@ -325,9 +289,9 @@ export default function MarketsPage() {
                       {/* Impact badge */}
                       <span className={cn(
                         'shrink-0 px-2 py-0.5 text-[9px] tracking-[0.1em] uppercase font-medium',
-                        IMPACT_STYLE[evt.impact],
+                        IMPACT_STYLE[evt.impact] ?? IMPACT_STYLE['low'],
                       )}>
-                        {evt.impact}
+                        {IMPACT_LABEL[evt.impact] ?? evt.impact.toUpperCase()}
                       </span>
                     </div>
                   ))}
@@ -342,7 +306,7 @@ export default function MarketsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Live Intelligence</p>
                   <button
-                    onClick={() => { fetchNews(); setVisibleCount(8); }}
+                    onClick={() => { fetchNews(); setVisibleCount(10); }}
                     className="text-[10px] tracking-[0.08em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors"
                   >
                     Refresh
@@ -354,7 +318,7 @@ export default function MarketsPage() {
                     <span key={key} className="flex items-center">
                       {i > 0 && <span className="mx-1.5 text-[#E2E8F0]">·</span>}
                       <button
-                        onClick={() => { setNewsFilter(key); setVisibleCount(8); }}
+                        onClick={() => { setNewsFilter(key); setVisibleCount(10); }}
                         className={cn(
                           'text-[10px] tracking-[0.1em] uppercase transition-colors',
                           newsFilter === key
@@ -408,7 +372,7 @@ export default function MarketsPage() {
                     ))}
                     {hasMoreNews && (
                       <button
-                        onClick={() => setVisibleCount((c) => c + 8)}
+                        onClick={() => setVisibleCount((c) => c + 10)}
                         className="w-full px-4 py-2.5 text-[11px] tracking-[0.1em] uppercase text-[#4A5568] hover:text-[#0A1628] hover:bg-[#F8F9FA] transition-colors text-left"
                       >
                         Load more
@@ -443,6 +407,7 @@ export default function MarketsPage() {
                   return (
                     <div key={tile.symbol} className="bg-white px-4 py-3">
                       <p className="text-[10px] tracking-[0.08em] uppercase text-[#4A5568] truncate">{tile.label}</p>
+                      <p className="text-[9px] text-[#4A5568]/60 mb-0.5">{tile.symbol}</p>
                       <p className={cn(
                         'mt-1 font-serif text-[18px] font-light leading-none',
                         pos ? 'text-[#16A34A]' : neg ? 'text-[#C41E3A]' : 'text-[#4A5568]',

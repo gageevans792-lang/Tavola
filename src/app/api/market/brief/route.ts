@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { anthropic } from '@/lib/anthropic/client';
 import { getAccount } from '@/lib/alpaca/client';
+import { getEarningsCalendar, getEconomicCalendar } from '@/lib/finnhub/client';
+import type { FinnhubEarningsEvent, FinnhubEconomicEvent } from '@/lib/finnhub/client';
 
 const DATA_BASE = 'https://data.alpaca.markets';
 
@@ -14,12 +16,21 @@ function alpacaHeaders(): HeadersInit {
 
 // ── Shared types ──────────────────────────────────────────────────────────────
 
+export interface MarketEvent {
+  date:    string;
+  title:   string;
+  impact:  'high' | 'medium' | 'low';
+  type:    'earnings' | 'macro' | 'geopolitical';
+  ticker?: string;
+}
+
 export interface SignalsResponse {
   signals: {
     market_sentiment: string;
     your_portfolio:   string;
     top_opportunity:  string;
   };
+  events: MarketEvent[];
   generated_at: string;
 }
 
@@ -38,6 +49,38 @@ function parseSignals(text: string): SignalsResponse['signals'] {
   };
 }
 
+// ── Build events array from Finnhub calendars ─────────────────────────────────
+
+function buildEvents(
+  earnings: FinnhubEarningsEvent[],
+  economic: FinnhubEconomicEvent[],
+): MarketEvent[] {
+  const events: MarketEvent[] = [];
+
+  for (const e of earnings.slice(0, 10)) {
+    const timing = e.hour === 'bmo' ? 'BMO' : e.hour === 'amc' ? 'AMC' : '';
+    events.push({
+      date:   e.date,
+      title:  `${e.symbol} Earnings${timing ? ` (${timing})` : ''}`,
+      impact: 'high',
+      type:   'earnings',
+      ticker: e.symbol,
+    });
+  }
+
+  for (const e of economic.slice(0, 10)) {
+    events.push({
+      date:   e.time.slice(0, 10),
+      title:  e.event,
+      impact: e.impact,
+      type:   'macro',
+    });
+  }
+
+  events.sort((a, b) => a.date.localeCompare(b.date));
+  return events;
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST() {
@@ -47,7 +90,7 @@ export async function POST() {
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [newsRes, holdingsRes, accountRes] = await Promise.allSettled([
+  const [newsRes, holdingsRes, accountRes, earningsRes, economicRes] = await Promise.allSettled([
     fetch(`${DATA_BASE}/v1beta1/news?limit=30&sort=desc&start=${encodeURIComponent(since)}`, {
       headers: alpacaHeaders(),
     }),
@@ -56,6 +99,8 @@ export async function POST() {
       .select('ticker, market_value, unrealized_pl, unrealized_plpc')
       .eq('user_id', user.id),
     getAccount(),
+    getEarningsCalendar(),
+    getEconomicCalendar(),
   ]);
 
   // Headlines
@@ -85,8 +130,17 @@ export async function POST() {
     ? `$${Math.round(parseFloat(acct.equity)).toLocaleString()}`
     : 'unknown';
 
+  // Events
+  const earnings = earningsRes.status === 'fulfilled' ? earningsRes.value : [];
+  const economic = economicRes.status === 'fulfilled' ? economicRes.value : [];
+  const events   = buildEvents(earnings, economic);
+
+  const eventsSummary = events.length > 0
+    ? 'Upcoming events:\n' + events.slice(0, 5).map((e) => `- ${e.date}: ${e.title}`).join('\n')
+    : 'No upcoming events.';
+
   const userMessage =
-    `Portfolio equity: ${equity}\nHoldings: ${holdingsSummary}\n\nHeadlines:\n${headlines}`;
+    `Portfolio equity: ${equity}\nHoldings: ${holdingsSummary}\n\n${eventsSummary}\n\nHeadlines:\n${headlines}`;
 
   const aiResponse = await anthropic.messages.create({
     model:      'claude-sonnet-4-6',
@@ -105,13 +159,13 @@ Rules: Be direct, institutional, no hedging. No emojis. No extra text. Just the 
   const rawText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
   const signals = parseSignals(rawText);
 
-  // Fallback values if parsing fails
   if (!signals.market_sentiment) signals.market_sentiment = 'Market conditions require close monitoring today.';
   if (!signals.your_portfolio)   signals.your_portfolio   = 'Portfolio positioning reflects current market environment.';
   if (!signals.top_opportunity)  signals.top_opportunity  = 'Review watchlist for emerging setups.';
 
   return NextResponse.json({
     signals,
+    events,
     generated_at: new Date().toISOString(),
   } satisfies SignalsResponse);
 }

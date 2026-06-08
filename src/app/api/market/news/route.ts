@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getMarketNews as getFinnhubNews } from '@/lib/finnhub/client';
+import type { FinnhubNewsItem } from '@/lib/finnhub/client';
 
 const DATA_BASE = 'https://data.alpaca.markets';
 
@@ -24,6 +26,7 @@ export interface NewsItem {
   symbols:      string[];
   sentiment:    null;
   categories:   NewsCategory[];
+  data_source:  'alpaca' | 'finnhub';
 }
 
 // ── Geopolitical keyword detection ────────────────────────────────────────────
@@ -42,7 +45,7 @@ function isGeopolitical(headline: string, summary: string): boolean {
   return GEO_PATTERNS.some((re) => re.test(text));
 }
 
-// ── Alpaca news fetch (each call individually cached 5 min) ───────────────────
+// ── Alpaca news fetch ─────────────────────────────────────────────────────────
 
 async function fetchAlpacaNews(params: URLSearchParams): Promise<NewsItem[]> {
   try {
@@ -65,11 +68,31 @@ async function fetchAlpacaNews(params: URLSearchParams): Promise<NewsItem[]> {
       symbols:      Array.isArray(item.symbols) ? item.symbols as string[] : [],
       sentiment:    null,
       categories:   [] as NewsCategory[],
+      data_source:  'alpaca' as const,
     }));
   } catch (err) {
     console.warn('[market/news] fetch error:', err instanceof Error ? err.message : err);
     return [];
   }
+}
+
+// ── Finnhub news normalizer ───────────────────────────────────────────────────
+
+function normalizeFinnhubNews(items: FinnhubNewsItem[]): NewsItem[] {
+  return items.map((item) => ({
+    id:           `fh-${item.id}`,
+    headline:     item.headline,
+    summary:      item.summary,
+    source:       item.source,
+    url:          item.url,
+    published_at: new Date(item.datetime * 1000).toISOString(),
+    symbols:      item.related
+      ? item.related.split(',').map((s) => s.trim()).filter(Boolean)
+      : [],
+    sentiment:    null,
+    categories:   [] as NewsCategory[],
+    data_source:  'finnhub' as const,
+  }));
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -88,22 +111,33 @@ export async function GET() {
   const watchlistTickers = new Set((watchlistRes.data ?? []).map((w) => w.ticker as string));
   const allTickers       = new Set([...holdingTickers, ...watchlistTickers]);
 
-  const fetches: Promise<NewsItem[]>[] = [];
+  const [alpacaTargetedResult, alpacaGeneralResult, finnhubResult] = await Promise.allSettled([
+    allTickers.size > 0
+      ? fetchAlpacaNews(new URLSearchParams({ limit: '20', sort: 'desc', symbols: [...allTickers].join(',') }))
+      : Promise.resolve([] as NewsItem[]),
+    fetchAlpacaNews(new URLSearchParams({ limit: '15', sort: 'desc' })),
+    getFinnhubNews('general').then(normalizeFinnhubNews),
+  ]);
 
-  if (allTickers.size > 0) {
-    fetches.push(fetchAlpacaNews(new URLSearchParams({
-      limit: '20', sort: 'desc', symbols: [...allTickers].join(','),
-    })));
-  }
-  fetches.push(fetchAlpacaNews(new URLSearchParams({ limit: '15', sort: 'desc' })));
+  const batches: NewsItem[][] = [
+    alpacaTargetedResult.status === 'fulfilled' ? alpacaTargetedResult.value : [],
+    alpacaGeneralResult.status  === 'fulfilled' ? alpacaGeneralResult.value  : [],
+    finnhubResult.status        === 'fulfilled' ? finnhubResult.value        : [],
+  ];
 
-  const batches = await Promise.all(fetches);
-
-  const seen = new Set<string>();
+  // Dedup: by id within source, then by 50-char headline prefix across sources
+  const seenIds      = new Set<string>();
+  const seenPrefixes = new Set<string>();
   const all: NewsItem[] = [];
+
   for (const batch of batches) {
     for (const item of batch) {
-      if (!seen.has(item.id)) { seen.add(item.id); all.push(item); }
+      if (seenIds.has(item.id)) continue;
+      const prefix = item.headline.toLowerCase().slice(0, 50);
+      if (seenPrefixes.has(prefix)) continue;
+      seenIds.add(item.id);
+      seenPrefixes.add(prefix);
+      all.push(item);
     }
   }
 
@@ -119,5 +153,5 @@ export async function GET() {
     item.categories = cats;
   }
 
-  return NextResponse.json(all);
+  return NextResponse.json(all.slice(0, 30));
 }
