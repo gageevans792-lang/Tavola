@@ -208,9 +208,9 @@ export default function DashboardPage() {
 
         {/* ── Live equity ticker (navy dark band) ─────────────────────────── */}
         <LiveEquityTicker
-          initialEquity={p?.equity ?? 0}
-          initialDayPl={p?.day_pl ?? 0}
-          initialDayPlPct={p?.day_pl_pct ?? 0}
+          equity={p?.equity ?? 0}
+          dayPl={p?.day_pl ?? 0}
+          dayPlPct={p?.day_pl_pct ?? 0}
         />
 
 

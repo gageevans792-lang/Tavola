@@ -37,12 +37,24 @@ function computeNextRunAt(frequency: Frequency): string {
 
 // ── GET: fetch current autopilot settings ─────────────────────────────────────
 
+const DEFAULT_SETTINGS_BASE = {
+  enabled:        false,
+  frequency:      'daily' as const,
+  max_trade_size: 5000,
+  last_run_at:    null,
+  next_run_at:    null,
+};
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  const now = new Date().toISOString();
+
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json({
+      settings: { ...DEFAULT_SETTINGS_BASE, user_id: '', created_at: now, updated_at: now },
+    });
   }
 
   try {
@@ -52,30 +64,20 @@ export async function GET() {
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (error) {
-      console.error('[autopilot/status GET]', error.message);
-      return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
-    }
-
-    if (!data) {
-      // Return defaults when no row exists yet
-      const defaults: AutopilotSettings = {
-        user_id:       user.id,
-        enabled:       false,
-        frequency:     'weekly',
-        max_trade_size: 1000,
-        last_run_at:   null,
-        next_run_at:   null,
-        created_at:    new Date().toISOString(),
-        updated_at:    new Date().toISOString(),
-      };
-      return NextResponse.json({ settings: defaults });
+    if (error || !data) {
+      // Table missing, no row, or any DB error — return 200 with defaults
+      console.warn('[autopilot/status GET] using defaults:', error?.message ?? 'no row');
+      return NextResponse.json({
+        settings: { ...DEFAULT_SETTINGS_BASE, user_id: user.id, created_at: now, updated_at: now },
+      });
     }
 
     return NextResponse.json({ settings: data as AutopilotSettings });
   } catch (err: unknown) {
-    console.error('[autopilot/status GET]', err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.warn('[autopilot/status GET] exception, using defaults:', err instanceof Error ? err.message : err);
+    return NextResponse.json({
+      settings: { ...DEFAULT_SETTINGS_BASE, user_id: user.id, created_at: now, updated_at: now },
+    });
   }
 }
 

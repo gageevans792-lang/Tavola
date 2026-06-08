@@ -587,20 +587,6 @@ export default function AutopilotPage() {
           </div>
         </section>
 
-        {/* ── ERROR BANNER ─────────────────────────────────────────────────── */}
-        {error && (
-          <div className="border-b border-[#991b1b]/30 bg-[#991b1b]/10 px-6 py-3 text-sm text-[#991b1b]">
-            {error}
-            <button
-              type="button"
-              onClick={() => setError(null)}
-              className="ml-4 underline text-[#991b1b]/70 hover:text-[#991b1b]"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
         {/* ── SETTINGS SECTION ─────────────────────────────────────────────── */}
         <section className="bg-white border-b border-[#E2E8F0] px-6 py-10 sm:px-10">
           <div className="mx-auto max-w-6xl">

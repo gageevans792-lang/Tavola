@@ -1,14 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PortfolioData } from '@/app/api/alpaca/portfolio/route';
+import { useEffect, useRef, useState } from 'react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface LiveEquityTickerProps {
-  initialEquity: number;
-  initialDayPl?: number;
-  initialDayPlPct?: number;
+  equity: number;
+  dayPl?: number;
+  dayPlPct?: number;
 }
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -78,46 +77,22 @@ function useCountUp(target: number, duration = 600): number {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function LiveEquityTicker({
-  initialEquity,
-  initialDayPl    = 0,
-  initialDayPlPct = 0,
+  equity,
+  dayPl    = 0,
+  dayPlPct = 0,
 }: LiveEquityTickerProps) {
-  const [equity,     setEquity]     = useState(initialEquity ?? 0);
-  const [dayPl,      setDayPl]      = useState(initialDayPl);
-  const [dayPlPct,   setDayPlPct]   = useState(initialDayPlPct);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-
-  // Only update equity when the parent has real data (non-zero)
-  useEffect(() => {
-    if (initialEquity) setEquity(initialEquity);
-  }, [initialEquity]);
-
-  // Keep day P&L in sync separately
-  useEffect(() => {
-    setDayPl(initialDayPl ?? 0);
-    setDayPlPct(initialDayPlPct ?? 0);
-  }, [initialDayPl, initialDayPlPct]);
-
+  // Animate transitions between equity values
   const displayEquity = useCountUp(equity);
 
-  const refresh = useCallback(async () => {
-    try {
-      const res = await fetch('/api/alpaca/portfolio');
-      if (!res.ok) return;
-      const data: PortfolioData = await res.json();
-      setEquity(data.equity);
-      setDayPl(data.day_pl);
-      setDayPlPct(data.day_pl_pct);
-      setLastUpdate(new Date());
-    } catch {
-      // silent — keep showing last known value
-    }
-  }, []);
-
+  // Track last update time: whenever equity prop changes to a real value
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const prevEquityRef = useRef(equity);
   useEffect(() => {
-    const id = setInterval(refresh, 45_000);
-    return () => clearInterval(id);
-  }, [refresh]);
+    if (equity > 0 && equity !== prevEquityRef.current) {
+      prevEquityRef.current = equity;
+      setLastUpdate(new Date());
+    }
+  }, [equity]);
 
   const plPositive = dayPl >= 0;
 
