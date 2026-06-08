@@ -181,7 +181,7 @@ export default function IntelligencePage() {
           {/* ── S1: Portfolio Health Score ──────────────────────────────────── */}
           <section className="bg-[#0A1628] px-6 py-10">
             <div className="text-center">
-              <p className="font-serif text-[80px] font-light leading-none text-[#B8960C]">
+              <p className="font-serif font-light leading-none text-[#B8960C]" style={{ fontSize: 'clamp(48px, 15vw, 80px)' }}>
                 {data.health_score}
               </p>
               <p className="mt-3 text-[12px] tracking-[0.22em] uppercase text-white/60">

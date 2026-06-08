@@ -231,7 +231,7 @@ export default function PerformancePage() {
                   <p
                     className="font-serif tabular-nums leading-none"
                     style={{
-                      fontSize:    64,
+                      fontSize:    'clamp(36px, 10vw, 64px)',
                       fontWeight:  300,
                       color:       d ? (d.portfolio_return >= 0 ? '#B8960C' : '#991b1b') : '#B8960C',
                       letterSpacing: '-0.02em',
@@ -262,7 +262,7 @@ export default function PerformancePage() {
               </div>
 
               {/* Period pills */}
-              <div className="flex items-center gap-1 self-start sm:self-auto">
+              <div className="flex flex-wrap items-center gap-1 self-start sm:self-auto">
                 {PERIODS.map((p) => (
                   <button
                     key={p}

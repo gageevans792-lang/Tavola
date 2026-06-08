@@ -216,40 +216,42 @@ export default function DashboardPage() {
 
         <div className="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
           {/* ── Compact stat strip ────────────────────────────────────────────── */}
-          <div className="border border-[#E2E8F0] bg-white flex items-stretch divide-x divide-[#E2E8F0] overflow-x-auto">
-            <div className="w-0.5 shrink-0 bg-[#B8960C]" />
-            <StatCard
-              title="Portfolio Value"
-              value={portfolioValue}
-              change={dayPlChange}
-              changePositive={p ? p.day_pl >= 0 : undefined}
-              loading={loading}
-            />
-            <StatCard
-              title="Day P&L"
-              value={dayPl}
-              change={dayPlPct}
-              changePositive={p ? p.day_pl >= 0 : undefined}
-              loading={loading}
-            />
-            <StatCard
-              title="Total Return"
-              value={totalReturn}
-              change={totalReturnPct}
-              changePositive={p ? p.total_return >= 0 : undefined}
-              loading={loading}
-            />
-            <StatCard
-              title="Cash Available"
-              value={cashAvailable}
-              loading={loading}
-            />
-            {/* Market status indicator */}
-            <div className="flex flex-col justify-center px-5 py-3 ml-auto shrink-0">
-              <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568]">Market</p>
-              <div className="mt-0.5 flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#166534] animate-pulse" />
-                <span className="font-mono text-[13px] text-[#166534]">Open</span>
+          <div className="border border-[#E2E8F0] bg-[#E2E8F0]">
+            <div className="grid grid-cols-2 gap-px sm:grid-cols-4">
+              <div className="relative bg-white">
+                <div className="absolute inset-y-0 left-0 w-0.5 bg-[#B8960C]" />
+                <StatCard
+                  title="Portfolio Value"
+                  value={portfolioValue}
+                  change={dayPlChange}
+                  changePositive={p ? p.day_pl >= 0 : undefined}
+                  loading={loading}
+                />
+              </div>
+              <div className="bg-white">
+                <StatCard
+                  title="Day P&L"
+                  value={dayPl}
+                  change={dayPlPct}
+                  changePositive={p ? p.day_pl >= 0 : undefined}
+                  loading={loading}
+                />
+              </div>
+              <div className="bg-white">
+                <StatCard
+                  title="Total Return"
+                  value={totalReturn}
+                  change={totalReturnPct}
+                  changePositive={p ? p.total_return >= 0 : undefined}
+                  loading={loading}
+                />
+              </div>
+              <div className="bg-white">
+                <StatCard
+                  title="Cash Available"
+                  value={cashAvailable}
+                  loading={loading}
+                />
               </div>
             </div>
           </div>

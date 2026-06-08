@@ -397,7 +397,7 @@ export default function MarketsPage() {
             </div>
 
             {snapLoading ? (
-              <div className="grid grid-cols-3 gap-px sm:grid-cols-7 bg-[#E2E8F0] border-b border-[#E2E8F0]">
+              <div className="grid grid-cols-2 gap-px sm:grid-cols-4 lg:grid-cols-7 bg-[#E2E8F0] border-b border-[#E2E8F0]">
                 {[1,2,3,4,5,6,7].map((i) => (
                   <div key={i} className="bg-white px-4 py-3 space-y-1.5">
                     <div className="h-2.5 w-16 animate-pulse bg-[#E2E8F0]" />
@@ -406,7 +406,7 @@ export default function MarketsPage() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-px sm:grid-cols-7 bg-[#E2E8F0]">
+              <div className="grid grid-cols-2 gap-px sm:grid-cols-4 lg:grid-cols-7 bg-[#E2E8F0]">
                 {sectors.map((tile) => {
                   const pos = tile.change_pct > 0;
                   const neg = tile.change_pct < 0;
