@@ -12,8 +12,8 @@ const faqItems = [
 const stats = [
   { value: '$2.4B',   label: 'Assets Under Management' },
   { value: '4–13%',  label: 'Target Annual Return' },
+  { value: '24/7',   label: 'AI Monitoring' },
   { value: '1.6×',   label: 'Sharpe Ratio' },
-  { value: '47,000', label: 'Active Investors' },
 ];
 
 const strategies = [
@@ -23,6 +23,13 @@ const strategies = [
     description:
       'Capital preservation with consistent income generation. Systematic rebalancing across investment-grade fixed income and dividend equities.',
     allocation: 'Fixed income 60% · Dividend equity 30% · Cash 10%',
+  },
+  {
+    name: 'Balanced',
+    range: '6–8%',
+    description:
+      'Moderate growth balanced across diversified asset classes with disciplined risk controls. Designed for investors seeking steady returns with managed volatility.',
+    allocation: 'Equity 50% · Fixed income 35% · Alternatives 15%',
   },
   {
     name: 'Growth',
@@ -212,9 +219,9 @@ export default function Home() {
             Investment Strategies
           </span>
           <h2 className="font-serif text-[40px] font-light text-white mb-16 leading-tight">
-            Three systematic approaches.<br />One platform.
+            Four systematic approaches.<br />One platform.
           </h2>
-          <div className="grid md:grid-cols-3 border border-white/10">
+          <div className="grid md:grid-cols-4 border border-white/10">
             {strategies.map(({ name, range, description, allocation }, i) => (
               <div
                 key={name}

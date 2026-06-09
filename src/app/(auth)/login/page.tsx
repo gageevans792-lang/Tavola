@@ -5,23 +5,40 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    setEmailError(null);
+
+    if (!isValidEmail(email)) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+
+    setLoading(true);
 
     const supabase = createClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (signInError) {
-      setError(signInError.message);
+      const msg = signInError.message.toLowerCase();
+      if (msg.includes('email') && msg.includes('confirm')) {
+        setError('Please check your email to confirm your account.');
+      } else {
+        setError('Invalid email or password.');
+      }
       setLoading(false);
       return;
     }
@@ -62,15 +79,26 @@ export default function LoginPage() {
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setEmailError(null); }}
                 className="w-full border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent transition-colors placeholder:text-[#0A1628]/20"
                 placeholder="you@example.com"
               />
+              {emailError && (
+                <p className="text-sm text-[#991b1b] mt-1">{emailError}</p>
+              )}
             </div>
             <div>
-              <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-1">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40">
+                  Password
+                </label>
+                <Link
+                  href="/reset-password"
+                  className="text-[11px] text-[#0A1628]/40 hover:text-[#0A1628] transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 type="password"
                 required
@@ -82,7 +110,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p className="text-[13px] text-red-600 leading-relaxed">{error}</p>
+              <p className="text-sm text-[#991b1b] mt-1">{error}</p>
             )}
 
             <div className="pt-2">
