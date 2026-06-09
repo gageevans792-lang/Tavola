@@ -49,13 +49,11 @@ export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const now = new Date().toISOString();
-
   if (!user) {
-    return NextResponse.json({
-      settings: { ...DEFAULT_SETTINGS_BASE, user_id: '', created_at: now, updated_at: now },
-    });
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const now = new Date().toISOString();
 
   try {
     const { data, error } = await supabase

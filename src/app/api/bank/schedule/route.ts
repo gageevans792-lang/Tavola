@@ -73,18 +73,23 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data, error } = await supabase
-    .from('recurring_deposits')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from('recurring_deposits')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-  if (error) {
-    console.error('[bank/schedule GET]', error.message);
-    return NextResponse.json({ error: 'Failed to fetch schedule' }, { status: 500 });
+    if (error) {
+      console.error('[bank/schedule GET]', error.message);
+      return NextResponse.json({ error: 'Failed to fetch schedule' }, { status: 500 });
+    }
+
+    return NextResponse.json({ schedule: data as RecurringDeposit | null });
+  } catch (err: unknown) {
+    console.error('[bank/schedule GET]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  return NextResponse.json({ schedule: data as RecurringDeposit | null });
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
@@ -111,44 +116,49 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const next_deposit_at = computeNextDepositAt(validated.frequency);
+  try {
+    const next_deposit_at = computeNextDepositAt(validated.frequency);
 
-  const { data, error } = await supabase
-    .from('recurring_deposits')
-    .upsert(
-      {
-        user_id:         user.id,
-        amount:          validated.amount,
-        frequency:       validated.frequency,
-        next_deposit_at,
-        auto_invest:     validated.auto_invest,
-        is_active:       true,
-      },
-      { onConflict: 'user_id' },
-    )
-    .select()
-    .single();
+    const { data, error } = await supabase
+      .from('recurring_deposits')
+      .upsert(
+        {
+          user_id:         user.id,
+          amount:          validated.amount,
+          frequency:       validated.frequency,
+          next_deposit_at,
+          auto_invest:     validated.auto_invest,
+          is_active:       true,
+        },
+        { onConflict: 'user_id' },
+      )
+      .select()
+      .single();
 
-  if (error) {
-    console.error('[bank/schedule POST]', error.message);
-    return NextResponse.json({ error: 'Failed to save schedule' }, { status: 500 });
+    if (error) {
+      console.error('[bank/schedule POST]', error.message);
+      return NextResponse.json({ error: 'Failed to save schedule' }, { status: 500 });
+    }
+
+    // Insert a transfer_history row for this scheduled deposit
+    const { error: histError } = await supabase.from('transfer_history').insert({
+      user_id:     user.id,
+      amount:      validated.amount,
+      type:        'deposit',
+      status:      'scheduled',
+      description: `Recurring ${validated.frequency} deposit scheduled`,
+    });
+
+    if (histError) {
+      console.error('[bank/schedule POST] transfer_history insert:', histError.message);
+      // Non-fatal
+    }
+
+    return NextResponse.json({ schedule: data as RecurringDeposit });
+  } catch (err: unknown) {
+    console.error('[bank/schedule POST]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  // Insert a transfer_history row for this scheduled deposit
-  const { error: histError } = await supabase.from('transfer_history').insert({
-    user_id:     user.id,
-    amount:      validated.amount,
-    type:        'deposit',
-    status:      'scheduled',
-    description: `Recurring ${validated.frequency} deposit scheduled`,
-  });
-
-  if (histError) {
-    console.error('[bank/schedule POST] transfer_history insert:', histError.message);
-    // Non-fatal
-  }
-
-  return NextResponse.json({ schedule: data as RecurringDeposit });
 }
 
 // ── DELETE ────────────────────────────────────────────────────────────────────
@@ -158,15 +168,20 @@ export async function DELETE() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { error } = await supabase
-    .from('recurring_deposits')
-    .update({ is_active: false })
-    .eq('user_id', user.id);
+  try {
+    const { error } = await supabase
+      .from('recurring_deposits')
+      .update({ is_active: false })
+      .eq('user_id', user.id);
 
-  if (error) {
-    console.error('[bank/schedule DELETE]', error.message);
-    return NextResponse.json({ error: 'Failed to cancel schedule' }, { status: 500 });
+    if (error) {
+      console.error('[bank/schedule DELETE]', error.message);
+      return NextResponse.json({ error: 'Failed to cancel schedule' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    console.error('[bank/schedule DELETE]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
 }

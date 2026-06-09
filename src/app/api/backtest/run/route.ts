@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -249,58 +250,67 @@ function buildCrises(strategy: StrategyKey, years: number[]): CrisisEvent[] {
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: { strategy?: string; period?: string; initial_capital?: number };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-  const strategy = (body.strategy ?? 'growth') as StrategyKey;
-  const period   = body.period ?? '10Y';
-  const capital  = typeof body.initial_capital === 'number' ? body.initial_capital : 100_000;
+  try {
+    const strategy = (body.strategy ?? 'growth') as StrategyKey;
+    const period   = body.period ?? '10Y';
+    const capital  = typeof body.initial_capital === 'number' ? body.initial_capital : 100_000;
 
-  if (!STRATEGIES[strategy]) {
-    return NextResponse.json({ error: 'Unknown strategy' }, { status: 400 });
+    if (!STRATEGIES[strategy]) {
+      return NextResponse.json({ error: 'Unknown strategy' }, { status: 400 });
+    }
+
+    const cacheKey = `${strategy}-${period}-${capital}`;
+    const cached   = getCached(cacheKey);
+    if (cached) return NextResponse.json(cached);
+
+    const years   = PERIOD_YEARS[period] ?? PERIOD_YEARS['10Y'];
+    const weights = STRATEGIES[strategy];
+
+    const primary = runBacktest(weights, years, capital);
+
+    const spyTotal = years.reduce((acc, yr) => acc * (1 + (ANNUAL_RETURNS['SPY']?.[yr] ?? 0) / 100), 1);
+    const spyTotalReturnPct = (spyTotal - 1) * 100;
+
+    const comparison = {} as Record<StrategyKey, StrategyMetrics>;
+    for (const strat of Object.keys(STRATEGIES) as StrategyKey[]) {
+      const r = runBacktest(STRATEGIES[strat], years, capital);
+      comparison[strat] = r.metrics;
+    }
+
+    const result: BacktestResult = {
+      strategy,
+      start_date:            `${years[0]}-01-01`,
+      end_date:              `${years[years.length - 1]}-12-31`,
+      initial_capital:       capital,
+      final_value:           primary.metrics.final_value,
+      total_return_pct:      primary.metrics.total_return_pct,
+      annualized_return_pct: primary.metrics.annualized_return_pct,
+      vs_sp500_pct:          primary.metrics.total_return_pct - spyTotalReturnPct,
+      sharpe_ratio:          primary.metrics.sharpe_ratio,
+      max_drawdown_pct:      primary.metrics.max_drawdown_pct,
+      win_rate_pct:          primary.metrics.win_rate_pct,
+      best_year:             primary.best_year,
+      worst_year:            primary.worst_year,
+      equity_curve:          primary.equity_curve,
+      monthly_returns:       primary.monthly_returns,
+      crisis_performance:    buildCrises(strategy, years),
+      comparison,
+    };
+
+    setCache(cacheKey, result);
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    console.error('[backtest/run]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  const cacheKey = `${strategy}-${period}-${capital}`;
-  const cached   = getCached(cacheKey);
-  if (cached) return NextResponse.json(cached);
-
-  const years   = PERIOD_YEARS[period] ?? PERIOD_YEARS['10Y'];
-  const weights = STRATEGIES[strategy];
-
-  const primary = runBacktest(weights, years, capital);
-
-  // SPY total return for vs_sp500_pct
-  const spyTotal = years.reduce((acc, yr) => acc * (1 + (ANNUAL_RETURNS['SPY']?.[yr] ?? 0) / 100), 1);
-  const spyTotalReturnPct = (spyTotal - 1) * 100;
-
-  // Comparison across all 4 strategies
-  const comparison = {} as Record<StrategyKey, StrategyMetrics>;
-  for (const strat of Object.keys(STRATEGIES) as StrategyKey[]) {
-    const r = runBacktest(STRATEGIES[strat], years, capital);
-    comparison[strat] = r.metrics;
-  }
-
-  const result: BacktestResult = {
-    strategy,
-    start_date:            `${years[0]}-01-01`,
-    end_date:              `${years[years.length - 1]}-12-31`,
-    initial_capital:       capital,
-    final_value:           primary.metrics.final_value,
-    total_return_pct:      primary.metrics.total_return_pct,
-    annualized_return_pct: primary.metrics.annualized_return_pct,
-    vs_sp500_pct:          primary.metrics.total_return_pct - spyTotalReturnPct,
-    sharpe_ratio:          primary.metrics.sharpe_ratio,
-    max_drawdown_pct:      primary.metrics.max_drawdown_pct,
-    win_rate_pct:          primary.metrics.win_rate_pct,
-    best_year:             primary.best_year,
-    worst_year:            primary.worst_year,
-    equity_curve:          primary.equity_curve,
-    monthly_returns:       primary.monthly_returns,
-    crisis_performance:    buildCrises(strategy, years),
-    comparison,
-  };
-
-  setCache(cacheKey, result);
-  return NextResponse.json(result);
 }

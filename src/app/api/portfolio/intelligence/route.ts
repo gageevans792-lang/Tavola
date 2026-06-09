@@ -157,6 +157,7 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  try {
   const { data: rawHoldings } = await supabase
     .from('holdings')
     .select('ticker, current_price, market_value, weight_pct, unrealized_plpc')
@@ -402,4 +403,8 @@ export async function POST() {
     generated_at:            new Date().toISOString(),
     health_alerts:           healthAlerts,
   } satisfies IntelligenceResponse);
+  } catch (err: unknown) {
+    console.error('[portfolio/intelligence]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
