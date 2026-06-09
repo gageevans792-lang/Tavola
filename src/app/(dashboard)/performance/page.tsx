@@ -106,11 +106,11 @@ interface MetricCardProps {
 
 function MetricCard({ label, value, sub, color, loading }: MetricCardProps) {
   return (
-    <div className="bg-white border border-[#E2E8F0] px-6 py-5">
-      <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568] mb-3">{label}</p>
+    <div className="bg-white border border-[#E2E8F0] px-4 sm:px-6 py-4 sm:py-5">
+      <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568] mb-2 sm:mb-3">{label}</p>
       {loading
-        ? <Skeleton h="h-8" w="w-2/3" />
-        : <p className="font-mono text-[22px] tabular-nums" style={{ color: color ?? '#0A1628' }}>{value}</p>
+        ? <Skeleton h="h-7 sm:h-8" w="w-2/3" />
+        : <p className="font-mono text-xl sm:text-[22px] tabular-nums" style={{ color: color ?? '#0A1628' }}>{value}</p>
       }
       {sub && !loading && (
         <p className="text-[11px] text-[#4A5568] mt-1">{sub}</p>
@@ -218,9 +218,9 @@ export default function PerformancePage() {
 
           {/* ── Empty state when no equity history ──────────────────────────────── */}
           {!loading && d && d.equity_curve.length === 0 && (
-            <div className="bg-white border border-[#E2E8F0] px-8 py-16 text-center">
+            <div className="bg-white border border-[#E2E8F0] px-4 sm:px-8 py-16 text-center">
               <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-4">No Data Yet</p>
-              <h3 className="font-serif text-[28px] font-light text-[#0A1628] mb-3">
+              <h3 className="font-serif text-[24px] sm:text-[28px] font-light text-[#0A1628] mb-3">
                 Performance tracking begins with your first trade.
               </h3>
               <p className="text-[14px] text-[#4A5568] max-w-sm mx-auto mb-8 leading-relaxed">
@@ -236,7 +236,7 @@ export default function PerformancePage() {
           )}
 
           {/* ── 1. PERFORMANCE HEADER ────────────────────────────────────────── */}
-          <section className="bg-white border border-[#E2E8F0] px-8 py-8">
+          <section className="bg-white border border-[#E2E8F0] px-4 sm:px-8 py-6 sm:py-8">
             <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
 
               {/* Return display */}
@@ -287,7 +287,7 @@ export default function PerformancePage() {
                     key={p}
                     onClick={() => setPeriod(p)}
                     className={[
-                      'px-4 py-1.5 text-[11px] tracking-[0.1em] uppercase transition-colors',
+                      'px-3 sm:px-4 py-1.5 text-[11px] tracking-[0.1em] uppercase transition-colors',
                       period === p
                         ? 'bg-[#0A1628] text-white'
                         : 'bg-white border border-[#E2E8F0] text-[#4A5568] hover:border-[#0A1628] hover:text-[#0A1628]',
@@ -301,7 +301,7 @@ export default function PerformancePage() {
           </section>
 
           {/* ── 2. KEY METRICS ROW ───────────────────────────────────────────── */}
-          <section className="grid grid-cols-2 gap-px bg-[#E2E8F0] lg:grid-cols-4">
+          <section className="grid grid-cols-2 gap-2 sm:gap-px sm:bg-[#E2E8F0] lg:grid-cols-4">
             <MetricCard
               label="Total Return"
               value={d ? fmtUSD(d.total_return_value) : '--'}
@@ -333,11 +333,11 @@ export default function PerformancePage() {
           </section>
 
           {/* ── 3. EQUITY CURVE CHART ────────────────────────────────────────── */}
-          <section className="bg-white border border-[#E2E8F0]">
+          <section className="bg-white border border-[#E2E8F0] min-w-0">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] px-6 py-4">
+            <div className="flex items-center justify-between border-b border-[#E2E8F0] px-4 sm:px-6 py-4">
               <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568]">Equity Curve</p>
-              <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4 sm:gap-6">
                 <div className="flex items-center gap-2">
                   <div className="h-px w-6 bg-[#B8960C]" />
                   <span className="text-[10px] uppercase tracking-[0.1em] text-[#4A5568]">Portfolio</span>
@@ -350,15 +350,15 @@ export default function PerformancePage() {
             </div>
 
             {loading ? (
-              <div className="px-2 py-4" style={{ height: 300 }}>
+              <div className="px-2 py-4 h-[200px] sm:h-[280px]">
                 <div className="w-full h-full bg-[#F8F9FA] animate-pulse" />
               </div>
             ) : !d?.equity_curve.length ? (
-              <div className="flex items-center justify-center" style={{ height: 300 }}>
+              <div className="flex items-center justify-center h-[200px] sm:h-[280px]">
                 <p className="text-sm text-[#4A5568]">No chart data available</p>
               </div>
             ) : (
-              <div style={{ height: 300 }}>
+              <div className="h-[200px] sm:h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={d.equity_curve}
@@ -418,11 +418,11 @@ export default function PerformancePage() {
 
           {/* ── 4. MONTHLY RETURNS TABLE ─────────────────────────────────────── */}
           <section className="bg-white border border-[#E2E8F0]">
-            <div className="border-b border-[#E2E8F0] px-6 py-4">
+            <div className="border-b border-[#E2E8F0] px-4 sm:px-6 py-4">
               <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568]">Monthly Returns</p>
             </div>
             <div className="overflow-x-auto p-4">
-              <table className="w-full" style={{ minWidth: 640 }}>
+              <table className="w-full text-xs sm:text-sm" style={{ minWidth: 480 }}>
                 <thead>
                   <tr>
                     <th className="pb-2 pr-2 text-left">
@@ -491,10 +491,10 @@ export default function PerformancePage() {
           </section>
 
           {/* ── 5. TRADE PERFORMANCE ────────────────────────────────────────── */}
-          <section className="grid gap-px bg-[#E2E8F0] lg:grid-cols-2">
+          <section className="grid gap-2 sm:gap-px sm:bg-[#E2E8F0] lg:grid-cols-2">
 
             {/* Best / Worst */}
-            <div className="bg-white px-8 py-6 space-y-6">
+            <div className="bg-white px-4 sm:px-8 py-6 space-y-6">
               <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568]">Trade Highlights</p>
 
               {loading ? (
@@ -542,7 +542,7 @@ export default function PerformancePage() {
             </div>
 
             {/* Stats */}
-            <div className="bg-white px-8 py-6">
+            <div className="bg-white px-4 sm:px-8 py-6">
               <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568] mb-6">Trade Statistics</p>
               {loading ? (
                 <div className="space-y-4">
@@ -557,7 +557,7 @@ export default function PerformancePage() {
                     { label: 'Sharpe Ratio (Period)', value: d ? d.sharpe_ratio.toFixed(2) : '—', color: d ? (d.sharpe_ratio >= 1 ? '#166534' : d.sharpe_ratio >= 0 ? '#B8960C' : '#991b1b') : undefined },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="flex items-center justify-between py-3.5">
-                      <span className="text-[13px] text-[#4A5568]">{label}</span>
+                      <span className="text-xs sm:text-[13px] text-[#4A5568]">{label}</span>
                       <span className="font-mono text-[14px] tabular-nums" style={{ color: color ?? '#0A1628' }}>{value}</span>
                     </div>
                   ))}
@@ -569,14 +569,14 @@ export default function PerformancePage() {
           {/* ── 6. AI PERFORMANCE ATTRIBUTION ───────────────────────────────── */}
           <section className="bg-white border border-[#E2E8F0]">
             {/* Header */}
-            <div className="border-b border-[#E2E8F0] px-6 py-4 flex items-center justify-between">
+            <div className="border-b border-[#E2E8F0] px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
                 <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568]">AI Performance Attribution</p>
                 <p className="text-[12px] text-[#4A5568] mt-0.5">Accountability and transparency for every AI recommendation</p>
               </div>
               {!loading && d && (
-                <div className="text-right">
-                  <p className="font-mono text-[22px] tabular-nums" style={{ color: posColor(d.ai_attribution.ai_accuracy - 50) }}>
+                <div className="sm:text-right">
+                  <p className="font-mono text-xl sm:text-[22px] tabular-nums" style={{ color: posColor(d.ai_attribution.ai_accuracy - 50) }}>
                     {d.ai_attribution.ai_accuracy.toFixed(1)}%
                   </p>
                   <p className="text-[10px] text-[#4A5568] mt-0.5">Overall AI Accuracy</p>
@@ -584,10 +584,10 @@ export default function PerformancePage() {
               )}
             </div>
 
-            <div className="grid gap-px bg-[#E2E8F0] lg:grid-cols-2">
+            <div className="grid gap-2 sm:gap-px sm:bg-[#E2E8F0] lg:grid-cols-2">
 
               {/* Accuracy stats */}
-              <div className="bg-white px-8 py-6">
+              <div className="bg-white px-4 sm:px-8 py-6">
                 <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568] mb-5">Accuracy by Confidence Level</p>
                 {loading ? (
                   <div className="space-y-5">
@@ -617,7 +617,7 @@ export default function PerformancePage() {
               </div>
 
               {/* Methodology note */}
-              <div className="bg-white px-8 py-6">
+              <div className="bg-white px-4 sm:px-8 py-6">
                 <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568] mb-4">Attribution Methodology</p>
                 <div className="space-y-4 text-[13px] text-[#4A5568] leading-relaxed">
                   <p>
