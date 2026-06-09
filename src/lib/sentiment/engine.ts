@@ -4,6 +4,7 @@ import {
   getSocialSentiment,
   getInsiderTransactions,
   getRecommendations,
+  getEarningsHistory,
 } from '@/lib/finnhub/client';
 import type {
   FinnhubNewsItem,
@@ -11,6 +12,7 @@ import type {
   FinnhubRecommendation,
   FinnhubSocialSentimentData,
   FinnhubInsiderTransactionsData,
+  FinnhubEarningResult,
 } from '@/lib/finnhub/client';
 import type { DailyBar } from '@/lib/alpaca/client';
 
@@ -38,6 +40,62 @@ export interface NarrativeShift {
   previous_narrative:  string;
   shift_detected:      boolean;
   shift_description:   string;
+}
+
+// ── ETF registry ─────────────────────────────────────────────────────────────
+
+const ETF_TICKERS = new Set([
+  'VTI', 'VOO', 'SCHD', 'GLD', 'BND', 'QQQ', 'SPY', 'IWM', 'VNQ', 'VXUS',
+  'IEMG', 'AGG', 'LQD', 'TLT', 'SHY', 'GDX', 'XLF', 'XLK', 'XLE', 'XLV',
+  'XLP', 'XLY', 'XLI', 'XLB', 'XLU', 'XLRE', 'VIG', 'VYM', 'VCIT', 'VCSH',
+  'VNQI', 'VGIT', 'VGLT', 'VTIP', 'BSV', 'BIV', 'BNDX', 'EMB', 'HYG', 'JNK',
+  'ARKK', 'ARKG', 'ARKW', 'ARKF', 'ARKQ', 'DIA', 'MDY', 'IJH', 'IJR', 'VBK',
+  'TQQQ', 'SQQQ', 'SPXL', 'UVXY', 'VXX', 'SOXL', 'SOXS', 'LABD', 'LABU',
+]);
+
+// ── Company name mapping ──────────────────────────────────────────────────────
+
+const COMPANY_NAMES: Record<string, string[]> = {
+  AAPL:  ['Apple', 'AAPL'],
+  NVDA:  ['Nvidia', 'NVDA', 'Jensen Huang'],
+  MSFT:  ['Microsoft', 'MSFT', 'Satya Nadella'],
+  AMZN:  ['Amazon', 'AMZN', 'Andy Jassy'],
+  GOOGL: ['Google', 'Alphabet', 'GOOGL'],
+  GOOG:  ['Google', 'Alphabet', 'GOOG'],
+  META:  ['Meta', 'Facebook', 'META', 'Zuckerberg'],
+  TSLA:  ['Tesla', 'TSLA', 'Elon Musk'],
+  NFLX:  ['Netflix', 'NFLX'],
+  ORCL:  ['Oracle', 'ORCL'],
+  AMD:   ['AMD', 'Advanced Micro', 'Lisa Su'],
+  INTC:  ['Intel', 'INTC'],
+  CRM:   ['Salesforce', 'CRM'],
+  ADBE:  ['Adobe', 'ADBE'],
+  NOW:   ['ServiceNow', 'NOW'],
+  UBER:  ['Uber', 'UBER'],
+  LYFT:  ['Lyft', 'LYFT'],
+  SNAP:  ['Snap', 'Snapchat', 'SNAP'],
+  SPOT:  ['Spotify', 'SPOT'],
+  COIN:  ['Coinbase', 'COIN'],
+  PLTR:  ['Palantir', 'PLTR'],
+  SHOP:  ['Shopify', 'SHOP'],
+  SQ:    ['Block', 'Square', 'SQ'],
+  PYPL:  ['PayPal', 'PYPL'],
+  JPM:   ['JPMorgan', 'JP Morgan', 'JPM'],
+  GS:    ['Goldman Sachs', 'Goldman', 'GS'],
+  MS:    ['Morgan Stanley', 'MS'],
+  BAC:   ['Bank of America', 'BofA', 'BAC'],
+  WFC:   ['Wells Fargo', 'WFC'],
+};
+
+function isRelevantArticle(headline: string, summary: string, ticker: string): boolean {
+  const text  = `${headline} ${summary}`;
+  const lower = text.toLowerCase();
+  const terms = COMPANY_NAMES[ticker];
+  if (terms) {
+    return terms.some((term) => lower.includes(term.toLowerCase()));
+  }
+  // For unmapped tickers: require standalone word match
+  return new RegExp(`\\b${ticker}\\b`, 'i').test(text);
 }
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
@@ -243,6 +301,39 @@ function computeAnalystScore(
   };
 }
 
+// ── Signal 4b: Earnings surprise history ─────────────────────────────────────
+
+function computeEarningsSurprise(results: FinnhubEarningResult[]): {
+  scoreBonus: number;
+  confidenceBonus: number;
+  signals: string[];
+} {
+  const recent = results
+    .filter((r) => r.actual !== null && r.estimate !== null)
+    .slice(0, 4);
+
+  if (recent.length < 2) return { scoreBonus: 0, confidenceBonus: 0, signals: [] };
+
+  const beats = recent.filter((r) => (r.actual ?? 0) > (r.estimate ?? 0));
+  const signals: string[] = [];
+  let scoreBonus = 0;
+  let confidenceBonus = 0;
+
+  if (beats.length >= 3) {
+    scoreBonus      = 10;
+    confidenceBonus = 15;
+    const avgSurp = recent
+      .map((r) => r.surprisePercent ?? 0)
+      .reduce((s, v) => s + v, 0) / recent.length;
+    signals.push(`Beat EPS estimates ${beats.length}/${recent.length} qtrs (avg +${avgSurp.toFixed(1)}%)`);
+  } else if (beats.length === 0 && recent.length >= 2) {
+    scoreBonus = -5;
+    signals.push(`Missed EPS estimates ${recent.length} consecutive quarters`);
+  }
+
+  return { scoreBonus, confidenceBonus, signals };
+}
+
 // ── Signal 5: Price momentum ──────────────────────────────────────────────────
 
 function computeMomentumScore(
@@ -301,37 +392,69 @@ export async function getSentimentScore(ticker: string): Promise<SentimentScore>
   const hit = scoreCache.get(ticker);
   if (hit && Date.now() < hit.exp) return hit.data;
 
+  // ── ETF fast-path: skip company-specific signals ──────────────────────────
+  if (ETF_TICKERS.has(ticker)) {
+    const bars        = await getDailyBars(ticker, 260).catch(() => [] as DailyBar[]);
+    const momentumSig = computeMomentumScore(bars);
+    const confidence  = Math.min(100, 60 + (momentumSig.hasData ? 30 : 0));
+    const result: SentimentScore = {
+      ticker,
+      overall_score:   momentumSig.score,
+      sentiment_label: scoreToLabel(momentumSig.score),
+      news_score:      0,
+      social_score:    0,
+      insider_score:   0,
+      analyst_score:   0,
+      momentum_score:  momentumSig.score,
+      key_signals:     momentumSig.signals.slice(0, 3),
+      risk_flags:      [],
+      confidence,
+      generated_at:    new Date().toISOString(),
+    };
+    scoreCache.set(ticker, { data: result, exp: Date.now() + SCORE_TTL });
+    return result;
+  }
+
+  // ── Standard path: all 5 signals + earnings history ──────────────────────
   const today     = new Date();
   const yesterday = new Date(today.getTime() - 86_400_000);
   const toDate    = today.toISOString().slice(0, 10);
   const fromDate  = yesterday.toISOString().slice(0, 10);
 
-  const [newsRes, socialRes, insiderRes, recsRes, barsRes] = await Promise.allSettled([
+  const [newsRes, socialRes, insiderRes, recsRes, barsRes, earningsRes] = await Promise.allSettled([
     getCompanyNewsRange(ticker, fromDate, toDate),
     getSocialSentiment(ticker, fromDate),
     getInsiderTransactions(ticker),
     getRecommendations(ticker),
     getDailyBars(ticker, 260),
+    getEarningsHistory(ticker),
   ]);
 
-  const news    = newsRes.status    === 'fulfilled' ? newsRes.value    : [];
-  const social  = socialRes.status  === 'fulfilled' ? socialRes.value  : null;
-  const insider = insiderRes.status === 'fulfilled' ? insiderRes.value : null;
-  const recs    = recsRes.status    === 'fulfilled' ? recsRes.value    : [];
-  const bars    = barsRes.status    === 'fulfilled' ? barsRes.value    : [];
+  const rawNews       = newsRes.status      === 'fulfilled' ? newsRes.value      : [];
+  const social        = socialRes.status    === 'fulfilled' ? socialRes.value    : null;
+  const insider       = insiderRes.status   === 'fulfilled' ? insiderRes.value   : null;
+  const recs          = recsRes.status      === 'fulfilled' ? recsRes.value      : [];
+  const bars          = barsRes.status      === 'fulfilled' ? barsRes.value      : [];
+  const earningsHist  = earningsRes.status  === 'fulfilled' ? earningsRes.value  : [];
+
+  // Relevance filter: only keep articles that mention the company by name or ticker
+  const news = rawNews.filter((a) => isRelevantArticle(a.headline, a.summary ?? '', ticker));
 
   const newsSig     = computeNewsScore(news);
   const socialSig   = computeSocialScore(social);
   const insiderSig  = computeInsiderScore(insider);
   const analystSig  = computeAnalystScore(recs);
   const momentumSig = computeMomentumScore(bars);
+  const earningsBon = computeEarningsSurprise(earningsHist);
 
+  // Data-coverage confidence (capped at 100)
   let confidence = 0;
+  if (momentumSig.hasData) confidence += 30;
   if (newsSig.hasData)     confidence += 20;
   if (socialSig.hasData)   confidence += 20;
-  if (insiderSig.hasData)  confidence += 20;
-  if (analystSig.hasData)  confidence += 20;
-  if (momentumSig.hasData) confidence += 20;
+  if (insiderSig.hasData)  confidence += 15;
+  if (analystSig.hasData)  confidence += 15;
+  confidence = Math.min(100, confidence + earningsBon.confidenceBonus);
 
   // Proportional weights (renormalized when signals missing)
   const rawW = {
@@ -344,13 +467,14 @@ export async function getSentimentScore(ticker: string): Promise<SentimentScore>
   const wTotal = Object.values(rawW).reduce((s, v) => s + v, 0) || 1;
   const w = Object.fromEntries(Object.entries(rawW).map(([k, v]) => [k, v / wTotal]));
 
-  const overallScore = Math.round(
+  const baseScore = Math.round(
     newsSig.score     * w.news +
     momentumSig.score * w.momentum +
     analystSig.score  * w.analyst +
     insiderSig.score  * w.insider +
     socialSig.score   * w.social,
   );
+  const overallScore = Math.round(Math.max(-100, Math.min(100, baseScore + earningsBon.scoreBonus)));
 
   const allSignals = [
     ...momentumSig.signals,
@@ -358,6 +482,7 @@ export async function getSentimentScore(ticker: string): Promise<SentimentScore>
     ...insiderSig.signals,
     ...analystSig.signals,
     ...socialSig.signals,
+    ...earningsBon.signals,
   ];
   const allFlags = [...newsSig.flags, ...insiderSig.flags];
 
@@ -430,8 +555,10 @@ export async function detectNarrativeShift(ticker: string): Promise<NarrativeShi
     getCompanyNewsRange(ticker, from30d, toDate),
   ]);
 
-  const news7d  = res7d.status  === 'fulfilled' ? res7d.value  : [];
-  const news30d = res30d.status === 'fulfilled' ? res30d.value : [];
+  const news7d  = (res7d.status  === 'fulfilled' ? res7d.value  : [])
+    .filter((a) => isRelevantArticle(a.headline, a.summary ?? '', ticker));
+  const news30d = (res30d.status === 'fulfilled' ? res30d.value : [])
+    .filter((a) => isRelevantArticle(a.headline, a.summary ?? '', ticker));
 
   const avgScore = (articles: FinnhubNewsItem[]) => {
     if (!articles.length) return 0;
