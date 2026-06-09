@@ -352,6 +352,7 @@ INVESTMENT MANDATE
 11. The Dow outperforming NASDAQ → rotate from growth to value/industrials (XLI, XLF, VTV)
 12. Rotate FROM sectors in the bottom-3 momentum list INTO the top-3 momentum sectors
 13. Always explain rotation decisions in plain English so users understand WHY
+14. CRYPTO ALLOCATION: You also have access to cryptocurrency via Alpaca. Consider adding BTC/USD or ETH/USD as a small satellite position (max 5% of portfolio) when crypto momentum is strong and risk appetite is high (VIX < 20). Crypto adds diversification uncorrelated to equities.
 
 TARGET PORTFOLIO STRUCTURE (core-satellite):
   Core (50-60%):    VTI, SPY, or SCHD — broad market + dividends (stability foundation)

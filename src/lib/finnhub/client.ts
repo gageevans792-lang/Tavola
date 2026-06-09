@@ -136,3 +136,22 @@ export async function getBasicFinancials(ticker: string): Promise<FinnhubBasicFi
     metric: 'all',
   });
 }
+
+export interface FinnhubIPO {
+  date:              string;
+  exchange:          string;
+  name:              string;
+  numberOfShares:    number;
+  price:             string;
+  status:            string;
+  symbol:            string;
+  totalSharesValue:  number;
+}
+
+export async function getIpoCalendar(from: string, to: string): Promise<FinnhubIPO[]> {
+  const data = await finnhubFetch<{ ipoCalendar: FinnhubIPO[] }>(
+    '/calendar/ipo',
+    { from, to },
+  );
+  return data?.ipoCalendar ?? [];
+}

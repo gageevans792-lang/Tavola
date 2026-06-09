@@ -8,13 +8,17 @@ export async function POST(req: NextRequest) {
     let body: unknown;
     try { body = await req.json(); } catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-    const email = (body as Record<string, unknown>).email;
+    const b = body as Record<string, unknown>;
+    const email = b.email;
+    const type  = typeof b.type === 'string' ? b.type : null;
     if (typeof email !== 'string' || !EMAIL_RE.test(email.trim()) || email.length > 254) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
     }
 
     const supabase = await createClient();
-    const { error } = await supabase.from('waitlist').insert({ email: email.toLowerCase().trim() });
+    const row: Record<string, string> = { email: email.toLowerCase().trim() };
+    if (type) row.type = type;
+    const { error } = await supabase.from('waitlist').insert(row);
 
     if (error) {
       // Duplicate email = already on list, still return success

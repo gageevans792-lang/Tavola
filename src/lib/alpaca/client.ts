@@ -14,6 +14,19 @@ const alpaca = new Alpaca({
   paper:     process.env.ALPACA_PAPER !== 'false',
 }) as any;
 
+// ── REST helpers (for endpoints not covered by the SDK) ───────────────────────
+
+const TRADING_BASE = process.env.ALPACA_BASE_URL ?? 'https://paper-api.alpaca.markets';
+const DATA_BASE    = 'https://data.alpaca.markets';
+
+function alpacaHeaders(): Record<string, string> {
+  return {
+    'APCA-API-KEY-ID':     process.env.ALPACA_API_KEY!,
+    'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY!,
+    'Content-Type':        'application/json',
+  };
+}
+
 export type PriceSource = 'snapshot' | 'latest_trade' | 'bar' | 'unavailable';
 
 export interface TickerPrice {
@@ -197,4 +210,119 @@ export async function getDailyBars(symbol: string, days: number): Promise<DailyB
   } catch {
     return [];
   }
+}
+
+// ── Asset lookup ──────────────────────────────────────────────────────────────
+
+export interface AlpacaAsset {
+  id:           string;
+  asset_class:  string;
+  symbol:       string;
+  name:         string;
+  status:       string;
+  tradable:     boolean;
+  fractionable: boolean;
+  exchange:     string;
+}
+
+export async function getAssets(asset_class?: 'us_equity' | 'crypto'): Promise<AlpacaAsset[]> {
+  try {
+    const params = new URLSearchParams({ status: 'active', tradable: 'true' });
+    if (asset_class) params.set('asset_class', asset_class);
+    const res = await fetch(`${TRADING_BASE}/v2/assets?${params}`, { headers: alpacaHeaders() });
+    if (!res.ok) return [];
+    return (await res.json()) as AlpacaAsset[];
+  } catch {
+    return [];
+  }
+}
+
+export async function getAsset(symbol: string): Promise<AlpacaAsset | null> {
+  try {
+    const res = await fetch(`${TRADING_BASE}/v2/assets/${encodeURIComponent(symbol)}`, {
+      headers: alpacaHeaders(),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as AlpacaAsset;
+  } catch {
+    return null;
+  }
+}
+
+// ── Crypto quotes ─────────────────────────────────────────────────────────────
+
+export interface CryptoQuote {
+  symbol: string;
+  price:  number;
+}
+
+export async function getCryptoQuote(symbol: string): Promise<CryptoQuote | null> {
+  try {
+    const params = new URLSearchParams({ symbols: symbol });
+    const res = await fetch(`${DATA_BASE}/v1beta3/crypto/us/latest/quotes?${params}`, {
+      headers: alpacaHeaders(),
+    });
+    if (!res.ok) return null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = (await res.json()) as { quotes: Record<string, any> };
+    const q = data.quotes?.[symbol];
+    if (!q) return null;
+    const price = ((q.bp ?? 0) + (q.ap ?? 0)) / 2;
+    return { symbol, price };
+  } catch {
+    return null;
+  }
+}
+
+// ── Crypto bars (for price + 24h change) ──────────────────────────────────────
+
+export interface CryptoBar {
+  symbol:         string;
+  price:          number;
+  change_24h:     number;
+  change_pct_24h: number;
+}
+
+export async function getCryptoBars(symbols: string[]): Promise<CryptoBar[]> {
+  if (symbols.length === 0) return [];
+  try {
+    const params = new URLSearchParams({
+      symbols:   symbols.join(','),
+      timeframe: '1Day',
+      limit:     '3',
+      sort:      'desc',
+    });
+    const res = await fetch(`${DATA_BASE}/v1beta3/crypto/us/bars?${params}`, {
+      headers: alpacaHeaders(),
+    });
+    if (!res.ok) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data = (await res.json()) as { bars: Record<string, any[]> };
+    return symbols.map((sym) => {
+      const bars        = data.bars?.[sym] ?? [];
+      const currentPrice = bars[0]?.c ?? 0;
+      const prevPrice    = bars[1]?.c ?? 0;
+      const change24h    = prevPrice > 0 ? currentPrice - prevPrice : 0;
+      const changePct24h = prevPrice > 0 ? ((currentPrice - prevPrice) / prevPrice) * 100 : 0;
+      return { symbol: sym, price: currentPrice, change_24h: change24h, change_pct_24h: changePct24h };
+    });
+  } catch {
+    return [];
+  }
+}
+
+// ── Crypto / notional order ───────────────────────────────────────────────────
+
+export async function placeCryptoOrder(
+  symbol: string,
+  side:    TradeSide,
+  notional: number,
+): Promise<AlpacaOrder> {
+  return alpaca.createOrder({
+    symbol,
+    notional: notional.toFixed(2),
+    side,
+    type:          'market',
+    time_in_force: 'gtc',
+  }) as Promise<AlpacaOrder>;
 }
