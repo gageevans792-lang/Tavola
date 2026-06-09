@@ -78,19 +78,39 @@ const trustItems = [
 const footerColumns = [
   {
     heading: 'Company',
-    links: ['About', 'Careers', 'Press', 'Contact'],
+    links: [
+      { label: 'About',    href: '#' },
+      { label: 'Careers',  href: '#' },
+      { label: 'Press',    href: '#' },
+      { label: 'Contact',  href: '#' },
+    ],
   },
   {
     heading: 'Legal',
-    links: ['Terms of Service', 'Privacy Policy', 'Disclosures', 'FINRA BrokerCheck'],
+    links: [
+      { label: 'Terms of Service',   href: '/legal/terms' },
+      { label: 'Privacy Policy',     href: '/legal/privacy' },
+      { label: 'Legal Hub',          href: '/legal' },
+      { label: 'FINRA BrokerCheck',  href: '#' },
+    ],
   },
   {
     heading: 'Resources',
-    links: ['Research', 'Documentation', 'API Reference', 'System Status'],
+    links: [
+      { label: 'Research',       href: '#' },
+      { label: 'Documentation',  href: '#' },
+      { label: 'API Reference',  href: '#' },
+      { label: 'System Status',  href: '#' },
+    ],
   },
   {
     heading: 'Support',
-    links: ['Help Center', 'Account Access', 'Security', 'Compliance'],
+    links: [
+      { label: 'Help Center',     href: '#' },
+      { label: 'Account Access',  href: '#' },
+      { label: 'Security',        href: '#' },
+      { label: 'Compliance',      href: '#' },
+    ],
   },
 ];
 
@@ -411,13 +431,13 @@ export default function Home() {
                   {heading}
                 </div>
                 <ul className="space-y-3.5">
-                  {links.map((link) => (
-                    <li key={link}>
+                  {links.map(({ label, href }) => (
+                    <li key={label}>
                       <Link
-                        href="#"
+                        href={href}
                         className="text-[11px] text-white/35 hover:text-white/60 transition-colors"
                       >
-                        {link}
+                        {label}
                       </Link>
                     </li>
                   ))}
