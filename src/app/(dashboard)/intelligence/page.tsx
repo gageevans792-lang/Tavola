@@ -86,9 +86,9 @@ function MetricCard({
   sub?:            string;
 }) {
   return (
-    <div className="bg-white border-r border-[#E2E8F0] last:border-r-0 px-6 py-5">
+    <div className="bg-white border-r border-[#E2E8F0] last:border-r-0 px-4 sm:px-6 py-4 sm:py-5">
       <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">{label}</p>
-      <p className={cn('mt-3 font-serif text-[28px] font-light leading-none', valueClassName ?? 'text-[#0A1628]')}>
+      <p className={cn('mt-2 sm:mt-3 font-serif text-[22px] sm:text-[28px] font-light leading-none', valueClassName ?? 'text-[#0A1628]')}>
         {value}
       </p>
       {sub && <p className="mt-1.5 text-[11px] text-[#4A5568]">{sub}</p>}
@@ -172,10 +172,10 @@ export default function IntelligencePage() {
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar title="Portfolio Intelligence" />
-        <div className="flex flex-1 flex-col items-center justify-center bg-[#F8F9FA]">
-          <div className="bg-white border border-[#E2E8F0] px-8 py-16 text-center max-w-md">
+        <div className="flex flex-1 flex-col items-center justify-center bg-[#F8F9FA] px-4">
+          <div className="bg-white border border-[#E2E8F0] px-6 sm:px-8 py-16 text-center max-w-md w-full">
             <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-4">No Data</p>
-            <h3 className="font-serif text-[28px] font-light text-[#0A1628] mb-3 leading-tight">
+            <h3 className="font-serif text-[24px] sm:text-[28px] font-light text-[#0A1628] mb-3 leading-tight">
               No intelligence data available.
             </h3>
             <p className="text-[14px] text-[#4A5568] max-w-sm mx-auto mb-8 leading-relaxed">
@@ -203,16 +203,19 @@ export default function IntelligencePage() {
         <div className="mx-auto max-w-7xl divide-y divide-[#E2E8F0]">
 
           {/* ── S1: Portfolio Health Score ──────────────────────────────────── */}
-          <section className="bg-[#0A1628] px-6 py-10">
-            <div className="text-center">
-              <p className="font-serif font-light leading-none text-[#B8960C]" style={{ fontSize: 'clamp(48px, 15vw, 80px)' }}>
+          <section className="bg-[#0A1628] px-4 sm:px-6 py-8 sm:py-10">
+            <div className="text-center mx-auto max-w-full">
+              <p
+                className="font-serif font-light leading-none text-[#B8960C]"
+                style={{ fontSize: 'clamp(36px, 10vw, 72px)' }}
+              >
                 {data.health_score}
               </p>
               <p className="mt-3 text-[12px] tracking-[0.22em] uppercase text-white/60">
                 Portfolio Health Score
               </p>
 
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 sm:gap-x-8 gap-y-3">
                 <div>
                   <span className="text-[10px] tracking-[0.15em] uppercase text-white/40">Risk Level</span>
                   <span className="mx-2 text-white/20">·</span>
@@ -279,7 +282,7 @@ export default function IntelligencePage() {
                 label="Market Sentiment"
                 value={avgSentimentLabel}
                 valueClassName={cn(
-                  'text-[22px]',
+                  'text-[18px] sm:text-[22px]',
                   avgSentimentLabel.includes('Bullish')
                     ? 'text-[#16A34A]'
                     : avgSentimentLabel === 'Neutral'
@@ -293,15 +296,15 @@ export default function IntelligencePage() {
 
           {/* ── S3: Holdings Deep Dive ──────────────────────────────────────── */}
           <section className="bg-white">
-            <div className="flex items-center justify-between px-5 py-3 border-b border-[#E2E8F0]">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
               <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Holdings Deep Dive</p>
               <p className="text-[10px] text-[#4A5568]/60">Click AI Thesis to expand</p>
             </div>
 
             {!hasHoldings ? (
-              <div className="px-8 py-16 text-center">
+              <div className="px-4 sm:px-8 py-16 text-center">
                 <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-4">Empty Portfolio</p>
-                <h3 className="font-serif text-[28px] font-light text-[#0A1628] mb-3 leading-tight">
+                <h3 className="font-serif text-[24px] sm:text-[28px] font-light text-[#0A1628] mb-3 leading-tight">
                   No holdings to analyze.
                 </h3>
                 <p className="text-[14px] text-[#4A5568] max-w-sm mx-auto mb-8 leading-relaxed">
@@ -316,11 +319,11 @@ export default function IntelligencePage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse" style={{ minWidth: 600 }}>
                   <thead>
                     <tr className="border-b border-[#E2E8F0]">
                       {['Ticker', 'Weight', 'Beta', 'P/E', '52W High', 'vs High', 'Sentiment', 'AI Thesis'].map((h) => (
-                        <th key={h} className="px-4 py-3 text-[10px] tracking-[0.12em] uppercase text-[#4A5568] font-normal whitespace-nowrap">
+                        <th key={h} className="px-3 sm:px-4 py-3 text-[10px] tracking-[0.12em] uppercase text-[#4A5568] font-normal whitespace-nowrap">
                           {h}
                         </th>
                       ))}
@@ -332,11 +335,11 @@ export default function IntelligencePage() {
                         key={h.ticker}
                         className="border-b border-[#E2E8F0] hover:bg-[#F8F9FA] transition-colors"
                       >
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                           <span className="text-[13px] font-semibold tracking-[0.05em] text-[#0A1628]">{h.ticker}</span>
                         </td>
 
-                        <td className="px-4 py-3 min-w-[100px]">
+                        <td className="px-3 sm:px-4 py-3 min-w-[80px] sm:min-w-[100px]">
                           <div className="space-y-1">
                             <span className="text-[12px] font-medium text-[#0A1628]">{h.weight_pct.toFixed(1)}%</span>
                             <div className="h-1 w-full bg-[#F0F2F5]">
@@ -348,37 +351,37 @@ export default function IntelligencePage() {
                           </div>
                         </td>
 
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                           <span className={cn('font-serif text-[14px]', betaColor(h.beta))}>
                             {fmtNum(h.beta)}
                           </span>
                         </td>
 
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                           <span className="font-serif text-[14px] text-[#0A1628]">
                             {h.pe_ratio > 0 ? fmtNum(h.pe_ratio, 1) : '—'}
                           </span>
                         </td>
 
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                           <span className="font-serif text-[14px] text-[#0A1628]">
                             {h.week52_high > 0 ? `$${fmtPrice(h.week52_high)}` : '—'}
                           </span>
                         </td>
 
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                           <span className={cn('font-serif text-[14px]', vsHighColor(h.current_vs_52w_high))}>
                             {h.current_vs_52w_high > 0 ? `-${fmtNum(h.current_vs_52w_high, 1)}%` : 'AT HIGH'}
                           </span>
                         </td>
 
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                           <span className={cn('text-[12px] font-medium', sentimentColor(h.sentiment_label))}>
                             {h.sentiment_label}
                           </span>
                         </td>
 
-                        <td className="px-4 py-3 max-w-[240px]">
+                        <td className="px-3 sm:px-4 py-3 max-w-[200px] sm:max-w-[240px]">
                           <button
                             onClick={() => setExpandedTicker(expandedTicker === h.ticker ? null : h.ticker)}
                             className="text-left w-full"
@@ -411,7 +414,7 @@ export default function IntelligencePage() {
           <section className="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-[#E2E8F0]">
 
             <div className="lg:col-span-3 bg-white">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-[#E2E8F0]">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
                 <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">AI Rebalancing Recommendations</p>
                 <div className="flex items-center gap-3">
                   {data.generated_at && (
@@ -430,13 +433,13 @@ export default function IntelligencePage() {
               </div>
 
               {data.rebalancing_suggestions.length === 0 ? (
-                <div className="px-5 py-8 text-center">
+                <div className="px-4 sm:px-5 py-8 text-center">
                   <p className="text-[13px] text-[#4A5568]">No rebalancing recommendations at this time.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-[#E2E8F0]">
                   {data.rebalancing_suggestions.map((r: RebalancingSuggestion) => (
-                    <div key={r.ticker} className="flex items-start gap-4 px-5 py-4">
+                    <div key={r.ticker} className="flex items-start gap-3 sm:gap-4 px-4 sm:px-5 py-4">
                       <span className={cn(
                         'shrink-0 mt-0.5 px-2 py-0.5 text-[9px] tracking-[0.12em] uppercase font-semibold',
                         ACTION_STYLE[r.action] ?? ACTION_STYLE.hold,
@@ -445,7 +448,7 @@ export default function IntelligencePage() {
                       </span>
                       <div className="min-w-0">
                         <span className="text-[13px] font-semibold text-[#0A1628] mr-2">{r.ticker}</span>
-                        <span className="text-[13px] text-[#4A5568]">{r.reason}</span>
+                        <span className="text-xs sm:text-[13px] text-[#4A5568]">{r.reason}</span>
                       </div>
                     </div>
                   ))}
@@ -454,12 +457,12 @@ export default function IntelligencePage() {
             </div>
 
             <div className="lg:col-span-2 bg-white flex flex-col">
-              <div className="px-5 py-3 border-b border-[#E2E8F0]">
+              <div className="px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
                 <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Sector Exposure</p>
               </div>
 
               {data.correlation_warning && (
-                <div className="mx-5 mt-4 border border-[#C41E3A]/30 bg-[#C41E3A]/5 px-4 py-3">
+                <div className="mx-4 sm:mx-5 mt-4 border border-[#C41E3A]/30 bg-[#C41E3A]/5 px-4 py-3">
                   <p className="text-[11px] text-[#C41E3A] leading-snug">
                     Portfolio heavily concentrated in {data.sector_exposure[0]?.sector ?? 'one sector'}.
                     Consider diversifying across additional sectors.
@@ -468,11 +471,11 @@ export default function IntelligencePage() {
               )}
 
               {data.sector_exposure.length === 0 ? (
-                <div className="px-5 py-8 text-center">
+                <div className="px-4 sm:px-5 py-8 text-center">
                   <p className="text-[13px] text-[#4A5568]">No sector data available.</p>
                 </div>
               ) : (
-                <div className="flex-1 px-5 py-4 space-y-3">
+                <div className="flex-1 px-4 sm:px-5 py-4 space-y-3">
                   {data.sector_exposure.map((s) => (
                     <div key={s.sector}>
                       <div className="flex items-center justify-between mb-1">
@@ -496,7 +499,7 @@ export default function IntelligencePage() {
 
           {/* ── S5: Portfolio Summary ───────────────────────────────────────── */}
           {data.portfolio_summary && (
-            <section className="bg-white px-6 py-8">
+            <section className="bg-white px-4 sm:px-6 py-8">
               <p className="text-[9px] tracking-[0.22em] uppercase text-[#B8960C] mb-4">AI Assessment</p>
               <div className="border-l-2 border-[#B8960C] pl-5">
                 <p className="font-serif text-[16px] font-light leading-relaxed text-[#0A1628]">

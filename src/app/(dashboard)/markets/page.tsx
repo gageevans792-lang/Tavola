@@ -43,7 +43,7 @@ function PulseSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-px sm:grid-cols-5 bg-[#E2E8F0]">
       {[1,2,3,4,5].map((i) => (
-        <div key={i} className="bg-white px-5 py-4 space-y-2">
+        <div key={i} className="bg-white px-4 py-4 space-y-2">
           <div className="h-2.5 w-14 animate-pulse bg-[#E2E8F0]" />
           <div className="h-6   w-24 animate-pulse bg-[#E2E8F0]" />
           <div className="h-3   w-14 animate-pulse bg-[#E2E8F0]" />
@@ -57,7 +57,7 @@ function SignalsSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-px sm:grid-cols-3 bg-[#E2E8F0]">
       {[1,2,3].map((i) => (
-        <div key={i} className="bg-white border-l-2 border-[#B8960C] px-5 py-4 space-y-3">
+        <div key={i} className="bg-white border-l-2 border-[#B8960C] px-4 py-4 space-y-3">
           <div className="h-2.5 w-16 animate-pulse bg-[#E2E8F0]" />
           <div className="h-4   w-full animate-pulse bg-[#E2E8F0]" />
           <div className="h-4   w-3/4 animate-pulse bg-[#E2E8F0]" />
@@ -84,13 +84,13 @@ const IMPACT_LABEL: Record<string, string> = {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-const NEWS_FILTERS: { key: NewsFilter; label: string }[] = [
-  { key: 'all',          label: 'ALL'          },
-  { key: 'positions',    label: 'POSITIONS'    },
-  { key: 'macro',        label: 'MACRO'        },
-  { key: 'geopolitical', label: 'GEOPOLITICAL' },
-  { key: 'reuters',      label: 'REUTERS'      },
-  { key: 'wsj',          label: 'WSJ'          },
+const NEWS_FILTERS: { key: NewsFilter; label: string; shortLabel: string }[] = [
+  { key: 'all',          label: 'ALL',          shortLabel: 'ALL'   },
+  { key: 'positions',    label: 'POSITIONS',    shortLabel: 'POS'   },
+  { key: 'macro',        label: 'MACRO',        shortLabel: 'MACRO' },
+  { key: 'geopolitical', label: 'GEOPOLITICAL', shortLabel: 'GEO'   },
+  { key: 'reuters',      label: 'REUTERS',      shortLabel: 'REU'   },
+  { key: 'wsj',          label: 'WSJ',          shortLabel: 'WSJ'   },
 ];
 
 const SIGNAL_CARDS: Array<{
@@ -196,13 +196,13 @@ export default function MarketsPage() {
                   const pos = tile.change_pct > 0;
                   const neg = tile.change_pct < 0;
                   return (
-                    <div key={tile.symbol} className="bg-white px-5 py-4">
-                      <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">{tile.label}</p>
-                      <p className="mt-1.5 font-serif text-[24px] font-light leading-none text-[#0A1628]">
+                    <div key={tile.symbol} className="bg-white px-4 py-4">
+                      <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568] truncate">{tile.label}</p>
+                      <p className="mt-1.5 font-serif text-[20px] sm:text-[24px] font-light leading-none text-[#0A1628]">
                         {fmtPrice(tile.price)}
                       </p>
                       <p className={cn(
-                        'mt-1 text-[13px] font-medium',
+                        'mt-1 text-xs sm:text-[13px] font-medium',
                         pos ? 'text-[#166534]' : neg ? 'text-[#991b1b]' : 'text-[#4A5568]',
                       )}>
                         {pos ? '▲' : neg ? '▼' : ''} {fmtChangePct(tile.change_pct)}
@@ -221,11 +221,11 @@ export default function MarketsPage() {
                 {SIGNAL_CARDS.map(({ key, label }) => {
                   const text = signals?.signals[key] ?? '';
                   return (
-                    <div key={key} className="bg-white border-l-2 border-[#B8960C] px-5 py-4">
+                    <div key={key} className="bg-white border-l-2 border-[#B8960C] px-4 sm:px-5 py-4">
                       <p className="text-[9px] tracking-[0.22em] uppercase text-[#B8960C] mb-2">
                         AI SIGNAL · {label}
                       </p>
-                      <p className="font-serif text-[15px] font-light leading-snug text-[#0A1628]">
+                      <p className="font-serif text-[14px] sm:text-[15px] font-light leading-snug text-[#0A1628]">
                         {text || '—'}
                       </p>
                       {signals && (
@@ -252,7 +252,7 @@ export default function MarketsPage() {
 
             {/* S3: Market Events */}
             <div className="lg:col-span-3 bg-white">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-[#E2E8F0]">
+              <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
                 <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Market Events</p>
                 <p className="text-[10px] text-[#4A5568]">This week</p>
               </div>
@@ -260,7 +260,7 @@ export default function MarketsPage() {
               {newsLoading ? (
                 <div className="divide-y divide-[#E2E8F0]">
                   {[1,2,3,4].map((i) => (
-                    <div key={i} className="flex items-center gap-4 px-5 py-4">
+                    <div key={i} className="flex items-center gap-3 px-4 sm:px-5 py-4">
                       <div className="h-6 w-14 animate-pulse bg-[#E2E8F0] shrink-0" />
                       <div className="flex-1 h-4 animate-pulse bg-[#E2E8F0]" />
                       <div className="h-5 w-10 animate-pulse bg-[#E2E8F0] shrink-0" />
@@ -268,26 +268,26 @@ export default function MarketsPage() {
                   ))}
                 </div>
               ) : marketEvents.length === 0 ? (
-                <div className="px-5 py-10 text-center">
+                <div className="px-4 sm:px-5 py-10 text-center">
                   <p className="text-sm text-[#4A5568]">No events detected in current news feed.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-[#E2E8F0]">
                   {marketEvents.map((evt, i) => (
-                    <div key={i} className="flex items-center gap-4 px-5 py-3.5">
+                    <div key={i} className="flex items-center gap-2 sm:gap-4 px-4 sm:px-5 py-3.5">
                       {/* Date pill */}
-                      <div className="shrink-0 border border-[#B8960C]/40 px-2 py-0.5 min-w-[52px] text-center">
+                      <div className="shrink-0 border border-[#B8960C]/40 px-2 py-0.5 min-w-[48px] text-center">
                         <span className="text-[10px] tracking-[0.08em] uppercase text-[#B8960C]">
                           {new Date(evt.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         </span>
                       </div>
 
                       {/* Event title */}
-                      <p className="flex-1 text-[13px] font-medium text-[#0A1628] truncate">{evt.title}</p>
+                      <p className="flex-1 text-xs sm:text-[13px] font-medium text-[#0A1628] truncate min-w-0">{evt.title}</p>
 
-                      {/* Ticker (optional) */}
+                      {/* Ticker (optional) — hidden on xs */}
                       {evt.ticker && (
-                        <span className="shrink-0 text-[10px] tracking-[0.08em] text-[#4A5568] border border-[#E2E8F0] px-1.5 py-0.5">
+                        <span className="hidden sm:inline shrink-0 text-[10px] tracking-[0.08em] text-[#4A5568] border border-[#E2E8F0] px-1.5 py-0.5">
                           {evt.ticker}
                         </span>
                       )}
@@ -308,7 +308,7 @@ export default function MarketsPage() {
             {/* S4: Live Intelligence */}
             <div className="lg:col-span-2 bg-white flex flex-col">
               {/* Header + filter pills */}
-              <div className="px-5 py-3 border-b border-[#E2E8F0]">
+              <div className="px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Live Intelligence</p>
                   <button
@@ -318,9 +318,9 @@ export default function MarketsPage() {
                     Refresh
                   </button>
                 </div>
-                {/* Filter pills — dot-separated */}
+                {/* Filter pills — dot-separated, wrappable */}
                 <div className="flex items-center gap-0 flex-wrap">
-                  {NEWS_FILTERS.map(({ key, label }, i) => (
+                  {NEWS_FILTERS.map(({ key, label, shortLabel }, i) => (
                     <span key={key} className="flex items-center">
                       {i > 0 && <span className="mx-1.5 text-[#E2E8F0]">·</span>}
                       <button
@@ -332,7 +332,8 @@ export default function MarketsPage() {
                             : 'text-[#4A5568] hover:text-[#0A1628]',
                         )}
                       >
-                        {label}
+                        <span className="sm:hidden">{shortLabel}</span>
+                        <span className="hidden sm:inline">{label}</span>
                       </button>
                     </span>
                   ))}
@@ -352,7 +353,7 @@ export default function MarketsPage() {
                     ))}
                   </div>
                 ) : visibleNews.length === 0 ? (
-                  <div className="px-5 py-10 text-center">
+                  <div className="px-4 sm:px-5 py-10 text-center">
                     <p className="text-sm text-[#4A5568]">No market intelligence available.</p>
                   </div>
                 ) : (
@@ -365,10 +366,10 @@ export default function MarketsPage() {
                         rel="noopener noreferrer"
                         className="flex items-baseline gap-2 px-4 py-2.5 hover:bg-[#F8F9FA] transition-colors group"
                       >
-                        <span className="shrink-0 text-[9px] tracking-[0.12em] uppercase text-[#B8960C] w-16 truncate">
+                        <span className="shrink-0 text-[9px] tracking-[0.12em] uppercase text-[#B8960C] w-12 sm:w-16 truncate">
                           {item.source}
                         </span>
-                        <span className="flex-1 text-[13px] text-[#0A1628] truncate group-hover:text-[#B8960C] transition-colors min-w-0">
+                        <span className="flex-1 text-xs sm:text-[13px] text-[#0A1628] truncate group-hover:text-[#B8960C] transition-colors min-w-0">
                           {item.headline}
                         </span>
                         <span className="shrink-0 text-[10px] text-[#4A5568]">
@@ -392,7 +393,7 @@ export default function MarketsPage() {
 
           {/* ── S5: Sector Performance ───────────────────────────────────────── */}
           <section className="bg-white">
-            <div className="px-5 py-3 border-b border-[#E2E8F0]">
+            <div className="px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
               <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Sector Performance</p>
             </div>
 
@@ -415,7 +416,7 @@ export default function MarketsPage() {
                       <p className="text-[10px] tracking-[0.08em] uppercase text-[#4A5568] truncate">{tile.label}</p>
                       <p className="text-[9px] text-[#4A5568]/60 mb-0.5">{tile.symbol}</p>
                       <p className={cn(
-                        'mt-1 font-serif text-[18px] font-light leading-none',
+                        'mt-1 font-serif text-[16px] sm:text-[18px] font-light leading-none',
                         pos ? 'text-[#166534]' : neg ? 'text-[#991b1b]' : 'text-[#4A5568]',
                       )}>
                         {pos ? '▲' : neg ? '▼' : ''} {tile.change_pct ? Math.abs(tile.change_pct).toFixed(2) + '%' : '—'}
