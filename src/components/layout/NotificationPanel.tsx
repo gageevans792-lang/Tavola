@@ -53,6 +53,16 @@ export function NotificationPanel() {
     return () => { document.body.style.overflow = ''; };
   }, [open]);
 
+  // ESC key closes the panel
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open]);
+
   // Fetch notifications when opened
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
@@ -106,7 +116,7 @@ export function NotificationPanel() {
 
       {/* Drawer — slides in from right */}
       <aside
-        className="absolute top-0 right-0 bottom-0 flex flex-col bg-[#0A1628] shadow-2xl"
+        className="absolute top-0 right-0 bottom-0 flex flex-col bg-[#0A1628] shadow-2xl animate-[slideInRight_0.25s_ease-out]"
         style={{ width: 'min(90vw, 360px)' }}
       >
         {/* Header */}

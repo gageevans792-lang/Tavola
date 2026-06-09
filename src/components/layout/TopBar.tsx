@@ -54,10 +54,16 @@ export function TopBar({ title, onRunAnalysis, analyzing, mode, onModeChange }: 
     }
     fetchUnreadCount();
 
-    // Listen for read events to refresh count
+    // Refresh badge every 60 seconds
+    const interval = setInterval(fetchUnreadCount, 60_000);
+
+    // Also refresh immediately whenever notifications are marked read
     const handler = () => fetchUnreadCount();
     window.addEventListener('tavola:notifications-read', handler);
-    return () => window.removeEventListener('tavola:notifications-read', handler);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('tavola:notifications-read', handler);
+    };
   }, []);
 
   function openNotifications() {
