@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient } from '@/lib/supabase/server';
-import { getAccount, getPositions, getTickerPrices, placeMarketOrder } from '@/lib/alpaca/client';
-import type { TickerPrice } from '@/lib/alpaca/client';
+import {
+  getAccount,
+  getPositions,
+  getTickerPrices,
+  getDailyBars,
+  placeMarketOrder,
+} from '@/lib/alpaca/client';
+import type { TickerPrice, DailyBar } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { getMacroContext, buildMacroPromptSection } from '@/lib/macro/client';
@@ -12,15 +18,81 @@ import type { AutopilotDecision, AutopilotRun } from '../history/route';
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface TradeResult {
-  symbol:   string;
-  action:   'buy' | 'sell';
-  qty:      number;
-  status:   'executed' | 'failed';
+  symbol:    string;
+  action:    'buy' | 'sell';
+  qty:       number;
+  status:    'executed' | 'failed';
   order_id?: string;
-  error?:   string;
+  error?:    string;
 }
 
-// ── Tool schema (mirrors analyze route) ───────────────────────────────────────
+interface SectorMoment {
+  ticker: string;
+  name:   string;
+  ret5d:  number;
+  ret30d: number;
+}
+
+// ── Full ETF universe (UPGRADE 1) ─────────────────────────────────────────────
+
+const FULL_UNIVERSE: Record<string, string> = {
+  // US Equities — broad market
+  'SPY':  'S&P 500 broad market',
+  'VTI':  'Total US market',
+  'QQQ':  'NASDAQ tech heavy',
+  'IWM':  'Small cap Russell 2000',
+  'VTV':  'Value stocks',
+  'VUG':  'Growth stocks',
+  // Sectors
+  'XLK':  'Technology',
+  'XLF':  'Financials',
+  'XLE':  'Energy',
+  'XLV':  'Healthcare',
+  'XLI':  'Industrials',
+  'XLY':  'Consumer discretionary',
+  'XLP':  'Consumer staples',
+  'XLU':  'Utilities',
+  'XLRE': 'Real estate',
+  // International
+  'VEA':  'Developed markets',
+  'VWO':  'Emerging markets',
+  'EWJ':  'Japan',
+  // Fixed Income
+  'BND':  'Total bond market',
+  'TLT':  'Long treasury bonds',
+  'SHY':  'Short treasury bonds',
+  'HYG':  'High yield bonds',
+  'TIP':  'Inflation protected',
+  // Alternatives
+  'GLD':  'Gold',
+  'SLV':  'Silver',
+  'VNQ':  'Real estate REITs',
+  'DJP':  'Commodities',
+  // Defensive / smart-beta
+  'USMV': 'Low volatility US',
+  'SPLV': 'S&P 500 low volatility',
+  'SCHD': 'Dividend growth',
+};
+
+const SECTOR_NAMES: Record<string, string> = {
+  'XLK':  'Technology',
+  'XLF':  'Financials',
+  'XLE':  'Energy',
+  'XLV':  'Healthcare',
+  'XLI':  'Industrials',
+  'XLY':  'Consumer Discret.',
+  'XLP':  'Consumer Staples',
+  'XLU':  'Utilities',
+  'XLRE': 'Real Estate',
+};
+
+// Tech-correlated tickers — used for concentration check
+const TECH_CORRELATED = new Set([
+  'QQQ', 'XLK', 'VUG', 'VGT', 'ARKK',
+  'NVDA', 'AAPL', 'MSFT', 'AMZN', 'GOOG', 'GOOGL', 'META', 'TSLA', 'AMD',
+]);
+
+// ── Tool schema ───────────────────────────────────────────────────────────────
 
 const ANALYSIS_TOOL: Anthropic.Tool = {
   name: 'submit_portfolio_analysis',
@@ -52,57 +124,253 @@ const ANALYSIS_TOOL: Anthropic.Tool = {
   },
 };
 
+// ── Sector momentum (UPGRADE 2 + 4) ──────────────────────────────────────────
+
+async function fetchSectorMomentum(): Promise<{
+  sectors:   SectorMoment[];
+  spyRet30d: number;
+  shyRet30d: number;
+  vixyPrice: number;
+}> {
+  const FETCH_TICKERS = ['SPY', 'SHY', 'VIXY', ...Object.keys(SECTOR_NAMES)];
+
+  // Fetch historical bars for all tickers in parallel
+  const settled = await Promise.allSettled(
+    FETCH_TICKERS.map((t) => getDailyBars(t, 35)),
+  );
+
+  const barsMap: Record<string, DailyBar[]> = {};
+  FETCH_TICKERS.forEach((ticker, i) => {
+    const r = settled[i];
+    barsMap[ticker] = r.status === 'fulfilled' ? r.value : [];
+  });
+
+  function calcReturn(bars: DailyBar[], lookback: number): number {
+    if (bars.length < 2) return 0;
+    const recentIdx = bars.length - 1;
+    const pastIdx   = Math.max(0, recentIdx - lookback);
+    const recent    = bars[recentIdx].close;
+    const past      = bars[pastIdx].close;
+    return past > 0 ? ((recent - past) / past) * 100 : 0;
+  }
+
+  const sectors: SectorMoment[] = Object.keys(SECTOR_NAMES).map((ticker) => ({
+    ticker,
+    name:  SECTOR_NAMES[ticker],
+    ret5d:  calcReturn(barsMap[ticker] ?? [], 5),
+    ret30d: calcReturn(barsMap[ticker] ?? [], 30),
+  }));
+  sectors.sort((a, b) => b.ret30d - a.ret30d);
+
+  const vixyBars  = barsMap['VIXY'] ?? [];
+  const vixyPrice = vixyBars.length > 0 ? vixyBars[vixyBars.length - 1].close : 0;
+
+  return {
+    sectors,
+    spyRet30d: calcReturn(barsMap['SPY'] ?? [], 30),
+    shyRet30d: calcReturn(barsMap['SHY'] ?? [], 30),
+    vixyPrice,
+  };
+}
+
+// ── Market regime (UPGRADE 2) ─────────────────────────────────────────────────
+
+function getMarketRegime(spyRet30d: number, shyRet30d: number): string {
+  if (spyRet30d > shyRet30d + 3) return 'RISK-ON — equities strongly outperforming bonds; deploy into growth/momentum';
+  if (shyRet30d > spyRet30d + 1) return 'RISK-OFF — bonds outperforming stocks; rotate defensive (GLD, BND, XLP, XLU)';
+  if (spyRet30d < -5)             return 'BEARISH — S&P 500 down >5% last 30 days; reduce equity, increase GLD/BND hedge';
+  return 'NEUTRAL — mixed signals; balanced approach, maintain diversification';
+}
+
+// ── VIX interpretation (UPGRADE 2) ───────────────────────────────────────────
+
+function getVixLabel(vix: number): string {
+  if (vix <= 0)  return 'unavailable — proceed with moderate risk';
+  if (vix < 15)  return `${vix.toFixed(1)} (Extreme Greed) — risk-on; lean into QQQ, XLK, VUG, IWM`;
+  if (vix < 20)  return `${vix.toFixed(1)} (Greed) — risk-on; maintain growth positions`;
+  if (vix < 25)  return `${vix.toFixed(1)} (Neutral) — balanced; avoid over-concentration`;
+  if (vix < 35)  return `${vix.toFixed(1)} (Fear) — rotate 20% defensive: XLP, XLU, BND, GLD, SCHD`;
+  return         `${vix.toFixed(1)} (Extreme Fear) — defensive mode; 40%+ bonds/gold, minimize new equity buys`;
+}
+
+// ── Rebalancing alerts (UPGRADE 3) ───────────────────────────────────────────
+
+function detectRebalancingNeeds(
+  positions: AlpacaPosition[],
+  equity:    number,
+  cash:      number,
+): string[] {
+  const alerts: string[] = [];
+  let techExposure = 0;
+
+  for (const pos of positions) {
+    const mv  = parseFloat(pos.market_value);
+    const pct = equity > 0 ? (mv / equity) * 100 : 0;
+
+    if (pct > 25) {
+      const trimAmt = ((pct - 20) / 100 * equity).toFixed(0);
+      alerts.push(
+        `OVERWEIGHT: ${pos.symbol} is ${pct.toFixed(1)}% of portfolio (limit 20%) — ` +
+        `TRIM ~$${trimAmt} to reach 20% target`,
+      );
+    }
+    if (TECH_CORRELATED.has(pos.symbol)) techExposure += pct;
+  }
+
+  if (techExposure > 50) {
+    alerts.push(
+      `TECH OVERCONCENTRATION: ${techExposure.toFixed(1)}% in tech-correlated assets ` +
+      `(QQQ/XLK/VUG/individual tech stocks) — ROTATE ~15% into XLV, XLF, SCHD, or BND`,
+    );
+  }
+
+  const cashPct = equity > 0 ? (cash / equity) * 100 : 0;
+  if (cashPct > 40) {
+    alerts.push(
+      `IDLE CASH: ${cashPct.toFixed(1)}% uninvested ($${cash.toFixed(0)}) — ` +
+      `DEPLOY into core ETFs: VTI (40%), SCHD (30%), GLD (20%), BND (10%)`,
+    );
+  }
+
+  return alerts;
+}
+
 // ── Portfolio text builder ────────────────────────────────────────────────────
 
 function buildPortfolioText(
-  equity: number,
-  buyingPower: number,
-  cash: number,
-  positions: AlpacaPosition[],
-  prices: Record<string, TickerPrice>,
-  watchlistTickers: string[],
+  equity:           number,
+  buyingPower:      number,
+  cash:             number,
+  positions:        AlpacaPosition[],
+  prices:           Record<string, TickerPrice>,
+  universeKeys:     string[],
 ): string {
   const posLines = positions.length
     ? positions.map((p) => {
-        const info   = prices[p.symbol];
-        const price  = info?.price > 0 ? info.price : parseFloat(p.current_price);
-        const uPl    = parseFloat(p.unrealized_pl);
-        const uPlPc  = parseFloat(p.unrealized_plpc) * 100;
+        const info  = prices[p.symbol];
+        const price = info?.price > 0 ? info.price : parseFloat(p.current_price);
+        const mv    = parseFloat(p.market_value);
+        const pct   = equity > 0 ? (mv / equity * 100).toFixed(1) : '?';
+        const uPl   = parseFloat(p.unrealized_pl);
+        const uPlPc = parseFloat(p.unrealized_plpc) * 100;
         return (
           `  ${p.symbol.padEnd(6)} ` +
-          `qty=${p.qty}  entry=$${parseFloat(p.avg_entry_price).toFixed(2)}  ` +
-          `price=$${price.toFixed(2)}  ` +
-          `mktval=$${parseFloat(p.market_value).toFixed(0)}  ` +
+          `qty=${p.qty}  wt=${pct}%  entry=$${parseFloat(p.avg_entry_price).toFixed(2)}  ` +
+          `price=$${price.toFixed(2)}  mktval=$${mv.toFixed(0)}  ` +
           `unrPL=${uPl >= 0 ? '+' : ''}$${uPl.toFixed(0)} (${uPlPc >= 0 ? '+' : ''}${uPlPc.toFixed(1)}%)`
         );
       }).join('\n')
-    : '  (no open positions)';
+    : '  (no open positions — deploy all available buying power)';
 
-  const watchOnly = watchlistTickers.filter(
-    (t) => !positions.find((p) => p.symbol === t),
-  );
-  const watchLines = watchOnly.length
-    ? watchOnly.map((t) => {
-        const info  = prices[t];
-        const price = info?.price ?? 0;
-        return `  ${t.padEnd(6)} price=${price > 0 ? `$${price.toFixed(2)}` : 'N/A'}`;
-      }).join('\n')
-    : '  (empty)';
+  const heldSymbols  = new Set(positions.map((p) => p.symbol));
+  const candidateKeys = universeKeys.filter((t) => !heldSymbols.has(t));
+  const candidateLines = candidateKeys.map((t) => {
+    const info = prices[t];
+    return `  ${t.padEnd(6)} $${info?.price > 0 ? info.price.toFixed(2) : 'N/A'}  — ${FULL_UNIVERSE[t] ?? ''}`;
+  }).join('\n');
 
-  return `ACCOUNT
-=======
+  return `ACCOUNT SNAPSHOT
+================
 Equity:        $${equity.toFixed(2)}
 Buying power:  $${buyingPower.toFixed(2)}
 Cash:          $${cash.toFixed(2)}
 Invested:      $${(equity - cash).toFixed(2)}
 
-CURRENT POSITIONS
-=================
+CURRENT POSITIONS (with portfolio weight)
+==========================================
 ${posLines}
 
-WATCHLIST (candidate buys only)
-================================
-${watchLines}`;
+CANDIDATE BUY UNIVERSE (not currently held)
+=============================================
+${candidateLines || '  (all universe positions already held)'}`;
+}
+
+// ── System prompt (UPGRADE 2 — macro-aware) ───────────────────────────────────
+
+function buildSystemPrompt(opts: {
+  vixLabel:        string;
+  marketRegime:    string;
+  topSectors:      SectorMoment[];
+  bottomSectors:   SectorMoment[];
+  rebalAlerts:     string[];
+  macroSection:    string;
+  maxTradeSize:    number;
+  equity:          number;
+  buyingPower:     number;
+}): string {
+  const { vixLabel, marketRegime, topSectors, bottomSectors, rebalAlerts, macroSection, maxTradeSize, equity } = opts;
+
+  const topStr = topSectors.length
+    ? topSectors.slice(0, 3).map((s, i) =>
+        `  ${i + 1}. ${s.ticker} ${s.name}: 30d=${s.ret30d >= 0 ? '+' : ''}${s.ret30d.toFixed(1)}%  5d=${s.ret5d >= 0 ? '+' : ''}${s.ret5d.toFixed(1)}%`,
+      ).join('\n')
+    : '  (data unavailable — use macro judgment)';
+
+  const botStr = bottomSectors.length
+    ? bottomSectors.slice(-3).reverse().map((s, i) =>
+        `  ${i + 1}. ${s.ticker} ${s.name}: 30d=${s.ret30d >= 0 ? '+' : ''}${s.ret30d.toFixed(1)}%  5d=${s.ret5d >= 0 ? '+' : ''}${s.ret5d.toFixed(1)}%`,
+      ).join('\n')
+    : '  (data unavailable)';
+
+  const rebalStr = rebalAlerts.length
+    ? rebalAlerts.map((a) => `  ⚠ ${a}`).join('\n')
+    : '  (no critical rebalancing alerts)';
+
+  const maxPosPct = 20;
+  const maxPosVal = (maxPosPct / 100 * equity).toFixed(0);
+
+  return `${macroSection}
+
+You are Tavola's Chief Portfolio Manager — an AI investment engine responsible for building and managing a well-diversified, risk-adjusted ETF portfolio.
+
+TODAY'S MACRO CONTEXT
+=====================
+VIX / Fear-Greed: ${vixLabel}
+Market Regime:    ${marketRegime}
+
+Best performing sectors (30-day momentum):
+${topStr}
+
+Worst performing / rotate away from:
+${botStr}
+
+REBALANCING ALERTS (address these first):
+${rebalStr}
+
+INVESTMENT MANDATE
+==================
+1. DIVERSIFICATION IS PARAMOUNT — never put more than 20% in any single position ($${maxPosVal} cap at current equity)
+2. VIX < 15 (Extreme Greed) → lean into growth: QQQ, XLK, VUG, IWM, sector momentum leaders
+3. VIX 15-20 (Greed) → maintain growth positions, selective sector ETF buys
+4. VIX 20-25 (Neutral) → balanced; add SCHD, VTV, XLF for stability
+5. VIX > 25 (Fear) → rotate defensive: XLP, XLU, BND, GLD, SCHD, TIP — 20-40% defensive
+6. VIX > 35 (Extreme Fear) → defensive mode: 40%+ GLD/BND, avoid new equity, trim losers
+7. NEVER hold more than 60% in tech-correlated assets (QQQ + XLK + VUG + individual tech combined)
+8. If tech (XLK) down >3% in past week → reduce tech, add XLF/XLE/XLV/XLI
+9. Gold (GLD) and bonds (BND, TLT) are hedges — maintain 10-20% when uncertainty elevated
+10. Dividend/value stocks (SCHD, VTV, XLF) provide stability when growth sells off
+11. The Dow outperforming NASDAQ → rotate from growth to value/industrials (XLI, XLF, VTV)
+12. Rotate FROM sectors in the bottom-3 momentum list INTO the top-3 momentum sectors
+13. Always explain rotation decisions in plain English so users understand WHY
+
+TARGET PORTFOLIO STRUCTURE (core-satellite):
+  Core (50-60%):    VTI, SPY, or SCHD — broad market + dividends (stability foundation)
+  Satellite (30%):  Top-momentum sector ETFs + growth (capture alpha)
+  Hedge (10-20%):   GLD, BND, or TIP — downside protection
+
+EXECUTION RULES
+===============
+• Only recommend BUY for tickers in the candidate universe provided
+• Only recommend SELL for tickers currently held; sell if >25% weight OR significantly underperforming vs sector
+• Set qty=0 for hold recommendations
+• Only execute trades with confidence ≥ 65
+• Buy notional (qty × price) must not exceed $${maxTradeSize} per trade
+• A single position must not exceed ${maxPosPct}% of total equity after the trade
+• Recommend 4-6 trades per run to actively optimize the portfolio
+• If buying power is available, ALWAYS deploy at least some capital — idle cash is a cost
+• Do not recommend cumulative buys exceeding available buying power
+• Provide 2-3 sentence reasoning per recommendation referencing specific macro data above
+• You MUST call submit_portfolio_analysis — do not reply in plain text`;
 }
 
 // ── Next run timestamp ────────────────────────────────────────────────────────
@@ -110,14 +378,9 @@ ${watchLines}`;
 function computeNextRunAt(frequency: string): string {
   const now = new Date();
   switch (frequency) {
-    case 'daily':
-      now.setDate(now.getDate() + 1);
-      break;
-    case 'monthly':
-      now.setMonth(now.getMonth() + 1);
-      break;
-    default: // weekly
-      now.setDate(now.getDate() + 7);
+    case 'daily':   now.setDate(now.getDate() + 1); break;
+    case 'monthly': now.setMonth(now.getMonth() + 1); break;
+    default:        now.setDate(now.getDate() + 7);
   }
   return now.toISOString();
 }
@@ -133,7 +396,7 @@ export async function POST() {
   }
 
   try {
-    // ── 1. Load autopilot settings (non-fatal — table may not exist yet) ──────────
+    // ── 1. Load autopilot settings ────────────────────────────────────────────
     let settings = { enabled: true, frequency: 'daily', max_trade_size: 5000 };
     try {
       const { data: settingsRow } = await supabase
@@ -151,35 +414,22 @@ export async function POST() {
     } catch {
       // Table missing — proceed with defaults
     }
-    // If the user explicitly triggered this endpoint, treat as enabled regardless of DB
-    // (localStorage state is the source of truth for enabled)
 
-    // ── 2. Fetch Alpaca account + positions ────────────────────────────────────
-    const [account, positions, macroCtx] = await Promise.all([
+    // ── 2. Fetch account + positions + macro + sector momentum in parallel ────
+    const [account, positions, macroCtx, sectorData] = await Promise.all([
       getAccount(),
       getPositions(),
       getMacroContext().catch(() => null),
+      fetchSectorMomentum().catch(() => ({
+        sectors: [] as SectorMoment[], spyRet30d: 0, shyRet30d: 0, vixyPrice: 0,
+      })),
     ]);
 
     const equity      = parseFloat(account.equity);
     const buyingPower = parseFloat(account.buying_power);
     const cash        = parseFloat(account.cash);
 
-    // ── 3. Fetch watchlist (fall back to diversified ETF/index universe) ──────────
-    const DEFAULT_UNIVERSE = [
-      'VTI',  // Vanguard Total Stock Market
-      'VOO',  // Vanguard S&P 500
-      'QQQ',  // Nasdaq-100
-      'SPY',  // S&P 500
-      'IWM',  // Russell 2000 small-cap
-      'VEA',  // Developed Markets ex-US
-      'VWO',  // Emerging Markets
-      'BND',  // US Total Bond Market
-      'GLD',  // Gold
-      'SCHD', // US Dividend Equity
-      'VGT',  // Information Technology
-      'ARKK', // ARK Innovation
-    ];
+    // ── 3. Build full universe (watchlist + FULL_UNIVERSE) ────────────────────
     let watchlistTickers: string[] = [];
     try {
       const { data: wl } = await supabase
@@ -192,59 +442,61 @@ export async function POST() {
     } catch {
       // continue
     }
-    // Always include the default ETF universe so Claude has something to work with
-    watchlistTickers = [...new Set([...watchlistTickers, ...DEFAULT_UNIVERSE])];
+    const universeKeys = [...new Set([...watchlistTickers, ...Object.keys(FULL_UNIVERSE)])];
 
-    // ── 4. Fetch prices ────────────────────────────────────────────────────────
+    // ── 4. Fetch prices for all relevant tickers ──────────────────────────────
     const heldTickers = positions.map((p) => p.symbol);
-    const allTickers  = [...new Set([...heldTickers, ...watchlistTickers])];
+    const allTickers  = [...new Set([...heldTickers, ...universeKeys])];
     const prices      = await getTickerPrices(allTickers);
 
-    // ── 5. Build portfolio snapshot and call Claude ────────────────────────────
+    // ── 5. Derive macro signals ───────────────────────────────────────────────
+    const vix = sectorData.vixyPrice > 0
+      ? sectorData.vixyPrice
+      : (macroCtx?.vix.vix ?? 0);
+
+    const vixLabel     = getVixLabel(vix);
+    const marketRegime = getMarketRegime(sectorData.spyRet30d, sectorData.shyRet30d);
+
+    const topSectors    = sectorData.sectors.slice(0, 3);
+    const bottomSectors = sectorData.sectors.slice(-3).reverse();
+
+    // ── 6. Detect rebalancing needs ───────────────────────────────────────────
+    const rebalAlerts = detectRebalancingNeeds(positions, equity, cash);
+
+    // ── 7. Build prompt content ───────────────────────────────────────────────
+    const macroSection  = macroCtx ? buildMacroPromptSection(macroCtx) : '';
     const portfolioText = buildPortfolioText(
-      equity, buyingPower, cash, positions, prices, watchlistTickers,
+      equity, buyingPower, cash, positions, prices, universeKeys,
     );
 
-    const macroSection = macroCtx ? buildMacroPromptSection(macroCtx) : '';
+    const systemPrompt = buildSystemPrompt({
+      vixLabel,
+      marketRegime,
+      topSectors,
+      bottomSectors,
+      rebalAlerts,
+      macroSection,
+      maxTradeSize: Number(settings.max_trade_size),
+      equity,
+      buyingPower,
+    });
 
+    // ── 8. Call Claude ────────────────────────────────────────────────────────
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,
-      system: `${macroSection}
-You are an automated portfolio manager building a diversified long-term portfolio using ETFs and index funds.
-
-Strategy: Core-satellite. Build a diversified core (VTI, VOO, BND, VEA, VWO) and add satellite positions in sector ETFs (VGT, SCHD, QQQ, IWM) and alternatives (GLD) based on market conditions.
-
-Rules:
-• Prefer broad market ETFs for new capital — avoid concentration in any single sector
-• Only recommend BUY for tickers in the candidate list provided
-• Only recommend SELL for tickers currently held; only sell if the position is overweight (>25% of portfolio) or significantly underperforming
-• Set qty=0 for hold
-• Only recommend buy/sell when confidence ≥ 65
-• Buy notional (qty × price) must not exceed $${settings.max_trade_size} per trade
-• A single position must not exceed 25% of total equity after the trade
-• Target 5–8 holdings for a well-diversified portfolio
-• If buying power is available, ALWAYS find at least one buy to deploy capital efficiently
-• Do not recommend cumulative buys exceeding available buying power
-• Provide 2–3 sentence reasoning per recommendation referencing the portfolio data
-• You MUST call submit_portfolio_analysis — do not reply in plain text.
-
-Macro-Aware Rules (apply based on current data):
-• If VIX > 30: reduce all recommended position sizes by 50%, increase cash allocation recommendation
-• If Fed is hawkish (recent communications): underweight growth/tech, overweight value/dividends (SCHD, VYM, BND)
-• If major high-impact event < 3 days away: recommend holding cash until clarity — note the event
-• If insider buying detected in any held ticker: increase position weight`,
-      tools:       [ANALYSIS_TOOL],
+      system:     systemPrompt,
+      tools:      [ANALYSIS_TOOL],
       tool_choice: { type: 'tool', name: 'submit_portfolio_analysis' },
       messages: [
         {
           role:    'user',
-          content: `AutoPilot run initiated. Analyse portfolio and return top recommendations.\n\n${portfolioText}`,
+          content: `AutoPilot run initiated. Today's macro data and portfolio are below. Analyse the situation and return 4-6 specific trade recommendations that will improve diversification, capture sector momentum, and respect the risk mandate.\n\n${portfolioText}`,
         },
       ],
     });
 
-    // ── 6. Parse Claude output ─────────────────────────────────────────────────
+    // ── 9. Parse Claude output ────────────────────────────────────────────────
     const toolBlock = response.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
     );
@@ -266,7 +518,7 @@ Macro-Aware Rules (apply based on current data):
       summary:        string;
     };
 
-    // ── 7. Apply risk guard ────────────────────────────────────────────────────
+    // ── 10. Apply risk guard ──────────────────────────────────────────────────
     const recs: TradeRecommendation[] = raw.recommendations.map((r) => ({
       symbol:     r.ticker,
       action:     r.action,
@@ -291,7 +543,7 @@ Macro-Aware Rules (apply based on current data):
       confidence_threshold: 65,
       max_trade_value:      Number(settings.max_trade_size),
       max_position_pct:     0.20,
-      watchlist:            watchlistTickers,
+      watchlist:            universeKeys,
     };
 
     const { approved, rejected } = applyRiskGuard(recs, guardConfig, {
@@ -301,19 +553,15 @@ Macro-Aware Rules (apply based on current data):
       latestPrices,
     });
 
-    // ── 8. Execute approved buy/sell trades ────────────────────────────────────
-    const tradeResults: TradeResult[] = [];
-    const decisions: AutopilotDecision[] = [];
+    // ── 11. Execute approved trades ───────────────────────────────────────────
+    const tradeResults: TradeResult[]      = [];
+    const decisions:    AutopilotDecision[] = [];
 
     for (const rec of approved) {
       if (rec.action === 'hold') {
         decisions.push({
-          symbol:     rec.symbol,
-          action:     'hold',
-          qty:        0,
-          confidence: rec.confidence,
-          reasoning:  rec.reasoning,
-          status:     'skipped',
+          symbol: rec.symbol, action: 'hold', qty: 0,
+          confidence: rec.confidence, reasoning: rec.reasoning, status: 'skipped',
         });
         continue;
       }
@@ -321,8 +569,7 @@ Macro-Aware Rules (apply based on current data):
       try {
         const order = await placeMarketOrder(rec.symbol, rec.action as 'buy' | 'sell', rec.qty);
 
-        // Record trade in trades table (best-effort)
-        const price = latestPrices[rec.symbol] ?? null;
+        const price  = latestPrices[rec.symbol] ?? null;
         const insert = await supabase.from('trades').insert({
           user_id:          user.id,
           ticker:           rec.symbol,
@@ -338,65 +585,28 @@ Macro-Aware Rules (apply based on current data):
           console.error('[autopilot/run] trade insert:', insert.error.message);
         }
 
-        tradeResults.push({
-          symbol:   rec.symbol,
-          action:   rec.action as 'buy' | 'sell',
-          qty:      rec.qty,
-          status:   'executed',
-          order_id: order.id,
-        });
-
-        decisions.push({
-          symbol:     rec.symbol,
-          action:     rec.action as 'buy' | 'sell',
-          qty:        rec.qty,
-          confidence: rec.confidence,
-          reasoning:  rec.reasoning,
-          status:     'executed',
-          order_id:   order.id,
-        });
+        tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'executed', order_id: order.id });
+        decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'executed', order_id: order.id });
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : 'Order failed';
-        tradeResults.push({
-          symbol: rec.symbol,
-          action: rec.action as 'buy' | 'sell',
-          qty:    rec.qty,
-          status: 'failed',
-          error:  errMsg,
-        });
-
-        decisions.push({
-          symbol:     rec.symbol,
-          action:     rec.action as 'buy' | 'sell',
-          qty:        rec.qty,
-          confidence: rec.confidence,
-          reasoning:  rec.reasoning,
-          status:     'rejected',
-          error:      errMsg,
-        });
+        tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: errMsg });
+        decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: errMsg });
       }
     }
 
-    // Add rejected recommendations to decisions
     for (const rec of rejected) {
       decisions.push({
-        symbol:     rec.symbol,
-        action:     rec.action as 'buy' | 'sell' | 'hold',
-        qty:        rec.qty,
-        confidence: rec.confidence,
-        reasoning:  rec.reasoning,
-        status:     'rejected',
-        error:      rec.rejection_reason,
+        symbol: rec.symbol, action: rec.action as 'buy' | 'sell' | 'hold', qty: rec.qty,
+        confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: rec.rejection_reason,
       });
     }
 
-    // ── 9. Compute totals ──────────────────────────────────────────────────────
+    // ── 12. Totals + DB log ───────────────────────────────────────────────────
     const executedCount = tradeResults.filter((t) => t.status === 'executed').length;
-    const totalValue = tradeResults
+    const totalValue    = tradeResults
       .filter((t) => t.status === 'executed')
       .reduce((sum, t) => sum + (latestPrices[t.symbol] ?? 0) * t.qty, 0);
 
-    // ── 10. Log to autopilot_runs ──────────────────────────────────────────────
     const { data: runRow, error: runErr } = await supabase
       .from('autopilot_runs')
       .insert({
@@ -411,12 +621,9 @@ Macro-Aware Rules (apply based on current data):
       .select()
       .single();
 
-    if (runErr) {
-      console.error('[autopilot/run] run insert:', runErr.message);
-    }
+    if (runErr) console.error('[autopilot/run] run insert:', runErr.message);
 
-    // ── 11. Update last_run_at and next_run_at ─────────────────────────────────
-    const { error: updateErr } = await supabase
+    await supabase
       .from('autopilot_settings')
       .update({
         last_run_at: new Date().toISOString(),
@@ -425,15 +632,17 @@ Macro-Aware Rules (apply based on current data):
       })
       .eq('user_id', user.id);
 
-    if (updateErr) {
-      console.error('[autopilot/run] settings update:', updateErr.message);
-    }
-
     return NextResponse.json({
-      run:    runRow as AutopilotRun | null,
-      trades: tradeResults,
+      run:            runRow as AutopilotRun | null,
+      trades:         tradeResults,
       market_outlook: raw.market_outlook,
       summary:        raw.summary,
+      macro_context: {
+        vix:           vixLabel,
+        market_regime: marketRegime,
+        top_sectors:   topSectors,
+        rebal_alerts:  rebalAlerts,
+      },
     });
   } catch (err: unknown) {
     console.error('[autopilot/run]', err instanceof Error ? err.message : err);

@@ -163,3 +163,38 @@ export async function getPortfolioHistory(params: {
 }): Promise<PortfolioHistory> {
   return alpaca.getPortfolioHistory(params) as Promise<PortfolioHistory>;
 }
+
+export interface DailyBar {
+  date:  string;
+  close: number;
+}
+
+export async function getDailyBars(symbol: string, days: number): Promise<DailyBar[]> {
+  try {
+    const end = new Date();
+    // Extra buffer for weekends / holidays: request 2× the calendar days needed
+    const start = new Date(end.getTime() - Math.ceil(days * 2 + 10) * 24 * 60 * 60 * 1000);
+    const bars: DailyBar[] = [];
+
+    // getBarsV2 returns an async generator in Alpaca SDK v3.x
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const gen = alpaca.getBarsV2(symbol, {
+      start:     start.toISOString().slice(0, 10),
+      end:       end.toISOString().slice(0, 10),
+      timeframe: '1Day',
+      limit:     days + 20,
+      feed:      'iex',
+    }) as AsyncIterable<Record<string, unknown>>;
+
+    for await (const bar of gen) {
+      // SDK maps raw fields to PascalCase; fall back to raw if needed
+      const date  = String(bar['Timestamp'] ?? bar['t'] ?? '').slice(0, 10);
+      const close = Number(bar['ClosePrice'] ?? bar['c'] ?? 0);
+      if (close > 0 && date) bars.push({ date, close });
+    }
+
+    return bars.slice(-days);
+  } catch {
+    return [];
+  }
+}
