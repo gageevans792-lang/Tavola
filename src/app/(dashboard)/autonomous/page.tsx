@@ -398,7 +398,7 @@ export default function AutonomousPage() {
     <div className="flex flex-1 flex-col overflow-hidden">
       <TopBar title="AI Agent" />
 
-      <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-8">
+      <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-8">
         <div className="mx-auto max-w-7xl space-y-8">
 
           {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -417,7 +417,7 @@ export default function AutonomousPage() {
           )}
 
           {/* ── Two-column grid ───────────────────────────────────────────────── */}
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
 
             {/* ──────────────── LEFT COLUMN (2/3) ──────────────────────────── */}
             <div className="space-y-6 lg:col-span-2">

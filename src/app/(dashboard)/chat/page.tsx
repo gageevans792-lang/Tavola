@@ -213,7 +213,7 @@ export default function ChatPage() {
             <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] ${msg.role === 'user' ? 'ml-auto' : 'mr-auto'}`}>
+                  <div className={`max-w-[85%] sm:max-w-[75%] ${msg.role === 'user' ? 'ml-auto' : 'mr-auto'}`}>
                     {msg.role === 'user' ? (
                       <div className="bg-[#0A1628] text-white px-5 py-3 text-[14px] leading-relaxed">
                         {msg.content}

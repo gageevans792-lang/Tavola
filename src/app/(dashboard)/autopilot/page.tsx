@@ -561,7 +561,7 @@ export default function AutopilotPage() {
                 <p className="text-[10px] tracking-[0.3em] uppercase text-[#B8960C] mb-3">
                   Tavola AutoPilot
                 </p>
-                <h1 className="font-serif text-5xl font-light text-white mb-3 leading-tight">
+                <h1 className="font-serif text-3xl sm:text-5xl font-light text-white mb-3 leading-tight">
                   AutoPilot
                 </h1>
                 <p className="text-white/60 text-lg mb-8 leading-relaxed">
@@ -616,7 +616,7 @@ export default function AutopilotPage() {
               </div>
 
               {/* Right: stats strip */}
-              <div className="flex flex-row gap-px lg:flex-col lg:gap-px">
+              <div className="grid grid-cols-3 gap-px lg:grid-cols-1 lg:gap-px">
                 {[
                   { label: 'Total Runs',       value: totalRuns.toString(),    mono: true },
                   { label: 'Trades Executed',  value: totalTrades.toString(),  mono: true },
@@ -624,12 +624,12 @@ export default function AutopilotPage() {
                 ].map(({ label, value }) => (
                   <div
                     key={label}
-                    className="border border-white/10 bg-white/5 px-6 py-4 min-w-[140px]"
+                    className="border border-white/10 bg-white/5 px-4 sm:px-6 py-4 min-w-0"
                   >
                     <p className="text-[10px] tracking-[0.12em] uppercase text-white/40 mb-1">
                       {label}
                     </p>
-                    <p className="font-mono text-xl text-white tabular-nums">{value}</p>
+                    <p className="font-mono text-lg sm:text-xl text-white tabular-nums">{value}</p>
                   </div>
                 ))}
               </div>

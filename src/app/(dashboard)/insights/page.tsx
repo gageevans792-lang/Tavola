@@ -95,13 +95,13 @@ export default function InsightsPage() {
             </div>
           )}
 
-          <div className="flex items-center gap-6 border-b border-[#E2E8F0]">
+          <div className="flex items-center gap-4 sm:gap-6 border-b border-[#E2E8F0] overflow-x-auto">
             {FILTERS.map((f) => (
               <button
                 key={f.value}
                 onClick={() => setFilter(f.value)}
                 className={cn(
-                  'pb-3 text-[11px] tracking-[0.15em] uppercase transition-colors',
+                  'shrink-0 pb-3 text-[11px] tracking-[0.15em] uppercase transition-colors',
                   filter === f.value
                     ? 'border-b-2 border-[#B8960C] text-[#0A1628] -mb-px'
                     : 'text-[#4A5568] hover:text-[#0A1628]',

@@ -337,23 +337,25 @@ function ConnectedView({
                   Remove Account
                 </button>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
                   <span className="text-xs text-[#0A1628]">Are you sure?</span>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDisconnect(false)}
-                    className="text-xs text-[#4A5568] hover:underline"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDisconnect}
-                    disabled={disconnecting}
-                    className="text-xs text-[#991b1b] hover:underline disabled:opacity-50"
-                  >
-                    {disconnecting ? 'Disconnecting...' : 'Disconnect'}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDisconnect(false)}
+                      className="text-xs text-[#4A5568] hover:underline"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDisconnect}
+                      disabled={disconnecting}
+                      className="text-xs text-[#991b1b] hover:underline disabled:opacity-50"
+                    >
+                      {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -445,7 +447,7 @@ function ConnectedView({
                 <label className="block text-[11px] tracking-[0.08em] uppercase text-[#4A5568] mb-2">
                   Frequency
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {FREQUENCIES.map(({ label, value }) => (
                     <button
                       key={value}

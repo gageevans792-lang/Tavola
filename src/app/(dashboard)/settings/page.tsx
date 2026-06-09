@@ -278,7 +278,7 @@ export default function SettingsPage() {
               {/* ── Profile ── */}
               {activeSection === 'profile' && (
                 <>
-                  <section className="bg-white border border-[#E2E8F0] p-8">
+                  <section className="bg-white border border-[#E2E8F0] p-4 sm:p-8">
                     <h3 className="font-serif text-xl font-light text-[#0A1628] mb-6">Profile</h3>
 
                     {/* Avatar + name row */}
@@ -332,7 +332,7 @@ export default function SettingsPage() {
                   </section>
 
                   {/* Investment Profile */}
-                  <section className="bg-white border border-[#E2E8F0] p-8">
+                  <section className="bg-white border border-[#E2E8F0] p-4 sm:p-8">
                     <h3 className="font-serif text-xl font-light text-[#0A1628] mb-2">Investment Profile</h3>
                     <p className="text-[13px] text-[#4A5568] mb-6">Your current investment strategy and risk settings.</p>
 
@@ -368,7 +368,7 @@ export default function SettingsPage() {
                   </section>
 
                   {/* AutoPilot Status */}
-                  <section className="bg-white border border-[#E2E8F0] p-8">
+                  <section className="bg-white border border-[#E2E8F0] p-4 sm:p-8">
                     <h3 className="font-serif text-xl font-light text-[#0A1628] mb-2">AutoPilot</h3>
                     <p className="text-[13px] text-[#4A5568] mb-4">Autonomous AI investing status.</p>
 
@@ -399,7 +399,7 @@ export default function SettingsPage() {
 
               {/* ── Security ── */}
               {activeSection === 'security' && (
-                <section className="bg-white border border-[#E2E8F0] p-8">
+                <section className="bg-white border border-[#E2E8F0] p-4 sm:p-8">
                   <h3 className="font-serif text-xl font-light text-[#0A1628] mb-6">Security</h3>
 
                   <div className="space-y-8">
@@ -425,12 +425,12 @@ export default function SettingsPage() {
 
                     {/* 2FA */}
                     <div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-4">
                         <div>
                           <p className="text-[13px] font-medium text-[#0A1628] mb-1">Two-Factor Authentication</p>
                           <p className="text-[12px] text-[#4A5568]">Add an extra layer of security to your account.</p>
                         </div>
-                        <span className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568]/50 border border-[#E2E8F0] px-2 py-1">
+                        <span className="shrink-0 text-[10px] tracking-[0.15em] uppercase text-[#4A5568]/50 border border-[#E2E8F0] px-2 py-1">
                           Coming soon
                         </span>
                       </div>
@@ -441,11 +441,11 @@ export default function SettingsPage() {
 
               {/* ── Notifications ── */}
               {activeSection === 'notifications' && (
-                <section className="bg-white border border-[#E2E8F0] p-8">
+                <section className="bg-white border border-[#E2E8F0] p-4 sm:p-8">
                   <h3 className="font-serif text-xl font-light text-[#0A1628] mb-6">Notifications</h3>
 
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-6">
+                    <div className="flex items-center justify-between gap-4 border-b border-[#E2E8F0] pb-6">
                       <div>
                         <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Email alerts on AI trades</p>
                         <p className="text-[12px] text-[#4A5568]">Get notified when AutoPilot executes a trade.</p>
@@ -456,7 +456,7 @@ export default function SettingsPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-6">
+                    <div className="flex items-center justify-between gap-4 border-b border-[#E2E8F0] pb-6">
                       <div>
                         <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Weekly portfolio summary</p>
                         <p className="text-[12px] text-[#4A5568]">Receive a weekly digest of your portfolio performance.</p>
@@ -467,7 +467,7 @@ export default function SettingsPage() {
                       />
                     </div>
 
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Market alerts</p>
                         <p className="text-[12px] text-[#4A5568]">Significant market movements and signals.</p>
@@ -483,7 +483,7 @@ export default function SettingsPage() {
 
               {/* ── Danger Zone ── */}
               {activeSection === 'danger' && (
-                <section className="bg-white border border-[#C41E3A]/20 p-8">
+                <section className="bg-white border border-[#C41E3A]/20 p-4 sm:p-8">
                   <h3 className="font-serif text-xl font-light text-[#0A1628] mb-2">Delete Account</h3>
                   <p className="text-[13px] text-[#4A5568] mb-8">
                     Permanently delete your account and all associated data. This action cannot be undone.
