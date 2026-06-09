@@ -10,8 +10,22 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Vercel deployment
+      - name: Trigger Vercel deployment from GitHub source
         env:
-          HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          curl -sf -X POST "${HOOK_URL}" || echo "Deploy hook failed — check VERCEL_DEPLOY_HOOK secret"
+          curl -sf -X POST "https://api.vercel.com/v13/deployments" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"name\": \"tavola\",
+              \"target\": \"production\",
+              \"projectId\": \"$VERCEL_PROJECT_ID\",
+              \"gitSource\": {
+                \"type\": \"github\",
+                \"repoId\": 1260731427,
+                \"ref\": \"main\",
+                \"sha\": \"$GITHUB_SHA\"
+              }
+            }" | jq '{id: .id, url: .url, readyState: .readyState}'
