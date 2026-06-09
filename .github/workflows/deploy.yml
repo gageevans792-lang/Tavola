@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - claude/tavola-nextjs-setup-sXYkd
   workflow_dispatch:
 
 jobs:
@@ -15,26 +16,33 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      - name: Get org ID from project
-        id: project
+      - name: Fetch project info
+        id: info
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          RESPONSE=$(curl -s "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID" \
-            -H "Authorization: Bearer $VERCEL_TOKEN")
-          echo "$RESPONSE" | jq '{id, name, accountId}'
-          ORG_ID=$(echo "$RESPONSE" | jq -r '.accountId')
+          echo "=== Project info ==="
+          curl -s "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" | tee /tmp/project.json | jq '{id,name,accountId}'
+          ORG_ID=$(jq -r '.accountId' /tmp/project.json)
           echo "org_id=$ORG_ID" >> $GITHUB_OUTPUT
+          echo "Org ID: $ORG_ID"
 
-      - name: Link Vercel project
+      - name: Link project
         env:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
           mkdir -p .vercel
-          echo "{\"projectId\":\"$VERCEL_PROJECT_ID\",\"orgId\":\"${{ steps.project.outputs.org_id }}\"}" > .vercel/project.json
+          cat > .vercel/project.json << EOF
+          {"projectId":"$VERCEL_PROJECT_ID","orgId":"${{ steps.info.outputs.org_id }}"}
+          EOF
+          cat .vercel/project.json
 
-      - name: Deploy to Production
+      - name: Deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: vercel deploy --prod --token=$VERCEL_TOKEN --yes
+        run: |
+          echo "=== Deploying to production ==="
+          vercel deploy --prod --token=$VERCEL_TOKEN --yes 2>&1
+          echo "=== Deploy exit code: $? ==="
