@@ -177,33 +177,24 @@ export function PortfolioChart({ data, loading }: PortfolioChartProps) {
       </div>
 
       {/* Legend key */}
-      <div className="flex items-center gap-8 px-6 py-3 border-b border-[#E2E8F0]">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 sm:px-6 py-3 border-b border-[#E2E8F0]">
         <div className="flex items-center gap-2">
-          <div className="h-px w-8 bg-[#B8960C]" />
+          <div className="h-px w-6 bg-[#B8960C]" />
           <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]">Portfolio</span>
-          <span
-            className="font-mono text-[12px] ml-1"
-            style={{ color: periodReturn >= 0 ? '#166534' : '#991b1b' }}
-          >
+          <span className="font-mono text-[11px] ml-1" style={{ color: periodReturn >= 0 ? '#166534' : '#991b1b' }}>
             {periodReturnStr}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="h-px w-8" style={{ borderTop: '1px dashed #4A5568' }} />
+          <div className="h-px w-6" style={{ borderTop: '1px dashed #4A5568' }} />
           <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]">S&amp;P 500</span>
-          <span
-            className="font-mono text-[12px] ml-1"
-            style={{ color: benchReturn >= 0 ? '#166534' : '#991b1b' }}
-          >
+          <span className="font-mono text-[11px] ml-1" style={{ color: benchReturn >= 0 ? '#166534' : '#991b1b' }}>
             {benchReturnStr}
           </span>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]">vs S&amp;P 500:</span>
-          <span
-            className="font-mono text-[12px]"
-            style={{ color: (periodReturn - benchReturn) >= 0 ? '#166534' : '#991b1b' }}
-          >
+        <div className="flex items-center gap-2 sm:ml-auto">
+          <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]">vs S&amp;P:</span>
+          <span className="font-mono text-[11px]" style={{ color: (periodReturn - benchReturn) >= 0 ? '#166534' : '#991b1b' }}>
             {vsSpStr}
           </span>
         </div>

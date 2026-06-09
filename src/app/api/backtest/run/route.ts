@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -250,12 +249,6 @@ function buildCrises(strategy: StrategyKey, years: number[]): CrisisEvent[] {
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   let body: { strategy?: string; period?: string; initial_capital?: number };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }

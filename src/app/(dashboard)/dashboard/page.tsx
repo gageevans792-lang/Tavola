@@ -448,16 +448,16 @@ export default function DashboardPage() {
           {/* ── Feature 4: Tavola AI Status ──────────────────────────────────── */}
           <section>
             <div className="bg-white border border-[#E2E8F0] px-4 sm:px-6 py-4">
-              <div className="flex flex-wrap items-center divide-x divide-[#E2E8F0] gap-y-3">
-                <div className="pr-6 min-w-[130px]">
+              <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:divide-x sm:divide-[#E2E8F0]">
+                <div className="sm:pr-6">
                   <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Last Analysis</p>
                   <p className="text-[13px] font-medium text-[#0A1628]">{timeAgo(lastAnalysisAt)}</p>
                 </div>
-                <div className="px-6 min-w-[130px]">
+                <div className="sm:px-6">
                   <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Positions Monitored</p>
                   <p className="text-[13px] font-medium text-[#0A1628]">{holdings.length} position{holdings.length === 1 ? '' : 's'}</p>
                 </div>
-                <div className="px-6 min-w-[130px]">
+                <div className="sm:px-6">
                   <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Market Status</p>
                   <div className="flex items-center gap-1.5">
                     <span className={`h-1.5 w-1.5 rounded-full ${marketOpen ? 'bg-[#166534]' : 'bg-[#9CA3AF]'}`} />
@@ -466,7 +466,7 @@ export default function DashboardPage() {
                     </p>
                   </div>
                 </div>
-                <div className="pl-6 min-w-[130px]">
+                <div className="sm:pl-6">
                   <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">AI Status</p>
                   <div className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C] animate-pulse" />
