@@ -33,59 +33,64 @@ export async function GET() {
   // ── Upsert positions to Supabase via service role ────────────────────────────
   console.log('[sync] Upserting', positions.length, 'positions...');
 
-  if (positions.length > 0) {
-    for (const pos of positions) {
-      const mv = parseFloat(pos.market_value);
-      const row = {
-        user_id:         user.id,
-        ticker:          pos.symbol,
-        name:            pos.symbol,
-        qty:             parseFloat(pos.qty),
-        avg_entry_price: parseFloat(pos.avg_entry_price),
-        current_price:   parseFloat(pos.current_price || pos.avg_entry_price),
-        market_value:    mv,
-        unrealized_pl:   parseFloat(pos.unrealized_pl || '0'),
-        unrealized_plpc: parseFloat(pos.unrealized_plpc || '0') * 100,
-        weight_pct:      portValue > 0 ? (mv / portValue) * 100 : 0,
-        updated_at:      new Date().toISOString(),
-      };
+  try {
+    if (positions.length > 0) {
+      for (const pos of positions) {
+        const mv = parseFloat(pos.market_value);
+        const row = {
+          user_id:         user.id,
+          ticker:          pos.symbol,
+          name:            pos.symbol,
+          qty:             parseFloat(pos.qty),
+          avg_entry_price: parseFloat(pos.avg_entry_price),
+          current_price:   parseFloat(pos.current_price || pos.avg_entry_price),
+          market_value:    mv,
+          unrealized_pl:   parseFloat(pos.unrealized_pl || '0'),
+          unrealized_plpc: parseFloat(pos.unrealized_plpc || '0') * 100,
+          weight_pct:      portValue > 0 ? (mv / portValue) * 100 : 0,
+          updated_at:      new Date().toISOString(),
+        };
 
-      console.log('[sync] upserting', pos.symbol, 'qty=', row.qty, 'mv=', row.market_value);
+        console.log('[sync] upserting', pos.symbol, 'qty=', row.qty, 'mv=', row.market_value);
 
+        const { error } = await supabaseAdmin
+          .from('holdings')
+          .upsert(row, { onConflict: 'user_id,ticker' });
+
+        if (error) {
+          console.error('[sync] upsert failed for', pos.symbol, ':', error.message);
+        } else {
+          console.log('[sync] upserted', pos.symbol, 'OK');
+        }
+      }
+
+      // Delete stale holdings no longer in Alpaca positions
+      const currentTickers = positions.map((p) => p.symbol);
+      const { error: deleteErr } = await supabaseAdmin
+        .from('holdings')
+        .delete()
+        .eq('user_id', user.id)
+        .not('ticker', 'in', `(${currentTickers.map((t) => `"${t}"`).join(',')})`);
+
+      if (deleteErr) {
+        console.warn('[sync] stale delete failed (non-fatal):', deleteErr.message);
+      } else {
+        console.log('[sync] stale holdings cleaned up');
+      }
+    } else {
+      console.log('[sync] No positions — wiping holdings table for user', user.id);
       const { error } = await supabaseAdmin
         .from('holdings')
-        .upsert(row, { onConflict: 'user_id,ticker' });
+        .delete()
+        .eq('user_id', user.id);
 
-      if (error) {
-        console.error('[sync] upsert failed for', pos.symbol, ':', error.message);
-      } else {
-        console.log('[sync] upserted', pos.symbol, 'OK');
-      }
+      if (error) console.error('[sync] wipe failed:', error.message);
     }
 
-    // Delete stale holdings no longer in Alpaca positions
-    const currentTickers = positions.map((p) => p.symbol);
-    const { error: deleteErr } = await supabaseAdmin
-      .from('holdings')
-      .delete()
-      .eq('user_id', user.id)
-      .not('ticker', 'in', `(${currentTickers.map((t) => `"${t}"`).join(',')})`);
-
-    if (deleteErr) {
-      console.warn('[sync] stale delete failed (non-fatal):', deleteErr.message);
-    } else {
-      console.log('[sync] stale holdings cleaned up');
-    }
-  } else {
-    console.log('[sync] No positions — wiping holdings table for user', user.id);
-    const { error } = await supabaseAdmin
-      .from('holdings')
-      .delete()
-      .eq('user_id', user.id);
-
-    if (error) console.error('[sync] wipe failed:', error.message);
+    console.log('[sync] Sync complete for user', user.id, '— count:', positions.length);
+    return NextResponse.json({ synced: true, count: positions.length });
+  } catch (err: unknown) {
+    console.error('[sync]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  console.log('[sync] Sync complete for user', user.id, '— count:', positions.length);
-  return NextResponse.json({ synced: true, count: positions.length });
 }

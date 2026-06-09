@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -263,84 +264,95 @@ function buildCrises(weights: Record<string, number>, years: number[]): CrisisEv
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: { strategy?: string; period?: string; start_date?: string; initial_capital?: number };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-  const strategy = (body.strategy ?? 'growth') as StrategyKey;
-  const capital  = typeof body.initial_capital === 'number' ? body.initial_capital : 100_000;
+  try {
+    const strategy = (body.strategy ?? 'growth') as StrategyKey;
+    const capital  = typeof body.initial_capital === 'number' ? body.initial_capital : 100_000;
 
-  if (!STRATEGIES[strategy]) {
-    return NextResponse.json({ error: 'Unknown strategy' }, { status: 400 });
-  }
+    if (!STRATEGIES[strategy]) {
+      return NextResponse.json({ error: 'Unknown strategy' }, { status: 400 });
+    }
 
-  // Accept either period key or derive from start_date
-  let period = body.period ?? '10Y';
-  if (!body.period && body.start_date) {
-    const startYear = +body.start_date.slice(0, 4);
-    const span      = 2024 - startYear;
-    if (span <= 6)       period = '5Y';
-    else if (span <= 11) period = '10Y';
-    else                 period = '15Y';
-  }
+    // Accept either period key or derive from start_date
+    let period = body.period ?? '10Y';
+    if (!body.period && body.start_date) {
+      const startYear = +body.start_date.slice(0, 4);
+      const span      = 2024 - startYear;
+      if (span <= 6)       period = '5Y';
+      else if (span <= 11) period = '10Y';
+      else                 period = '15Y';
+    }
 
-  const cacheKey = `${strategy}-${period}-${capital}`;
-  const cached   = getCached(cacheKey);
-  if (cached) return NextResponse.json(cached);
+    const cacheKey = `${strategy}-${period}-${capital}`;
+    const cached   = getCached(cacheKey);
+    if (cached) return NextResponse.json(cached);
 
-  const years      = getYears(period);
-  const weights    = STRATEGIES[strategy];
-  const startDate  = `${years[0]}-01-01`;
-  const endDate    = `${years[years.length - 1]}-12-31`;
+    const years      = getYears(period);
+    const weights    = STRATEGIES[strategy];
+    const startDate  = `${years[0]}-01-01`;
+    const endDate    = `${years[years.length - 1]}-12-31`;
 
-  const primarySim = simulate(weights, years, capital);
-  const spySim     = simulate({ SPY: 100 }, years, capital);
-  const primaryM   = computeMetrics(primarySim, capital, years.length);
-  const spyM       = computeMetrics(spySim,     capital, years.length);
+    const primarySim = simulate(weights, years, capital);
+    const spySim     = simulate({ SPY: 100 }, years, capital);
+    const primaryM   = computeMetrics(primarySim, capital, years.length);
+    const spyM       = computeMetrics(spySim,     capital, years.length);
 
-  const spyMonthMap = new Map(spySim.monthlyValues.map((p) => [p.date.slice(0, 7), p.value]));
-  const equityCurve: EquityPoint[] = primarySim.monthlyValues
-    .filter((_, i) => i % 3 === 0 || i === primarySim.monthlyValues.length - 1)
-    .map(({ date, value }) => ({
-      date,
-      value:     Math.round(value),
-      benchmark: Math.round(spyMonthMap.get(date.slice(0, 7)) ?? capital),
-    }));
+    const spyMonthMap = new Map(spySim.monthlyValues.map((p) => [p.date.slice(0, 7), p.value]));
+    const equityCurve: EquityPoint[] = primarySim.monthlyValues
+      .filter((_, i) => i % 3 === 0 || i === primarySim.monthlyValues.length - 1)
+      .map(({ date, value }) => ({
+        date,
+        value:     Math.round(value),
+        benchmark: Math.round(spyMonthMap.get(date.slice(0, 7)) ?? capital),
+      }));
 
-  const comparison = {} as Record<StrategyKey, StrategyMetrics>;
-  for (const strat of Object.keys(STRATEGIES) as StrategyKey[]) {
-    const sim = simulate(STRATEGIES[strat], years, capital);
-    const m   = computeMetrics(sim, capital, years.length);
-    comparison[strat] = {
-      total_return_pct:      m.total_return_pct,
-      annualized_return_pct: m.annualized_return_pct,
-      sharpe_ratio:          m.sharpe_ratio,
-      max_drawdown_pct:      m.max_drawdown_pct,
-      win_rate_pct:          m.win_rate_pct,
-      final_value:           m.final_value,
+    const comparison = {} as Record<StrategyKey, StrategyMetrics>;
+    for (const strat of Object.keys(STRATEGIES) as StrategyKey[]) {
+      const sim = simulate(STRATEGIES[strat], years, capital);
+      const m   = computeMetrics(sim, capital, years.length);
+      comparison[strat] = {
+        total_return_pct:      m.total_return_pct,
+        annualized_return_pct: m.annualized_return_pct,
+        sharpe_ratio:          m.sharpe_ratio,
+        max_drawdown_pct:      m.max_drawdown_pct,
+        win_rate_pct:          m.win_rate_pct,
+        final_value:           m.final_value,
+      };
+    }
+
+    const result: BacktestResult = {
+      strategy,
+      start_date:            startDate,
+      end_date:              endDate,
+      initial_capital:       capital,
+      final_value:           primaryM.final_value,
+      total_return_pct:      primaryM.total_return_pct,
+      annualized_return_pct: primaryM.annualized_return_pct,
+      vs_sp500_pct:          primaryM.annualized_return_pct - spyM.annualized_return_pct,
+      sharpe_ratio:          primaryM.sharpe_ratio,
+      max_drawdown_pct:      primaryM.max_drawdown_pct,
+      win_rate_pct:          primaryM.win_rate_pct,
+      best_year:             primaryM.best_year,
+      worst_year:            primaryM.worst_year,
+      equity_curve:          equityCurve,
+      monthly_returns:       primaryM.monthly_returns,
+      crisis_performance:    buildCrises(weights, years),
+      comparison,
     };
+
+    setCache(cacheKey, result);
+    return NextResponse.json(result);
+  } catch (err: unknown) {
+    console.error('[backtest/run]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  const result: BacktestResult = {
-    strategy,
-    start_date:            startDate,
-    end_date:              endDate,
-    initial_capital:       capital,
-    final_value:           primaryM.final_value,
-    total_return_pct:      primaryM.total_return_pct,
-    annualized_return_pct: primaryM.annualized_return_pct,
-    vs_sp500_pct:          primaryM.annualized_return_pct - spyM.annualized_return_pct,
-    sharpe_ratio:          primaryM.sharpe_ratio,
-    max_drawdown_pct:      primaryM.max_drawdown_pct,
-    win_rate_pct:          primaryM.win_rate_pct,
-    best_year:             primaryM.best_year,
-    worst_year:            primaryM.worst_year,
-    equity_curve:          equityCurve,
-    monthly_returns:       primaryM.monthly_returns,
-    crisis_performance:    buildCrises(weights, years),
-    comparison,
-  };
-
-  setCache(cacheKey, result);
-  return NextResponse.json(result);
 }

@@ -20,17 +20,22 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data, error } = await supabase
-    .from('transfer_history')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(20);
+  try {
+    const { data, error } = await supabase
+      .from('transfer_history')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
 
-  if (error) {
-    console.error('[bank/transfers GET]', error.message);
-    return NextResponse.json({ error: 'Failed to fetch transfers' }, { status: 500 });
+    if (error) {
+      console.error('[bank/transfers GET]', error.message);
+      return NextResponse.json({ error: 'Failed to fetch transfers' }, { status: 500 });
+    }
+
+    return NextResponse.json({ transfers: (data ?? []) as Transfer[] });
+  } catch (err: unknown) {
+    console.error('[bank/transfers GET]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  return NextResponse.json({ transfers: (data ?? []) as Transfer[] });
 }

@@ -136,6 +136,6 @@ You MUST call submit_predictive_signals.`,
     return NextResponse.json({ signals });
   } catch (err) {
     console.error('[ai/predict]', err instanceof Error ? err.message : err);
-    return NextResponse.json({ signals: [] });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

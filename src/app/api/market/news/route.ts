@@ -123,59 +123,64 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const [holdingsRes, watchlistRes] = await Promise.all([
-    supabase.from('holdings').select('ticker').eq('user_id', user.id),
-    supabase.from('user_watchlist').select('ticker').eq('user_id', user.id),
-  ]);
-
-  const holdingTickers   = new Set((holdingsRes.data  ?? []).map((h) => h.ticker as string));
-  const watchlistTickers = new Set((watchlistRes.data ?? []).map((w) => w.ticker as string));
-  const allTickers       = new Set([...holdingTickers, ...watchlistTickers]);
-
-  const [alpacaTargetedResult, alpacaGeneralResult, finnhubResult, rssResult] =
-    await Promise.allSettled([
-      allTickers.size > 0
-        ? fetchAlpacaNews(new URLSearchParams({ limit: '20', sort: 'desc', symbols: [...allTickers].join(',') }))
-        : Promise.resolve([] as NewsItem[]),
-      fetchAlpacaNews(new URLSearchParams({ limit: '15', sort: 'desc' })),
-      getFinnhubNews('general').then(normalizeFinnhubNews),
-      fetchAllRssFeeds().then(normalizeRssNews),
+  try {
+    const [holdingsRes, watchlistRes] = await Promise.all([
+      supabase.from('holdings').select('ticker').eq('user_id', user.id),
+      supabase.from('user_watchlist').select('ticker').eq('user_id', user.id),
     ]);
 
-  const batches: NewsItem[][] = [
-    alpacaTargetedResult.status === 'fulfilled' ? alpacaTargetedResult.value : [],
-    alpacaGeneralResult.status  === 'fulfilled' ? alpacaGeneralResult.value  : [],
-    finnhubResult.status        === 'fulfilled' ? finnhubResult.value        : [],
-    rssResult.status            === 'fulfilled' ? rssResult.value            : [],
-  ];
+    const holdingTickers   = new Set((holdingsRes.data  ?? []).map((h) => h.ticker as string));
+    const watchlistTickers = new Set((watchlistRes.data ?? []).map((w) => w.ticker as string));
+    const allTickers       = new Set([...holdingTickers, ...watchlistTickers]);
 
-  // Dedup by id, then by 50-char headline prefix across sources
-  const seenIds      = new Set<string>();
-  const seenPrefixes = new Set<string>();
-  const all: NewsItem[] = [];
+    const [alpacaTargetedResult, alpacaGeneralResult, finnhubResult, rssResult] =
+      await Promise.allSettled([
+        allTickers.size > 0
+          ? fetchAlpacaNews(new URLSearchParams({ limit: '20', sort: 'desc', symbols: [...allTickers].join(',') }))
+          : Promise.resolve([] as NewsItem[]),
+        fetchAlpacaNews(new URLSearchParams({ limit: '15', sort: 'desc' })),
+        getFinnhubNews('general').then(normalizeFinnhubNews),
+        fetchAllRssFeeds().then(normalizeRssNews),
+      ]);
 
-  for (const batch of batches) {
-    for (const item of batch) {
-      if (!item.headline) continue;
-      if (seenIds.has(item.id)) continue;
-      const prefix = item.headline.toLowerCase().slice(0, 50);
-      if (seenPrefixes.has(prefix)) continue;
-      seenIds.add(item.id);
-      seenPrefixes.add(prefix);
-      all.push(item);
+    const batches: NewsItem[][] = [
+      alpacaTargetedResult.status === 'fulfilled' ? alpacaTargetedResult.value : [],
+      alpacaGeneralResult.status  === 'fulfilled' ? alpacaGeneralResult.value  : [],
+      finnhubResult.status        === 'fulfilled' ? finnhubResult.value        : [],
+      rssResult.status            === 'fulfilled' ? rssResult.value            : [],
+    ];
+
+    // Dedup by id, then by 50-char headline prefix across sources
+    const seenIds      = new Set<string>();
+    const seenPrefixes = new Set<string>();
+    const all: NewsItem[] = [];
+
+    for (const batch of batches) {
+      for (const item of batch) {
+        if (!item.headline) continue;
+        if (seenIds.has(item.id)) continue;
+        const prefix = item.headline.toLowerCase().slice(0, 50);
+        if (seenPrefixes.has(prefix)) continue;
+        seenIds.add(item.id);
+        seenPrefixes.add(prefix);
+        all.push(item);
+      }
     }
+
+    all.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+
+    for (const item of all) {
+      const cats: NewsCategory[] = [];
+      if (item.symbols.some((s) => holdingTickers.has(s)))   cats.push('positions');
+      if (item.symbols.some((s) => watchlistTickers.has(s))) cats.push('watchlist');
+      if (isGeopolitical(item.headline, item.summary))        cats.push('geopolitical');
+      if (cats.length === 0) cats.push('macro');
+      item.categories = cats;
+    }
+
+    return NextResponse.json(all.slice(0, 40));
+  } catch (err: unknown) {
+    console.error('[market/news]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  all.sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
-
-  for (const item of all) {
-    const cats: NewsCategory[] = [];
-    if (item.symbols.some((s) => holdingTickers.has(s)))   cats.push('positions');
-    if (item.symbols.some((s) => watchlistTickers.has(s))) cats.push('watchlist');
-    if (isGeopolitical(item.headline, item.summary))        cats.push('geopolitical');
-    if (cats.length === 0) cats.push('macro');
-    item.categories = cats;
-  }
-
-  return NextResponse.json(all.slice(0, 40));
 }

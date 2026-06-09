@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,12 @@ let clockCache: CacheEntry | null = null;
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const now = Date.now();
 
   if (clockCache && now < clockCache.expiresAt) {
@@ -28,16 +35,24 @@ export async function GET() {
   }
 
   try {
-    const res = await fetch(
-      `${process.env.ALPACA_BASE_URL ?? 'https://paper-api.alpaca.markets'}/v2/clock`,
-      {
-        headers: {
-          'APCA-API-KEY-ID':     process.env.ALPACA_API_KEY!,
-          'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY!,
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    let res: Response;
+    try {
+      res = await fetch(
+        `${process.env.ALPACA_BASE_URL ?? 'https://paper-api.alpaca.markets'}/v2/clock`,
+        {
+          headers: {
+            'APCA-API-KEY-ID':     process.env.ALPACA_API_KEY!,
+            'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY!,
+          },
+          signal: controller.signal,
+          cache:  'no-store',
         },
-        cache: 'no-store',
-      },
-    );
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!res.ok) {
       throw new Error(`Alpaca clock API responded with ${res.status}`);
@@ -56,7 +71,11 @@ export async function GET() {
     return NextResponse.json(payload);
 
   } catch (err) {
-    console.error('[market/clock]', err instanceof Error ? err.message : err);
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.error('[market/clock] request timeout');
+    } else {
+      console.error('[market/clock]', err instanceof Error ? err.message : err);
+    }
 
     // Graceful fallback: estimate based on NYSE hours
     const nowDate  = new Date();

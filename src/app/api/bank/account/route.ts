@@ -62,18 +62,23 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data, error } = await supabase
-    .from('bank_connections')
-    .select('*')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from('bank_connections')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-  if (error) {
-    console.error('[bank/account GET]', error.message);
-    return NextResponse.json({ error: 'Failed to fetch bank account' }, { status: 500 });
+    if (error) {
+      console.error('[bank/account GET]', error.message);
+      return NextResponse.json({ error: 'Failed to fetch bank account' }, { status: 500 });
+    }
+
+    return NextResponse.json({ account: data as BankAccount | null });
+  } catch (err: unknown) {
+    console.error('[bank/account GET]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  return NextResponse.json({ account: data as BankAccount | null });
 }
 
 // ── POST ──────────────────────────────────────────────────────────────────────
@@ -100,28 +105,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { data, error } = await supabase
-    .from('bank_connections')
-    .upsert(
-      {
-        user_id:        user.id,
-        bank_name:      validated.bank_name,
-        account_type:   validated.account_type,
-        last_four:      validated.last_four,
-        routing_number: validated.routing_number ?? null,
-        connected_at:   new Date().toISOString(),
-      },
-      { onConflict: 'user_id' },
-    )
-    .select()
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from('bank_connections')
+      .upsert(
+        {
+          user_id:        user.id,
+          bank_name:      validated.bank_name,
+          account_type:   validated.account_type,
+          last_four:      validated.last_four,
+          routing_number: validated.routing_number ?? null,
+          connected_at:   new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      )
+      .select()
+      .single();
 
-  if (error) {
-    console.error('[bank/account POST]', error.message);
-    return NextResponse.json({ error: 'Failed to save bank account' }, { status: 500 });
+    if (error) {
+      console.error('[bank/account POST]', error.message);
+      return NextResponse.json({ error: 'Failed to save bank account' }, { status: 500 });
+    }
+
+    return NextResponse.json({ account: data as BankAccount });
+  } catch (err: unknown) {
+    console.error('[bank/account POST]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  return NextResponse.json({ account: data as BankAccount });
 }
 
 // ── DELETE ────────────────────────────────────────────────────────────────────
@@ -131,19 +141,24 @@ export async function DELETE() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const [connResult, schedResult] = await Promise.all([
-    supabase.from('bank_connections').delete().eq('user_id', user.id),
-    supabase.from('recurring_deposits').delete().eq('user_id', user.id),
-  ]);
+  try {
+    const [connResult, schedResult] = await Promise.all([
+      supabase.from('bank_connections').delete().eq('user_id', user.id),
+      supabase.from('recurring_deposits').delete().eq('user_id', user.id),
+    ]);
 
-  if (connResult.error) {
-    console.error('[bank/account DELETE] bank_connections:', connResult.error.message);
-    return NextResponse.json({ error: 'Failed to disconnect bank account' }, { status: 500 });
-  }
-  if (schedResult.error) {
-    console.error('[bank/account DELETE] recurring_deposits:', schedResult.error.message);
-    // Non-fatal — bank connection already removed
-  }
+    if (connResult.error) {
+      console.error('[bank/account DELETE] bank_connections:', connResult.error.message);
+      return NextResponse.json({ error: 'Failed to disconnect bank account' }, { status: 500 });
+    }
+    if (schedResult.error) {
+      console.error('[bank/account DELETE] recurring_deposits:', schedResult.error.message);
+      // Non-fatal — bank connection already removed
+    }
 
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    console.error('[bank/account DELETE]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

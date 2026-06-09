@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 // ── Symbol manifests ──────────────────────────────────────────────────────────
 
@@ -40,19 +41,33 @@ export interface SnapshotResponse {
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const allSymbols = [...PULSE_SYMBOLS, ...SECTOR_SYMBOLS];
 
   try {
-    const res = await fetch(
-      `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${allSymbols.join(',')}`,
-      {
-        headers: {
-          'APCA-API-KEY-ID':     process.env.ALPACA_API_KEY!,
-          'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY!,
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    let res: Response;
+    try {
+      res = await fetch(
+        `https://data.alpaca.markets/v2/stocks/snapshots?symbols=${allSymbols.join(',')}`,
+        {
+          headers: {
+            'APCA-API-KEY-ID':     process.env.ALPACA_API_KEY!,
+            'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY!,
+          },
+          signal: controller.signal,
+          next:   { revalidate: 60 },
         },
-        next: { revalidate: 60 },
-      },
-    );
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!res.ok) {
       console.warn('[market/snapshot] Alpaca status:', res.status);
@@ -79,6 +94,10 @@ export async function GET() {
     } satisfies SnapshotResponse);
 
   } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.error('[market/snapshot] request timeout');
+      return NextResponse.json({ error: 'Request timeout' }, { status: 504 });
+    }
     console.warn('[market/snapshot] error:', err instanceof Error ? err.message : err);
     return NextResponse.json(buildFallback());
   }

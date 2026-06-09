@@ -88,64 +88,69 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [newsRes, holdingsRes, accountRes, earningsRes, economicRes] = await Promise.allSettled([
-    fetch(`${DATA_BASE}/v1beta1/news?limit=30&sort=desc&start=${encodeURIComponent(since)}`, {
-      headers: alpacaHeaders(),
-    }),
-    supabase
-      .from('holdings')
-      .select('ticker, market_value, unrealized_pl, unrealized_plpc')
-      .eq('user_id', user.id),
-    getAccount(),
-    getEarningsCalendar(),
-    getEconomicCalendar(),
-  ]);
+    const newsController = new AbortController();
+    const newsTimeout = setTimeout(() => newsController.abort(), 10_000);
 
-  // Headlines
-  let headlines = 'No recent headlines.';
-  if (newsRes.status === 'fulfilled' && newsRes.value.ok) {
-    const d = await newsRes.value.json().catch(() => ({ news: [] }));
-    const items = (d.news ?? []) as Array<{ headline: string; symbols: string[] }>;
-    if (items.length > 0) {
-      headlines = items.slice(0, 20)
-        .map((n) => `${n.headline}${n.symbols.length ? ` [${n.symbols.slice(0, 2).join(',')}]` : ''}`)
-        .join('\n');
+    const [newsRes, holdingsRes, accountRes, earningsRes, economicRes] = await Promise.allSettled([
+      fetch(`${DATA_BASE}/v1beta1/news?limit=30&sort=desc&start=${encodeURIComponent(since)}`, {
+        headers: alpacaHeaders(),
+        signal:  newsController.signal,
+      }).finally(() => clearTimeout(newsTimeout)),
+      supabase
+        .from('holdings')
+        .select('ticker, market_value, unrealized_pl, unrealized_plpc')
+        .eq('user_id', user.id),
+      getAccount(),
+      getEarningsCalendar(),
+      getEconomicCalendar(),
+    ]);
+
+    // Headlines
+    let headlines = 'No recent headlines.';
+    if (newsRes.status === 'fulfilled' && newsRes.value.ok) {
+      const d = await newsRes.value.json().catch(() => ({ news: [] }));
+      const items = (d.news ?? []) as Array<{ headline: string; symbols: string[] }>;
+      if (items.length > 0) {
+        headlines = items.slice(0, 20)
+          .map((n) => `${n.headline}${n.symbols.length ? ` [${n.symbols.slice(0, 2).join(',')}]` : ''}`)
+          .join('\n');
+      }
     }
-  }
 
-  // Holdings
-  const holdings = holdingsRes.status === 'fulfilled' ? (holdingsRes.value.data ?? []) : [];
-  const holdingsSummary = holdings.length > 0
-    ? holdings.map((h) => {
-        const pct = parseFloat(h.unrealized_plpc).toFixed(1);
-        return `${h.ticker} ($${Math.round(parseFloat(h.market_value)).toLocaleString()}, ${pct}%)`;
-      }).join(', ')
-    : 'No positions';
+    // Holdings
+    const holdings = holdingsRes.status === 'fulfilled' ? (holdingsRes.value.data ?? []) : [];
+    const holdingsSummary = holdings.length > 0
+      ? holdings.map((h) => {
+          const pct = parseFloat(h.unrealized_plpc).toFixed(1);
+          return `${h.ticker} ($${Math.round(parseFloat(h.market_value)).toLocaleString()}, ${pct}%)`;
+        }).join(', ')
+      : 'No positions';
 
-  // Equity
-  const acct = accountRes.status === 'fulfilled' ? accountRes.value : null;
-  const equity = acct
-    ? `$${Math.round(parseFloat(acct.equity)).toLocaleString()}`
-    : 'unknown';
+    // Equity
+    const acct = accountRes.status === 'fulfilled' ? accountRes.value : null;
+    const equity = acct
+      ? `$${Math.round(parseFloat(acct.equity)).toLocaleString()}`
+      : 'unknown';
 
-  // Events
-  const earnings = earningsRes.status === 'fulfilled' ? earningsRes.value : [];
-  const economic = economicRes.status === 'fulfilled' ? economicRes.value : [];
-  const events   = buildEvents(earnings, economic);
+    // Events
+    const earnings = earningsRes.status === 'fulfilled' ? earningsRes.value : [];
+    const economic = economicRes.status === 'fulfilled' ? economicRes.value : [];
+    const events   = buildEvents(earnings, economic);
 
-  const eventsSummary = events.length > 0
-    ? 'Upcoming events:\n' + events.slice(0, 5).map((e) => `- ${e.date}: ${e.title}`).join('\n')
-    : 'No upcoming events.';
+    const eventsSummary = events.length > 0
+      ? 'Upcoming events:\n' + events.slice(0, 5).map((e) => `- ${e.date}: ${e.title}`).join('\n')
+      : 'No upcoming events.';
 
-  const userMessage =
-    `Portfolio equity: ${equity}\nHoldings: ${holdingsSummary}\n\n${eventsSummary}\n\nHeadlines:\n${headlines}`;
+    const userMessage =
+      `Portfolio equity: ${equity}\nHoldings: ${holdingsSummary}\n\n${eventsSummary}\n\nHeadlines:\n${headlines}`;
 
-  const aiResponse = await anthropic.messages.create({
-    model:      'claude-sonnet-4-6',
-    max_tokens: 200,
-    system: `You are Tavola's Chief Investment Strategist. Generate exactly three atomic market signals — one sentence each, bold and specific.
+    const aiResponse = await anthropic.messages.create({
+      model:      'claude-sonnet-4-6',
+      max_tokens: 200,
+      system: `You are Tavola's Chief Investment Strategist. Generate exactly three atomic market signals — one sentence each, bold and specific.
 
 Output format (three lines only, no other text):
 MARKET SENTIMENT: [one punchy sentence on today's market tone, max 15 words]
@@ -153,19 +158,23 @@ YOUR PORTFOLIO: [one sentence specific to the investor's actual holdings, max 15
 TOP OPPORTUNITY: [one specific actionable opportunity from the headlines, max 15 words]
 
 Rules: Be direct, institutional, no hedging. No emojis. No extra text. Just the three labeled lines.`,
-    messages: [{ role: 'user', content: userMessage }],
-  });
+      messages: [{ role: 'user', content: userMessage }],
+    });
 
-  const rawText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
-  const signals = parseSignals(rawText);
+    const rawText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
+    const signals = parseSignals(rawText);
 
-  if (!signals.market_sentiment) signals.market_sentiment = 'Market conditions require close monitoring today.';
-  if (!signals.your_portfolio)   signals.your_portfolio   = 'Portfolio positioning reflects current market environment.';
-  if (!signals.top_opportunity)  signals.top_opportunity  = 'Review watchlist for emerging setups.';
+    if (!signals.market_sentiment) signals.market_sentiment = 'Market conditions require close monitoring today.';
+    if (!signals.your_portfolio)   signals.your_portfolio   = 'Portfolio positioning reflects current market environment.';
+    if (!signals.top_opportunity)  signals.top_opportunity  = 'Review watchlist for emerging setups.';
 
-  return NextResponse.json({
-    signals,
-    events,
-    generated_at: new Date().toISOString(),
-  } satisfies SignalsResponse);
+    return NextResponse.json({
+      signals,
+      events,
+      generated_at: new Date().toISOString(),
+    } satisfies SignalsResponse);
+  } catch (err: unknown) {
+    console.error('[market/brief]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
