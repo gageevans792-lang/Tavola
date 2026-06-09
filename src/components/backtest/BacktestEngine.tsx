@@ -15,10 +15,10 @@ import type { BacktestResult, StrategyKey } from '@/app/api/backtest/run/route';
 // ── Config constants ──────────────────────────────────────────────────────────
 
 const STRATEGY_META: Record<StrategyKey, { name: string; alloc: string; tag: string }> = {
-  conservative: { name: 'Conservative', alloc: 'BND 40 · VTI 30 · VEA 20 · GLD 10',  tag: '6–12% target' },
-  balanced:     { name: 'Balanced',     alloc: 'VTI 50 · BND 20 · QQQ 15 · VEA 15',  tag: '12–20% target' },
-  growth:       { name: 'Growth',       alloc: 'VTI 60 · QQQ 30 · GLD 10',            tag: '20–35% target' },
-  aggressive:   { name: 'Aggressive',   alloc: 'QQQ 50 · VTI 30 · VWO 20',            tag: '35%+ target' },
+  conservative: { name: 'Conservative', alloc: 'BND 40 · VTI 30 · VEA 20 · GLD 10',  tag: '4-6% target'   },
+  balanced:     { name: 'Balanced',     alloc: 'VTI 50 · BND 20 · QQQ 15 · VEA 15',  tag: '6-8% target'   },
+  growth:       { name: 'Growth',       alloc: 'VTI 60 · QQQ 30 · GLD 10',            tag: '8-10% target'  },
+  aggressive:   { name: 'Aggressive',   alloc: 'QQQ 50 · VTI 30 · VWO 20',            tag: '10-13% target' },
 };
 
 const PERIODS = [
@@ -42,17 +42,6 @@ const LOAD_MSGS = [
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function periodStart(period: string): string {
-  const now = new Date();
-  switch (period) {
-    case '5Y':        return new Date(now.getFullYear() - 5,  now.getMonth(), now.getDate()).toISOString().slice(0, 10);
-    case '10Y':       return new Date(now.getFullYear() - 10, now.getMonth(), now.getDate()).toISOString().slice(0, 10);
-    case '15Y':       return new Date(now.getFullYear() - 15, now.getMonth(), now.getDate()).toISOString().slice(0, 10);
-    case 'since2008': return '2008-01-02';
-    default:          return '2016-01-01';
-  }
-}
 
 function fmt$(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
@@ -134,8 +123,7 @@ export function BacktestEngine({ isPublic = false }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           strategy,
-          start_date:      periodStart(period),
-          end_date:        new Date().toISOString().slice(0, 10),
+          period,
           initial_capital: capital,
         }),
       });
