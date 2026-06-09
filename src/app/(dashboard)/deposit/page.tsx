@@ -78,8 +78,8 @@ export default function DepositPage() {
 
           {betaMode && (
             <div className="border border-[#B8960C]/30 bg-[#B8960C]/5 px-6 py-5">
-              <p className="text-[11px] tracking-[0.12em] uppercase text-[#0A1628] mb-1">Coming soon</p>
-              <p className="text-sm text-[#4A5568]">Platform is in beta. Payment processing will be enabled at launch.</p>
+              <p className="text-[11px] tracking-[0.12em] uppercase text-[#B8960C] mb-1">Beta Mode</p>
+              <p className="text-sm text-[#4A5568]">Payment processing is being set up. Your Alpaca paper trading account is funded and ready. Contact support to add real funds.</p>
             </div>
           )}
 

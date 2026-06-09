@@ -145,10 +145,12 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch('/api/ai/strategy')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
+      .then((d: { strategy?: { name?: string; risk_level?: string }; name?: string; strategy_name?: string; risk_level?: string } | null) => {
         if (!d) return;
-        setStrategyLabel((d.name ?? d.strategy_name ?? null) as string | null);
-        setRiskLabel((d.risk_level ?? null) as string | null);
+        const stratName = d.strategy?.name ?? d.name ?? d.strategy_name ?? null;
+        const riskLvl   = d.strategy?.risk_level ?? d.risk_level ?? null;
+        setStrategyLabel(stratName as string | null);
+        setRiskLabel(riskLvl as string | null);
       })
       .catch(() => {});
   }, []);
@@ -156,10 +158,11 @@ export default function SettingsPage() {
   // ── Load autopilot ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-    fetch('/api/autopilot/status')
+    fetch('/api/ai/autopilot/status')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { enabled?: boolean } | null) => {
-        if (d && typeof d.enabled === 'boolean') setAutopilotEnabled(d.enabled);
+      .then((d: { settings?: { enabled?: boolean }; enabled?: boolean } | null) => {
+        const enabled = d?.settings?.enabled ?? (typeof d?.enabled === 'boolean' ? d.enabled : null);
+        if (typeof enabled === 'boolean') setAutopilotEnabled(enabled);
       })
       .catch(() => {});
   }, []);

@@ -798,8 +798,17 @@ export default function AutopilotPage() {
             </div>
 
             {historyLoading ? (
-              <div className="border border-[#E2E8F0] px-6 py-12 text-center">
-                <p className="text-[11px] tracking-[0.12em] uppercase text-[#4A5568]">Loading</p>
+              <div className="border border-[#E2E8F0] divide-y divide-[#E2E8F0]">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="px-6 py-5 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="h-3 w-28 animate-pulse bg-[#E2E8F0] rounded" />
+                      <div className="h-3 w-16 animate-pulse bg-[#E2E8F0] rounded" />
+                    </div>
+                    <div className="h-4 w-full animate-pulse bg-[#E2E8F0] rounded" />
+                    <div className="h-4 w-3/4 animate-pulse bg-[#E2E8F0] rounded" />
+                  </div>
+                ))}
               </div>
             ) : runs.length === 0 ? (
               <div className="border border-[#E2E8F0] px-6 py-12 text-center">

@@ -581,10 +581,12 @@ export default function BankPage() {
   const [schedule,  setSchedule]  = useState<RecurringDeposit | null>(null);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [loading,   setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [hasMore,   setHasMore]   = useState(false);
 
   const loadInitialData = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const [acctRes, schedRes, xferRes] = await Promise.all([
         fetch('/api/bank/account'),
@@ -604,6 +606,7 @@ export default function BankPage() {
       setHasMore(fetched.length >= 20);
     } catch (err) {
       console.error('[bank page] load error:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -630,8 +633,36 @@ export default function BankPage() {
     return (
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar title="Banking" />
-        <main className="flex-1 flex items-center justify-center bg-[#F8F9FA]">
-          <p className="text-sm text-[#4A5568]">Loading...</p>
+        <main className="flex-1 overflow-y-auto bg-[#F8F9FA] p-4 sm:p-6">
+          <div className="mx-auto max-w-3xl space-y-6">
+            <div className="border border-[#E2E8F0] bg-white px-5 py-5">
+              <div className="h-3 w-32 animate-pulse bg-[#E2E8F0] rounded mb-3" />
+              <div className="h-5 w-64 animate-pulse bg-[#E2E8F0] rounded mb-2" />
+              <div className="h-3 w-40 animate-pulse bg-[#E2E8F0] rounded" />
+            </div>
+            <div className="border border-[#E2E8F0] bg-white px-5 py-5 space-y-3">
+              <div className="h-3 w-40 animate-pulse bg-[#E2E8F0] rounded" />
+              <div className="h-8 w-full animate-pulse bg-[#E2E8F0] rounded" />
+              <div className="h-8 w-3/4 animate-pulse bg-[#E2E8F0] rounded" />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <TopBar title="Banking" />
+        <main className="flex-1 flex flex-col items-center justify-center bg-[#F8F9FA] gap-4">
+          <p className="text-[13px] text-[#4A5568]">Unable to load banking data. Please try again.</p>
+          <button
+            onClick={loadInitialData}
+            className="border border-[#0A1628] px-5 py-2.5 text-[12px] tracking-[0.1em] uppercase text-[#0A1628] hover:bg-[#0A1628] hover:text-white transition-colors"
+          >
+            Retry
+          </button>
         </main>
       </div>
     );
