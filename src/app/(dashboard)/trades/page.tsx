@@ -197,10 +197,16 @@ export default function TradesPage() {
             ))}
           </div>
 
-          {/* Error banner */}
           {error && (
-            <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-[#991b1b]">
-              {error}
+            <div className="border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between">
+              <p className="text-sm text-[#991b1b]">{error}</p>
+              <button
+                type="button"
+                onClick={() => fetchTrades(0, true)}
+                className="text-[11px] tracking-[0.1em] uppercase text-[#991b1b] border border-[#991b1b]/30 px-3 py-1 hover:bg-[#991b1b]/5 transition-colors ml-4 shrink-0"
+              >
+                Retry
+              </button>
             </div>
           )}
 
@@ -217,8 +223,14 @@ export default function TradesPage() {
             </div>
 
             {loading ? (
-              <div className="px-4 py-12 text-center">
-                <p className="text-sm text-[#4A5568]">Loading trades...</p>
+              <div className="px-4 py-6 space-y-2">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="grid grid-cols-8 gap-x-2 py-3 border-b border-[#E2E8F0]">
+                    {[40, 16, 12, 8, 16, 16, 16, 14].map((w, j) => (
+                      <div key={j} className={`h-4 animate-pulse bg-[#E2E8F0] rounded w-${w}`} />
+                    ))}
+                  </div>
+                ))}
               </div>
             ) : filtered.length === 0 ? (
               <div className="px-4 py-12 text-center">
