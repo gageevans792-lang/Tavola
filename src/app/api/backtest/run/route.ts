@@ -1,10 +1,4 @@
 import { NextResponse } from 'next/server';
-import {
-  ANNUAL_RETURNS,
-  STATIC_CRISES,
-  getYears,
-  type EtfSymbol,
-} from '@/lib/backtest/historical-data';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -58,16 +52,54 @@ export interface BacktestResult {
   comparison: Record<StrategyKey, StrategyMetrics>;
 }
 
-// ── Strategy allocations ───────────────────────────────────────────────────────
+// ── Static historical annual returns (%) 2010–2024 ────────────────────────────
 
-const STRATEGIES: Record<StrategyKey, Record<string, number>> = {
-  conservative: { BND: 0.40, VTI: 0.30, VEA: 0.20, GLD: 0.10 },
-  balanced:     { VTI: 0.50, BND: 0.20, QQQ: 0.15, VEA: 0.15 },
-  growth:       { VTI: 0.60, QQQ: 0.30, GLD: 0.10 },
-  aggressive:   { QQQ: 0.50, VTI: 0.30, VWO: 0.20 },
+const HISTORICAL_RETURNS: Record<string, Record<number, number>> = {
+  VTI: {2010:17.3,2011:1.1,2012:16.4,2013:33.5,2014:12.6,2015:0.4,2016:12.7,2017:21.2,2018:-5.2,2019:30.7,2020:21.0,2021:25.7,2022:-19.5,2023:26.1,2024:23.8},
+  QQQ: {2010:19.9,2011:3.0,2012:18.1,2013:36.6,2014:19.0,2015:9.4,2016:6.9,2017:32.7,2018:-0.1,2019:39.0,2020:48.6,2021:27.4,2022:-32.6,2023:54.9,2024:25.6},
+  BND: {2010:6.4,2011:7.7,2012:4.2,2013:-2.0,2014:5.9,2015:0.4,2016:2.6,2017:3.5,2018:-0.1,2019:8.7,2020:7.7,2021:-1.7,2022:-13.1,2023:5.5,2024:1.8},
+  GLD: {2010:29.5,2011:10.2,2012:7.0,2013:-28.3,2014:-1.5,2015:-10.4,2016:8.6,2017:13.1,2018:-1.9,2019:18.3,2020:25.1,2021:-3.6,2022:-0.8,2023:13.1,2024:26.8},
+  VEA: {2010:7.8,2011:-12.1,2012:17.7,2013:22.8,2014:-5.1,2015:-0.8,2016:2.2,2017:27.2,2018:-14.7,2019:22.0,2020:10.6,2021:11.3,2022:-14.5,2023:18.2,2024:4.8},
+  VWO: {2010:19.2,2011:-18.4,2012:18.6,2013:-5.0,2014:-3.9,2015:-14.9,2016:11.6,2017:31.7,2018:-14.6,2019:18.4,2020:15.8,2021:-2.7,2022:-17.9,2023:9.8,2024:7.4},
+  SPY: {2010:15.1,2011:2.1,2012:16.0,2013:32.4,2014:13.7,2015:1.4,2016:12.0,2017:21.8,2018:-4.4,2019:31.5,2020:18.4,2021:28.7,2022:-18.2,2023:26.3,2024:25.0},
 };
 
-// ── Module-level cache (24h) ───────────────────────────────────────────────────
+// Weights in whole numbers (sum = 100); normalized to decimals internally
+const STRATEGIES: Record<StrategyKey, Record<string, number>> = {
+  conservative: { BND:40, VTI:30, VEA:20, GLD:10 },
+  balanced:     { VTI:50, BND:20, QQQ:15, VEA:15 },
+  growth:       { VTI:60, QQQ:30, GLD:10 },
+  aggressive:   { QQQ:50, VTI:30, VWO:20 },
+};
+
+// Crisis events with ETF returns for sub-annual periods
+const CRISIS_EVENTS = [
+  {
+    event: '2008 Financial Crisis',
+    period: 'Oct 2007 – Mar 2009',
+    sp500_return: -37.0,
+    etf: { VTI:-30, QQQ:-33, BND:5, GLD:5, VEA:-45, VWO:-53, SPY:-37 } as Record<string,number>,
+  },
+  {
+    event: 'COVID-19 Crash',
+    period: 'Feb – Apr 2020',
+    sp500_return: -34.0,
+    etf: { VTI:-31, QQQ:-19, BND:3, GLD:4, VEA:-30, VWO:-25, SPY:-34 } as Record<string,number>,
+  },
+];
+
+// ── Year ranges per period ─────────────────────────────────────────────────────
+
+function getYears(period: string): number[] {
+  switch (period) {
+    case '5Y':        return [2019,2020,2021,2022,2023,2024];
+    case '15Y':
+    case 'since2008': return [2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024];
+    default:          return [2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024]; // 10Y
+  }
+}
+
+// ── Module-level 24h cache ────────────────────────────────────────────────────
 
 const resultCache = new Map<string, { data: BacktestResult; expires: number }>();
 
@@ -89,38 +121,38 @@ function stddev(arr: number[]): number {
   return Math.sqrt(arr.reduce((a, b) => a + (b - mean) ** 2, 0) / (arr.length - 1));
 }
 
-function monthLastDay(year: number, month: number): string {
+function monthEnd(year: number, month: number): string {
   const d = new Date(year, month, 0).getDate();
-  return `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  return `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
 
 // ── Simulation ────────────────────────────────────────────────────────────────
 
 interface SimResult {
-  monthlyValues: { date: string; value: number }[];
+  monthlyValues:  { date: string; value: number }[];
   monthlyReturns: number[];
 }
 
 function simulate(
-  allocation: Record<string, number>,
+  weights: Record<string, number>,  // whole-number weights summing to 100
   years: number[],
   initialCapital: number,
 ): SimResult {
-  const symbols = Object.keys(allocation);
-  let value = initialCapital;
-  const monthlyValues: { date: string; value: number }[] = [];
+  const symbols = Object.keys(weights);
+  const total   = symbols.reduce((s, k) => s + weights[k], 0) || 100;
+  let value     = initialCapital;
+  const monthlyValues:  { date: string; value: number }[] = [];
   const monthlyReturns: number[] = [];
 
   for (const year of years) {
     for (let m = 1; m <= 12; m++) {
-      // Monthly return = weighted sum of each ETF's monthly return (annual / 12)
       let mRet = 0;
       for (const sym of symbols) {
-        const annual = ANNUAL_RETURNS[sym as EtfSymbol]?.[year] ?? 0;
-        mRet += allocation[sym] * (annual / 100 / 12);
+        const annual = HISTORICAL_RETURNS[sym]?.[year] ?? 0;
+        mRet += (weights[sym] / total) * (annual / 100 / 12);
       }
       value *= (1 + mRet);
-      monthlyValues.push({ date: monthLastDay(year, m), value });
+      monthlyValues.push({ date: monthEnd(year, m), value });
       monthlyReturns.push(mRet);
     }
   }
@@ -130,23 +162,15 @@ function simulate(
 
 // ── Metrics ───────────────────────────────────────────────────────────────────
 
-function computeMetrics(
-  sim: SimResult,
-  initialCapital: number,
-  numYears: number,
-): StrategyMetrics & {
-  best_year:       { year: number; return_pct: number };
-  worst_year:      { year: number; return_pct: number };
-  monthly_returns: MonthlyReturn[];
-} {
+function computeMetrics(sim: SimResult, initialCapital: number, numYears: number) {
   const { monthlyValues, monthlyReturns } = sim;
 
-  if (monthlyValues.length === 0) {
+  if (!monthlyValues.length) {
     return {
-      total_return_pct: 0, annualized_return_pct: 0, sharpe_ratio: 0,
-      max_drawdown_pct: 0, win_rate_pct: 0, final_value: initialCapital,
-      best_year: { year: 0, return_pct: 0 }, worst_year: { year: 0, return_pct: 0 },
-      monthly_returns: [],
+      total_return_pct:0, annualized_return_pct:0, sharpe_ratio:0,
+      max_drawdown_pct:0, win_rate_pct:0, final_value:initialCapital,
+      best_year:{year:0,return_pct:0}, worst_year:{year:0,return_pct:0},
+      monthly_returns: [] as MonthlyReturn[],
     };
   }
 
@@ -154,9 +178,7 @@ function computeMetrics(
   const totalReturn = (finalValue / initialCapital - 1) * 100;
   const annualized  = ((finalValue / initialCapital) ** (1 / numYears) - 1) * 100;
 
-  // Max drawdown
-  let peak = initialCapital;
-  let maxDD = 0;
+  let peak = initialCapital, maxDD = 0;
   for (const { value } of monthlyValues) {
     if (value > peak) peak = value;
     const dd = (peak - value) / peak;
@@ -169,14 +191,13 @@ function computeMetrics(
   const wins   = monthlyReturns.filter((r) => r > 0).length;
   const winRate = monthlyReturns.length > 0 ? (wins / monthlyReturns.length) * 100 : 0;
 
-  // Monthly returns for heatmap
   const monthly_returns: MonthlyReturn[] = monthlyValues.map(({ date }, i) => ({
     year:       +date.slice(0, 4),
     month:      +date.slice(5, 7),
     return_pct: monthlyReturns[i] * 100,
   }));
 
-  // Best / worst calendar year (by year-end values, 12-month chunks)
+  // Best / worst calendar year
   let bestYear  = { year: 0, return_pct: -Infinity };
   let worstYear = { year: 0, return_pct:  Infinity };
   let prevVal   = initialCapital;
@@ -191,52 +212,48 @@ function computeMetrics(
   }
 
   return {
-    total_return_pct:  totalReturn,
+    total_return_pct:      totalReturn,
     annualized_return_pct: annualized,
-    sharpe_ratio:      sharpe,
-    max_drawdown_pct:  maxDD * 100,
-    win_rate_pct:      winRate,
-    final_value:       finalValue,
-    best_year:         bestYear.year  > 0 ? bestYear  : { year: 0, return_pct: 0 },
-    worst_year:        worstYear.year > 0 ? worstYear : { year: 0, return_pct: 0 },
+    sharpe_ratio:          sharpe,
+    max_drawdown_pct:      maxDD * 100,
+    win_rate_pct:          winRate,
+    final_value:           finalValue,
+    best_year:             bestYear.year  > 0 ? bestYear  : { year: 0, return_pct: 0 },
+    worst_year:            worstYear.year > 0 ? worstYear : { year: 0, return_pct: 0 },
     monthly_returns,
   };
 }
 
 // ── Crisis performance ────────────────────────────────────────────────────────
 
-function computeCrises(
-  allocation: Record<string, number>,
-  years: number[],
-): CrisisEvent[] {
+function buildCrises(weights: Record<string, number>, years: number[]): CrisisEvent[] {
+  const total   = Object.values(weights).reduce((a, b) => a + b, 0) || 100;
   const results: CrisisEvent[] = [];
 
-  // Static crises (2008 crash, COVID)
-  for (const { event, period, sp500_return, etf_returns } of STATIC_CRISES) {
+  for (const { event, period, sp500_return, etf } of CRISIS_EVENTS) {
     let portfolio_return = 0;
-    for (const [sym, weight] of Object.entries(allocation)) {
-      portfolio_return += weight * (etf_returns[sym as EtfSymbol] ?? 0);
+    for (const [sym, w] of Object.entries(weights)) {
+      portfolio_return += (w / total) * (etf[sym] ?? 0);
     }
     results.push({ event, period, portfolio_return, sp500_return });
   }
 
-  // Annual crises from dataset (2022 rate shock, 2023 AI rally)
+  // 2022 and 2023 from the annual dataset
   const annualCrises = [
     { year: 2022, event: '2022 Rate Shock', period: 'Jan – Dec 2022' },
     { year: 2023, event: '2023 AI Rally',   period: 'Jan – Dec 2023' },
   ];
-
   for (const { year, event, period } of annualCrises) {
     if (!years.includes(year)) continue;
     let portfolio_return = 0;
-    for (const [sym, weight] of Object.entries(allocation)) {
-      portfolio_return += weight * (ANNUAL_RETURNS[sym as EtfSymbol]?.[year] ?? 0);
+    for (const [sym, w] of Object.entries(weights)) {
+      portfolio_return += (w / total) * (HISTORICAL_RETURNS[sym]?.[year] ?? 0);
     }
     results.push({
       event,
       period,
       portfolio_return,
-      sp500_return: ANNUAL_RETURNS.SPY[year],
+      sp500_return: HISTORICAL_RETURNS['SPY']?.[year] ?? 0,
     });
   }
 
@@ -246,34 +263,41 @@ function computeCrises(
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
-  let body: { strategy?: string; period?: string; initial_capital?: number };
+  let body: { strategy?: string; period?: string; start_date?: string; initial_capital?: number };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-  const strategy = (body.strategy as StrategyKey) ?? 'growth';
-  const period   = body.period ?? '10Y';
+  const strategy = (body.strategy ?? 'growth') as StrategyKey;
   const capital  = typeof body.initial_capital === 'number' ? body.initial_capital : 100_000;
 
   if (!STRATEGIES[strategy]) {
     return NextResponse.json({ error: 'Unknown strategy' }, { status: 400 });
   }
 
+  // Accept either period key or derive from start_date
+  let period = body.period ?? '10Y';
+  if (!body.period && body.start_date) {
+    const startYear = +body.start_date.slice(0, 4);
+    const span      = 2024 - startYear;
+    if (span <= 6)       period = '5Y';
+    else if (span <= 11) period = '10Y';
+    else                 period = '15Y';
+  }
+
   const cacheKey = `${strategy}-${period}-${capital}`;
-  const cached = getCached(cacheKey);
+  const cached   = getCached(cacheKey);
   if (cached) return NextResponse.json(cached);
 
   const years      = getYears(period);
-  const allocation = STRATEGIES[strategy];
+  const weights    = STRATEGIES[strategy];
   const startDate  = `${years[0]}-01-01`;
   const endDate    = `${years[years.length - 1]}-12-31`;
 
-  // Run simulations
-  const primarySim = simulate(allocation, years, capital);
-  const spySim     = simulate({ SPY: 1.0 }, years, capital);
+  const primarySim = simulate(weights, years, capital);
+  const spySim     = simulate({ SPY: 100 }, years, capital);
   const primaryM   = computeMetrics(primarySim, capital, years.length);
-  const spyM       = computeMetrics(spySim, capital, years.length);
+  const spyM       = computeMetrics(spySim,     capital, years.length);
 
-  // Build equity curve (every 3rd monthly point to reduce payload)
   const spyMonthMap = new Map(spySim.monthlyValues.map((p) => [p.date.slice(0, 7), p.value]));
   const equityCurve: EquityPoint[] = primarySim.monthlyValues
     .filter((_, i) => i % 3 === 0 || i === primarySim.monthlyValues.length - 1)
@@ -283,7 +307,6 @@ export async function POST(request: Request) {
       benchmark: Math.round(spyMonthMap.get(date.slice(0, 7)) ?? capital),
     }));
 
-  // Comparison for all 4 strategies
   const comparison = {} as Record<StrategyKey, StrategyMetrics>;
   for (const strat of Object.keys(STRATEGIES) as StrategyKey[]) {
     const sim = simulate(STRATEGIES[strat], years, capital);
@@ -314,7 +337,7 @@ export async function POST(request: Request) {
     worst_year:            primaryM.worst_year,
     equity_curve:          equityCurve,
     monthly_returns:       primaryM.monthly_returns,
-    crisis_performance:    computeCrises(allocation, years),
+    crisis_performance:    buildCrises(weights, years),
     comparison,
   };
 
