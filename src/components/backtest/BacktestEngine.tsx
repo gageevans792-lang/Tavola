@@ -153,21 +153,21 @@ export function BacktestEngine({ isPublic = false }: Props) {
     <div className="min-h-screen bg-white">
 
       {/* ── Config panel ───────────────────────────────────────────────────── */}
-      <div className="border-b border-[#E2E8F0] bg-[#F8F9FA] px-8 py-8">
+      <div className="border-b border-[#E2E8F0] bg-[#F8F9FA] px-4 py-6 sm:px-8 sm:py-8">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-6">
+          <div className="mb-4 sm:mb-6">
             <span className="text-[10px] tracking-[0.3em] uppercase text-[#B8960C]">
               Backtesting Engine
             </span>
-            <h1 className="mt-2 font-serif text-[28px] font-light text-[#0A1628] leading-none">
+            <h1 className="mt-2 font-serif text-[22px] sm:text-[28px] font-light text-[#0A1628] leading-none">
               Historical Performance Simulation
             </h1>
-            <p className="mt-2 text-[13px] text-[#4A5568]">
+            <p className="mt-2 text-[12px] sm:text-[13px] text-[#4A5568]">
               Run each strategy against 15 years of real market data with monthly rebalancing.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 sm:grid-cols-3">
 
             {/* Strategy */}
             <div>
@@ -300,7 +300,7 @@ export function BacktestEngine({ isPublic = false }: Props) {
 
       {/* ── Error ───────────────────────────────────────────────────────────── */}
       {error && !running && (
-        <div className="px-8 py-10">
+        <div className="px-4 sm:px-8 py-10">
           <div className="max-w-6xl mx-auto border border-[#C41E3A]/30 bg-[#C41E3A]/5 p-4">
             <p className="text-[13px] text-[#C41E3A]">{error}</p>
           </div>
@@ -309,7 +309,7 @@ export function BacktestEngine({ isPublic = false }: Props) {
 
       {/* ── Results ─────────────────────────────────────────────────────────── */}
       {result && !running && (
-        <div className="px-8 py-8">
+        <div className="px-4 sm:px-8 py-8">
           <div className="max-w-6xl mx-auto space-y-8">
 
             {/* Section 1 — Key metrics ────────────────────────────────────── */}
@@ -322,7 +322,7 @@ export function BacktestEngine({ isPublic = false }: Props) {
                   {result.start_date} – {result.end_date}
                 </span>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
                 {[
                   {
                     label: 'Final Value',
@@ -363,9 +363,9 @@ export function BacktestEngine({ isPublic = false }: Props) {
                     color: result.win_rate_pct >= 55 ? 'text-[#16A34A]' : 'text-[#4A5568]',
                   },
                 ].map(({ label, value, sub, color }) => (
-                  <div key={label} className="border border-[#E2E8F0] p-4">
-                    <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568] mb-1">{label}</p>
-                    <p className={`font-serif text-[22px] font-light leading-none ${color}`}>{value}</p>
+                  <div key={label} className="border border-[#E2E8F0] p-3 sm:p-4">
+                    <p className="text-[9px] sm:text-[10px] tracking-[0.15em] uppercase text-[#4A5568] mb-1">{label}</p>
+                    <p className={`font-serif text-[18px] sm:text-[22px] font-light leading-none ${color}`}>{value}</p>
                     {sub && <p className="mt-1 text-[10px] text-[#4A5568]">{sub}</p>}
                   </div>
                 ))}
@@ -387,7 +387,7 @@ export function BacktestEngine({ isPublic = false }: Props) {
             </div>
 
             {/* Section 2 — Equity curve ───────────────────────────────────── */}
-            <div className="border border-[#E2E8F0] p-6">
+            <div className="border border-[#E2E8F0] p-4 sm:p-6">
               <div className="mb-4 flex items-center justify-between">
                 <p className="text-[11px] tracking-[0.2em] uppercase text-[#4A5568]">
                   Portfolio Growth vs S&P 500
@@ -401,52 +401,54 @@ export function BacktestEngine({ isPublic = false }: Props) {
                   </span>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="g-tavola" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#B8960C" stopOpacity={0.18} />
-                      <stop offset="95%" stopColor="#B8960C" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="g-spy" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#9CA3AF" stopOpacity={0.10} />
-                      <stop offset="95%" stopColor="#9CA3AF" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10, fill: '#4A5568' }}
-                    tickFormatter={(v: string) => v.slice(0, 4)}
-                    interval={11}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10, fill: '#4A5568' }}
-                    tickFormatter={(v: number) =>
-                      v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : `$${(v / 1_000).toFixed(0)}k`
-                    }
-                    width={56}
-                  />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#B8960C"
-                    strokeWidth={2}
-                    fill="url(#g-tavola)"
-                    dot={false}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="benchmark"
-                    stroke="#9CA3AF"
-                    strokeWidth={1.5}
-                    strokeDasharray="5 5"
-                    fill="url(#g-spy)"
-                    dot={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="min-h-[200px] sm:min-h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="g-tavola" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#B8960C" stopOpacity={0.18} />
+                        <stop offset="95%" stopColor="#B8960C" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="g-spy" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#9CA3AF" stopOpacity={0.10} />
+                        <stop offset="95%" stopColor="#9CA3AF" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10, fill: '#4A5568' }}
+                      tickFormatter={(v: string) => v.slice(0, 4)}
+                      interval={11}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: '#4A5568' }}
+                      tickFormatter={(v: number) =>
+                        v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : `$${(v / 1_000).toFixed(0)}k`
+                      }
+                      width={56}
+                    />
+                    <Tooltip content={<ChartTooltip />} />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#B8960C"
+                      strokeWidth={2}
+                      fill="url(#g-tavola)"
+                      dot={false}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="benchmark"
+                      stroke="#9CA3AF"
+                      strokeWidth={1.5}
+                      strokeDasharray="5 5"
+                      fill="url(#g-spy)"
+                      dot={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
             {/* Section 3 — Crisis performance ────────────────────────────── */}
@@ -457,58 +459,60 @@ export function BacktestEngine({ isPublic = false }: Props) {
                     Crisis Period Performance
                   </p>
                 </div>
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-[#E2E8F0]">
-                      {['Event', 'Period', 'Tavola', 'S&P 500', 'Outperformance'].map((h) => (
-                        <th
-                          key={h}
-                          className="px-6 py-3 text-left text-[10px] tracking-[0.15em] uppercase text-[#4A5568]"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.crisis_performance.map((c) => {
-                      const outperf = c.portfolio_return - c.sp500_return;
-                      return (
-                        <tr key={c.event} className="border-b border-[#E2E8F0] last:border-0">
-                          <td className="px-6 py-4 text-[13px] font-medium text-[#0A1628]">{c.event}</td>
-                          <td className="px-6 py-4 text-[12px] text-[#4A5568]">{c.period}</td>
-                          <td className={`px-6 py-4 font-serif text-[14px] ${c.portfolio_return >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
-                            {fmtPct(c.portfolio_return)}
-                          </td>
-                          <td className={`px-6 py-4 font-serif text-[14px] ${c.sp500_return >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
-                            {fmtPct(c.sp500_return)}
-                          </td>
-                          <td className={`px-6 py-4 font-serif text-[14px] font-medium ${outperf >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
-                            {fmtPct(outperf)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[#E2E8F0]">
+                        {['Event', 'Period', 'Tavola', 'S&P 500', 'Outperformance'].map((h) => (
+                          <th
+                            key={h}
+                            className="px-3 sm:px-6 py-2 sm:py-4 text-left text-[10px] tracking-[0.15em] uppercase text-[#4A5568]"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.crisis_performance.map((c) => {
+                        const outperf = c.portfolio_return - c.sp500_return;
+                        return (
+                          <tr key={c.event} className="border-b border-[#E2E8F0] last:border-0">
+                            <td className="px-3 sm:px-6 py-2 sm:py-4 text-[11px] sm:text-[13px] font-medium text-[#0A1628]">{c.event}</td>
+                            <td className="px-3 sm:px-6 py-2 sm:py-4 text-[11px] sm:text-[13px] text-[#4A5568]">{c.period}</td>
+                            <td className={`px-3 sm:px-6 py-2 sm:py-4 font-serif text-[11px] sm:text-[13px] ${c.portfolio_return >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
+                              {fmtPct(c.portfolio_return)}
+                            </td>
+                            <td className={`px-3 sm:px-6 py-2 sm:py-4 font-serif text-[11px] sm:text-[13px] ${c.sp500_return >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
+                              {fmtPct(c.sp500_return)}
+                            </td>
+                            <td className={`px-3 sm:px-6 py-2 sm:py-4 font-serif text-[11px] sm:text-[13px] font-medium ${outperf >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
+                              {fmtPct(outperf)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
             {/* Section 4 — Monthly returns heatmap ───────────────────────── */}
             {heatmapYears.length > 0 && (
-              <div className="border border-[#E2E8F0] overflow-x-auto">
+              <div className="border border-[#E2E8F0]">
                 <div className="border-b border-[#E2E8F0] px-6 py-4">
                   <p className="text-[11px] tracking-[0.2em] uppercase text-[#4A5568]">
                     Monthly Returns Heatmap
                   </p>
                 </div>
-                <div className="px-6 py-4">
+                <div className="overflow-x-auto px-6 py-4">
                   <div className="min-w-[640px]">
                     {/* Month headers */}
                     <div className="grid grid-cols-13 mb-1" style={{ gridTemplateColumns: '48px repeat(12, 1fr)' }}>
                       <div />
                       {MONTHS_SHORT.map((m) => (
-                        <div key={m} className="text-center text-[9px] tracking-[0.1em] uppercase text-[#4A5568]">
+                        <div key={m} className="text-center text-[9px] sm:text-[10px] tracking-[0.1em] uppercase text-[#4A5568]">
                           {m}
                         </div>
                       ))}
@@ -519,14 +523,14 @@ export function BacktestEngine({ isPublic = false }: Props) {
                         className="grid mb-0.5"
                         style={{ gridTemplateColumns: '48px repeat(12, 1fr)' }}
                       >
-                        <div className="flex items-center text-[10px] text-[#4A5568]">{year}</div>
+                        <div className="flex items-center text-[9px] sm:text-[10px] text-[#4A5568]">{year}</div>
                         {Array.from({ length: 12 }, (_, i) => {
                           const ret = returnMap.get(`${year}-${i + 1}`);
                           return (
                             <div
                               key={i}
                               title={ret !== undefined ? `${MONTHS_SHORT[i]} ${year}: ${ret.toFixed(2)}%` : undefined}
-                              className={`mx-0.5 py-1.5 text-center text-[9px] ${cellStyle(ret)}`}
+                              className={`mx-0 py-1 text-center text-[7px] sm:text-[9px] ${cellStyle(ret)}`}
                             >
                               {ret !== undefined ? (ret >= 0 ? '+' : '') + ret.toFixed(1) : ''}
                             </div>
@@ -547,13 +551,13 @@ export function BacktestEngine({ isPublic = false }: Props) {
                 </p>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[600px]">
+                <table className="w-full min-w-[500px]">
                   <thead>
                     <tr className="border-b border-[#E2E8F0]">
                       {['Strategy', 'Final Value', 'Annualized', 'Total Return', 'Sharpe', 'Max DD', 'Win Rate'].map((h) => (
                         <th
                           key={h}
-                          className="px-5 py-3 text-left text-[10px] tracking-[0.12em] uppercase text-[#4A5568]"
+                          className="px-3 sm:px-5 py-3 sm:py-4 text-left text-[10px] tracking-[0.12em] uppercase text-[#4A5568]"
                         >
                           {h}
                         </th>
@@ -569,8 +573,8 @@ export function BacktestEngine({ isPublic = false }: Props) {
                           key={strat}
                           className={`border-b border-[#E2E8F0] last:border-0 ${active ? 'bg-[#B8960C]/5' : ''}`}
                         >
-                          <td className="px-5 py-4">
-                            <span className={`text-[13px] ${active ? 'font-medium text-[#B8960C]' : 'text-[#0A1628]'}`}>
+                          <td className="px-3 sm:px-5 py-3 sm:py-4">
+                            <span className={`text-[11px] sm:text-[13px] ${active ? 'font-medium text-[#B8960C]' : 'text-[#0A1628]'}`}>
                               {STRATEGY_META[strat].name}
                             </span>
                             {active && (
@@ -579,16 +583,16 @@ export function BacktestEngine({ isPublic = false }: Props) {
                               </span>
                             )}
                           </td>
-                          <td className="px-5 py-4 font-serif text-[14px] text-[#0A1628]">{fmt$(m.final_value)}</td>
-                          <td className={`px-5 py-4 font-serif text-[14px] ${m.annualized_return_pct >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 font-serif text-[11px] sm:text-[13px] text-[#0A1628]">{fmt$(m.final_value)}</td>
+                          <td className={`px-3 sm:px-5 py-3 sm:py-4 font-serif text-[11px] sm:text-[13px] ${m.annualized_return_pct >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
                             {fmtPct(m.annualized_return_pct)}
                           </td>
-                          <td className={`px-5 py-4 font-serif text-[14px] ${m.total_return_pct >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
+                          <td className={`px-3 sm:px-5 py-3 sm:py-4 font-serif text-[11px] sm:text-[13px] ${m.total_return_pct >= 0 ? 'text-[#16A34A]' : 'text-[#C41E3A]'}`}>
                             {fmtPct(m.total_return_pct)}
                           </td>
-                          <td className="px-5 py-4 text-[13px] text-[#0A1628]">{m.sharpe_ratio.toFixed(2)}</td>
-                          <td className="px-5 py-4 text-[13px] text-[#C41E3A]">{fmtPct(-m.max_drawdown_pct)}</td>
-                          <td className="px-5 py-4 text-[13px] text-[#0A1628]">{m.win_rate_pct.toFixed(1)}%</td>
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-[11px] sm:text-[13px] text-[#0A1628]">{m.sharpe_ratio.toFixed(2)}</td>
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-[11px] sm:text-[13px] text-[#C41E3A]">{fmtPct(-m.max_drawdown_pct)}</td>
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-[11px] sm:text-[13px] text-[#0A1628]">{m.win_rate_pct.toFixed(1)}%</td>
                         </tr>
                       );
                     })}
