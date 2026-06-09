@@ -103,6 +103,13 @@ export function BacktestEngine({ isPublic = false }: Props) {
   const [loadMsg,  setLoadMsg]  = useState('');
 
   useEffect(() => {
+    if (!result) return;
+    console.log('[BacktestEngine] equity_curve length:', result.equity_curve?.length);
+    console.log('[BacktestEngine] chartData points:', result.equity_curve?.filter((_, i) => i % 3 === 0).length);
+    console.log('[BacktestEngine] crisis_performance:', JSON.stringify(result.crisis_performance));
+  }, [result]);
+
+  useEffect(() => {
     if (!running) return;
     let i = 0;
     setLoadMsg(LOAD_MSGS[0]);
@@ -401,7 +408,7 @@ export function BacktestEngine({ isPublic = false }: Props) {
                   </span>
                 </div>
               </div>
-              <div className="min-h-[200px] sm:min-h-[280px]">
+              <div style={{ width: '100%', height: 250 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                     <defs>

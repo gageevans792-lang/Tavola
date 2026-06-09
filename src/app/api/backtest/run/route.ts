@@ -95,7 +95,7 @@ function getCached(k: string): BacktestResult | null {
 }
 
 function setCache(k: string, data: BacktestResult): void {
-  cache.set(k, { data, exp: Date.now() + 24 * 3_600_000 });
+  cache.set(k, { data, exp: Date.now() + 3_600_000 });
 }
 
 // ── Core computation ──────────────────────────────────────────────────────────
