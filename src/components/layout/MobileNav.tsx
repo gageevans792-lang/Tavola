@@ -192,11 +192,31 @@ export function MobileNav() {
               ))}
             </nav>
 
-            {/* Sign out */}
+            {/* Footer links + sign out */}
             <div className="border-t border-white/10 py-3 shrink-0">
+              <div className="flex items-center gap-4 px-6 pb-2">
+                <Link
+                  href="/about"
+                  className="text-[10px] tracking-[0.1em] uppercase text-white/25 hover:text-white/50 transition-colors"
+                >
+                  About
+                </Link>
+                <Link
+                  href="/legal/terms"
+                  className="text-[10px] tracking-[0.1em] uppercase text-white/25 hover:text-white/50 transition-colors"
+                >
+                  Terms
+                </Link>
+                <Link
+                  href="/legal/privacy"
+                  className="text-[10px] tracking-[0.1em] uppercase text-white/25 hover:text-white/50 transition-colors"
+                >
+                  Privacy
+                </Link>
+              </div>
               <button
                 onClick={handleSignOut}
-                className="flex w-full items-center px-6 py-2.5 text-[12px] tracking-[0.08em] uppercase text-white/30 hover:text-white/60 transition-colors"
+                className="flex w-full items-center px-6 py-2 text-[12px] tracking-[0.08em] uppercase text-white/30 hover:text-white/60 transition-colors"
               >
                 Sign out
               </button>

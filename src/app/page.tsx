@@ -126,6 +126,13 @@ export default function Home() {
           </span>
           <div className="flex items-center text-[12px]">
             <Link
+              href="/about"
+              className="px-5 text-[#0A1628]/50 hover:text-[#0A1628] transition-colors"
+            >
+              About
+            </Link>
+            <span className="w-px h-3.5 bg-[#E2E8F0]" />
+            <Link
               href="/login"
               className="px-5 text-[#0A1628]/50 hover:text-[#0A1628] transition-colors"
             >
