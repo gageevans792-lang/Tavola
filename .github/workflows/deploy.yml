@@ -4,11 +4,14 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Vercel deployment
+        env:
+          HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK }}
         run: |
-          curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
+          curl -sf -X POST "${HOOK_URL}" || echo "Deploy hook failed — check VERCEL_DEPLOY_HOOK secret"
