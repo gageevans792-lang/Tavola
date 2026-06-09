@@ -6,6 +6,8 @@ import type { TickerPrice } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { getMacroContext, buildMacroPromptSection } from '@/lib/macro/client';
+import { getSentimentScores, detectNarrativeShift, buildSentimentPromptSection } from '@/lib/sentiment/engine';
+import { getUpcomingEarnings, buildEarningsPromptSection } from '@/lib/earnings/intelligence';
 import type {
   AlpacaPosition,
   AutoInvestConfig,
@@ -156,10 +158,26 @@ export async function POST() {
       // table may not exist yet — continue with empty watchlist
     }
 
-    // ── 4. Fetch prices with three-level fallback ───────────────────────────
+    // ── 4. Fetch prices + sentiment + earnings in parallel ──────────────────
     const heldTickers = positions.map((p) => p.symbol);
     const allTickers  = [...new Set([...heldTickers, ...watchlistTickers])];
-    const prices      = await getTickerPrices(allTickers);
+
+    const [prices, sentimentScores, earningsData] = await Promise.all([
+      getTickerPrices(allTickers),
+      getSentimentScores(allTickers).catch(() => ({})),
+      getUpcomingEarnings(heldTickers).catch(() => []),
+    ]);
+
+    // Narrative shifts for tickers with existing sentiment data
+    const narrativeResults = await Promise.allSettled(
+      allTickers.slice(0, 10).map((t) => detectNarrativeShift(t)),
+    );
+    const narratives: Record<string, import('@/lib/sentiment/engine').NarrativeShift> = {};
+    allTickers.slice(0, 10).forEach((t, i) => {
+      if (narrativeResults[i].status === 'fulfilled') {
+        narratives[t] = (narrativeResults[i] as PromiseFulfilledResult<import('@/lib/sentiment/engine').NarrativeShift>).value;
+      }
+    });
 
     // ── 5. Determine how many tickers lack live pricing ─────────────────────
     const totalTickers     = allTickers.length;
@@ -176,13 +194,15 @@ export async function POST() {
     );
 
     // ── 7. Call Claude with forced tool use ──────────────────────────────────
-    const macroSection = macroCtx ? buildMacroPromptSection(macroCtx) : '';
+    const macroSection      = macroCtx ? buildMacroPromptSection(macroCtx) : '';
+    const sentimentSection  = buildSentimentPromptSection(sentimentScores, narratives);
+    const earningsSection   = buildEarningsPromptSection(earningsData);
 
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,
       system: `You are Tavola AI — the most sophisticated retail investment AI ever built. You combine real-time macro intelligence with portfolio analysis to generate high-conviction recommendations with institutional-grade reasoning. Speak like a Goldman Sachs portfolio manager who manages $500M+ accounts: direct, specific, no hedging, no disclaimers.
-${macroSection}
+${macroSection}${sentimentSection}${earningsSection}
 
 Portfolio Management Rules:
 • React to macro data first — if Fed is hawkish, rotate to value/dividends/cash; if dovish, favor growth

@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { cn } from '@/lib/utils';
 import type { IntelligenceResponse, HoldingAnalysis, RebalancingSuggestion } from '@/app/api/portfolio/intelligence/route';
+import type { SentimentScore } from '@/lib/sentiment/engine';
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -96,6 +97,82 @@ function MetricCard({
   );
 }
 
+// ── Sentiment card ────────────────────────────────────────────────────────────
+
+function SentimentCircle({ score }: { score: number }) {
+  const normalized = Math.max(0, Math.min(100, (score + 100) / 2));
+  const radius        = 22;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset    = circumference - (normalized / 100) * circumference;
+  const color =
+    score >= 60  ? '#166534' :
+    score >= 20  ? '#16A34A' :
+    score >= -20 ? '#B8960C' :
+    score >= -60 ? '#C41E3A' : '#991b1b';
+
+  return (
+    <svg width="56" height="56" viewBox="0 0 56 56">
+      <circle cx="28" cy="28" r={radius} fill="none" stroke="#E2E8F0" strokeWidth="4" />
+      <circle
+        cx="28" cy="28" r={radius}
+        fill="none" stroke={color} strokeWidth="4"
+        strokeDasharray={circumference}
+        strokeDashoffset={dashOffset}
+        transform="rotate(-90 28 28)"
+        strokeLinecap="round"
+      />
+      <text x="28" y="33" textAnchor="middle" fontSize="11" fill={color} fontFamily="serif" fontWeight="300">
+        {score > 0 ? '+' : ''}{score}
+      </text>
+    </svg>
+  );
+}
+
+function SentimentCard({ s }: { s: SentimentScore }) {
+  const labelColor =
+    s.overall_score >= 60  ? 'text-[#166534]' :
+    s.overall_score >= 20  ? 'text-[#16A34A]' :
+    s.overall_score >= -20 ? 'text-[#B8960C]' :
+    s.overall_score >= -60 ? 'text-[#C41E3A]' : 'text-[#991b1b]';
+
+  return (
+    <div className="bg-white border border-[#E2E8F0] p-4">
+      <div className="flex items-center gap-3 mb-3">
+        <SentimentCircle score={s.overall_score} />
+        <div className="min-w-0">
+          <p className="font-mono font-bold text-[#0A1628] text-sm tracking-wide">{s.ticker}</p>
+          <p className={cn('text-[11px] font-medium', labelColor)}>{s.sentiment_label}</p>
+          <p className="text-[9px] text-[#4A5568]/60 mt-0.5">{s.confidence}% confidence</p>
+        </div>
+      </div>
+
+      {/* Key signals */}
+      {s.key_signals.length > 0 && (
+        <div className="space-y-1 mb-2">
+          {s.key_signals.slice(0, 3).map((sig, i) => (
+            <p key={i} className="text-[10px] text-[#4A5568] leading-snug flex gap-1">
+              <span className="text-[#166534] shrink-0">▲</span>
+              <span className="truncate">{sig}</span>
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Risk flags */}
+      {s.risk_flags.length > 0 && (
+        <div className="border-t border-[#E2E8F0] pt-2 mt-2 space-y-1">
+          {s.risk_flags.map((flag, i) => (
+            <p key={i} className="text-[10px] text-[#991b1b] leading-snug flex gap-1">
+              <span className="shrink-0">⚠</span>
+              <span className="line-clamp-2">{flag}</span>
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function IntelligencePage() {
@@ -104,6 +181,11 @@ export default function IntelligencePage() {
   const [refreshing,     setRefreshing]     = useState(false);
   const [error,          setError]          = useState(false);
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
+
+  // Sentiment Intelligence
+  const [sentimentScores,  setSentimentScores]  = useState<SentimentScore[]>([]);
+  const [sentimentLoading, setSentimentLoading] = useState(false);
+  const [sentimentLoaded,  setSentimentLoaded]  = useState(false);
 
   const fetchIntelligence = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -123,6 +205,21 @@ export default function IntelligencePage() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  }, []);
+
+  const fetchSentimentScores = useCallback(async (tickers: string[]) => {
+    if (!tickers.length) return;
+    setSentimentLoading(true);
+    try {
+      const res = await fetch(`/api/market/sentiment?tickers=${tickers.join(',')}`);
+      if (res.ok) {
+        const scores: SentimentScore[] = await res.json();
+        setSentimentScores(scores.sort((a, b) => b.overall_score - a.overall_score));
+        setSentimentLoaded(true);
+      }
+    } catch { /* non-fatal */ } finally {
+      setSentimentLoading(false);
     }
   }, []);
 
@@ -506,6 +603,79 @@ export default function IntelligencePage() {
                   {data.portfolio_summary}
                 </p>
               </div>
+            </section>
+          )}
+
+          {/* ── S6: Sentiment Intelligence ──────────────────────────────────── */}
+          {hasHoldings && (
+            <section className="bg-[#F8F9FA]">
+              <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-t border-[#E2E8F0]">
+                <div>
+                  <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Sentiment Intelligence</p>
+                  <p className="text-[9px] text-[#4A5568]/60 mt-0.5">Powered by Finnhub + price momentum analysis</p>
+                </div>
+                <button
+                  onClick={() => fetchSentimentScores(data.holdings_analysis.map((h) => h.ticker))}
+                  disabled={sentimentLoading}
+                  className="text-[11px] tracking-[0.12em] uppercase px-4 py-1.5 border border-[#B8960C] text-[#B8960C] hover:bg-[#B8960C] hover:text-white transition-colors disabled:opacity-40"
+                >
+                  {sentimentLoading ? 'Loading...' : sentimentLoaded ? 'Refresh Scores' : 'Load Sentiment Scores'}
+                </button>
+              </div>
+
+              {sentimentLoading && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-px bg-[#E2E8F0] border-t border-[#E2E8F0]">
+                  {data.holdings_analysis.slice(0, 8).map((_, i) => (
+                    <div key={i} className="bg-white p-4 space-y-2">
+                      <div className="h-14 w-14 rounded-full animate-pulse bg-[#E2E8F0]" />
+                      <div className="h-3 w-16 animate-pulse bg-[#E2E8F0]" />
+                      <div className="h-2.5 w-12 animate-pulse bg-[#E2E8F0]" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!sentimentLoading && sentimentLoaded && sentimentScores.length > 0 && (
+                <>
+                  {/* Risk flags alert bar */}
+                  {sentimentScores.some((s) => s.risk_flags.length > 0) && (
+                    <div className="border-t border-[#E2E8F0] bg-[#991b1b]/5 px-4 sm:px-6 py-3">
+                      <p className="text-[10px] tracking-[0.18em] uppercase text-[#991b1b] mb-1">Active Risk Flags</p>
+                      <div className="flex flex-wrap gap-3">
+                        {sentimentScores
+                          .filter((s) => s.risk_flags.length > 0)
+                          .map((s) => (
+                            <span key={s.ticker} className="text-[11px] text-[#991b1b]">
+                              <strong>{s.ticker}</strong>: {s.risk_flags[0]}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-px bg-[#E2E8F0] border-t border-[#E2E8F0]">
+                    {sentimentScores.map((s) => (
+                      <SentimentCard key={s.ticker} s={s} />
+                    ))}
+                  </div>
+
+                  <div className="px-4 sm:px-6 py-3 border-t border-[#E2E8F0] text-right">
+                    <p className="text-[9px] text-[#4A5568]/50 tracking-[0.1em]">
+                      Scores combine: news sentiment · social mentions · insider transactions · analyst ratings · price momentum
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {!sentimentLoading && !sentimentLoaded && (
+                <div className="border-t border-[#E2E8F0] bg-white px-6 py-10 text-center">
+                  <p className="text-[10px] tracking-[0.2em] uppercase text-[#B8960C] mb-2">5-Signal Composite</p>
+                  <p className="font-serif text-[18px] font-light text-[#0A1628] mb-1">Real-Time Sentiment Scoring</p>
+                  <p className="text-sm text-[#4A5568] mb-0">
+                    Click &quot;Load Sentiment Scores&quot; to analyze news, social media, insider activity, analyst ratings, and price momentum for each holding.
+                  </p>
+                </div>
+              )}
             </section>
           )}
 

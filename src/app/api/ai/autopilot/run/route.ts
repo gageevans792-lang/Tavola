@@ -14,6 +14,8 @@ import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { getMacroContext, buildMacroPromptSection } from '@/lib/macro/client';
 import type { AlpacaPosition, AutoInvestConfig, TradeRecommendation } from '@/types';
 import type { AutopilotDecision, AutopilotRun } from '../history/route';
+import { getSentimentScores, buildSentimentPromptSection } from '@/lib/sentiment/engine';
+import { getUpcomingEarnings, buildEarningsPromptSection } from '@/lib/earnings/intelligence';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -445,10 +447,15 @@ export async function POST() {
     }
     const universeKeys = [...new Set([...watchlistTickers, ...Object.keys(FULL_UNIVERSE)])];
 
-    // ── 4. Fetch prices for all relevant tickers ──────────────────────────────
+    // ── 4. Fetch prices, sentiment, and earnings in parallel ─────────────────
     const heldTickers = positions.map((p) => p.symbol);
     const allTickers  = [...new Set([...heldTickers, ...universeKeys])];
-    const prices      = await getTickerPrices(allTickers);
+
+    const [prices, sentimentScores, earningsData] = await Promise.all([
+      getTickerPrices(allTickers),
+      getSentimentScores(heldTickers).catch(() => ({})),
+      getUpcomingEarnings(heldTickers).catch(() => []),
+    ]);
 
     // ── 5. Derive macro signals ───────────────────────────────────────────────
     const vix = sectorData.vixyPrice > 0
@@ -465,8 +472,10 @@ export async function POST() {
     const rebalAlerts = detectRebalancingNeeds(positions, equity, cash);
 
     // ── 7. Build prompt content ───────────────────────────────────────────────
-    const macroSection  = macroCtx ? buildMacroPromptSection(macroCtx) : '';
-    const portfolioText = buildPortfolioText(
+    const macroSection     = macroCtx ? buildMacroPromptSection(macroCtx) : '';
+    const sentimentSection = buildSentimentPromptSection(sentimentScores);
+    const earningsSection  = buildEarningsPromptSection(earningsData);
+    const portfolioText    = buildPortfolioText(
       equity, buyingPower, cash, positions, prices, universeKeys,
     );
 
@@ -483,10 +492,11 @@ export async function POST() {
     });
 
     // ── 8. Call Claude ────────────────────────────────────────────────────────
+    const fullSystemPrompt = systemPrompt + sentimentSection + earningsSection;
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,
-      system:     systemPrompt,
+      system:     fullSystemPrompt,
       tools:      [ANALYSIS_TOOL],
       tool_choice: { type: 'tool', name: 'submit_portfolio_analysis' },
       messages: [

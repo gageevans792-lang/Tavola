@@ -5,6 +5,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { HoldingsTable } from '@/components/dashboard/HoldingsTable';
 import { createClient } from '@/lib/supabase/client';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
+import type { SentimentScore } from '@/lib/sentiment/engine';
 
 interface WatchlistItem {
   id: string;
@@ -31,6 +32,10 @@ export default function HoldingsPage() {
   const [tickerInput, setTickerInput]         = useState('');
   const [adding, setAdding]                   = useState(false);
   const [error, setError]                     = useState<string | null>(null);
+
+  // Sentiment state
+  const [sentimentScores,   setSentimentScores]   = useState<Record<string, SentimentScore> | undefined>(undefined);
+  const [sentimentLoading,  setSentimentLoading]  = useState(false);
 
   // ── Sync via /api/alpaca/sync, then read holdings from Supabase ───────────
   const syncAndLoad = useCallback(async () => {
@@ -74,10 +79,33 @@ export default function HoldingsPage() {
     setSyncing(false);
   }, []);
 
+  const fetchSentiment = useCallback(async (tickers: string[]) => {
+    if (!tickers.length) return;
+    setSentimentLoading(true);
+    try {
+      const res = await fetch(`/api/market/sentiment?tickers=${tickers.join(',')}`);
+      if (res.ok) {
+        const scores: SentimentScore[] = await res.json();
+        const map: Record<string, SentimentScore> = {};
+        for (const s of scores) map[s.ticker] = s;
+        setSentimentScores(map);
+      }
+    } catch { /* non-fatal */ } finally {
+      setSentimentLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     syncAndLoad();
     loadWatchlist();
   }, [syncAndLoad]);
+
+  // Auto-load sentiment after holdings sync
+  useEffect(() => {
+    if (!syncing && holdings.length > 0) {
+      fetchSentiment(holdings.map((h) => h.ticker));
+    }
+  }, [syncing, holdings, fetchSentiment]);
 
   async function loadWatchlist() {
     try {
@@ -162,16 +190,28 @@ export default function HoldingsPage() {
                 {!syncing && lastSynced && (
                   <p className="text-[11px] text-[#4A5568]/60 mt-0.5">
                     Synced at {lastSynced}
+                    {sentimentLoading && ' · Loading sentiment...'}
                   </p>
                 )}
               </div>
-              <button
-                onClick={syncAndLoad}
-                disabled={syncing}
-                className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors disabled:opacity-40"
-              >
-                {syncing ? 'Syncing...' : 'Sync Positions'}
-              </button>
+              <div className="flex items-center gap-3">
+                {!syncing && holdings.length > 0 && (
+                  <button
+                    onClick={() => fetchSentiment(holdings.map((h) => h.ticker))}
+                    disabled={sentimentLoading}
+                    className="text-[11px] tracking-[0.1em] uppercase text-[#B8960C] hover:text-[#9a7d0a] transition-colors disabled:opacity-40"
+                  >
+                    {sentimentLoading ? 'Loading...' : 'Refresh Sentiment'}
+                  </button>
+                )}
+                <button
+                  onClick={syncAndLoad}
+                  disabled={syncing}
+                  className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors disabled:opacity-40"
+                >
+                  {syncing ? 'Syncing...' : 'Sync Positions'}
+                </button>
+              </div>
             </div>
 
             {syncWarning && (
@@ -209,7 +249,11 @@ export default function HoldingsPage() {
                 </a>
               </div>
             ) : (
-              <HoldingsTable holdings={holdings} />
+              <HoldingsTable
+                holdings={holdings}
+                sentimentScores={sentimentScores}
+                sentimentLoading={sentimentLoading}
+              />
             )}
           </div>
 

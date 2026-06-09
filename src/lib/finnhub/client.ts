@@ -155,3 +155,128 @@ export async function getIpoCalendar(from: string, to: string): Promise<FinnhubI
   );
   return data?.ipoCalendar ?? [];
 }
+
+// ── Social sentiment ──────────────────────────────────────────────────────────
+
+export interface FinnhubSocialEntry {
+  atTime:          string;
+  mention:         number;
+  positiveScore:   number;
+  negativeScore:   number;
+  positiveMention: number;
+  negativeMention: number;
+  score:           number;
+  source:          string;
+}
+
+export interface FinnhubSocialSentimentData {
+  data:   FinnhubSocialEntry[];
+  symbol: string;
+}
+
+export async function getSocialSentiment(
+  ticker: string,
+  from:   string,
+): Promise<FinnhubSocialSentimentData | null> {
+  return finnhubFetch<FinnhubSocialSentimentData>('/stock/social-sentiment', {
+    symbol: ticker,
+    from,
+  });
+}
+
+// ── Insider transactions ──────────────────────────────────────────────────────
+
+export interface FinnhubInsiderTransaction {
+  name:             string;
+  share:            number;
+  change:           number;
+  filingDate:       string;
+  transactionDate:  string;
+  transactionCode:  string;
+  transactionPrice: number;
+  symbol:           string;
+}
+
+export interface FinnhubInsiderTransactionsData {
+  data:   FinnhubInsiderTransaction[];
+  symbol: string;
+}
+
+export async function getInsiderTransactions(
+  ticker: string,
+): Promise<FinnhubInsiderTransactionsData | null> {
+  return finnhubFetch<FinnhubInsiderTransactionsData>('/stock/insider-transactions', {
+    symbol: ticker,
+  });
+}
+
+// ── Analyst recommendations ───────────────────────────────────────────────────
+
+export interface FinnhubRecommendation {
+  buy:       number;
+  hold:      number;
+  period:    string;
+  sell:      number;
+  strongBuy: number;
+  strongSell: number;
+  symbol:    string;
+}
+
+export async function getRecommendations(ticker: string): Promise<FinnhubRecommendation[]> {
+  const data = await finnhubFetch<FinnhubRecommendation[]>('/stock/recommendation', {
+    symbol: ticker,
+  });
+  return data ?? [];
+}
+
+// ── Earnings history ──────────────────────────────────────────────────────────
+
+export interface FinnhubEarningResult {
+  actual:          number | null;
+  estimate:        number | null;
+  period:          string;
+  symbol:          string;
+  surprise:        number | null;
+  surprisePercent: number | null;
+}
+
+export interface FinnhubEarningsHistoryData {
+  data:   FinnhubEarningResult[];
+  symbol: string;
+}
+
+export async function getEarningsHistory(ticker: string): Promise<FinnhubEarningResult[]> {
+  const data = await finnhubFetch<FinnhubEarningsHistoryData>('/stock/earnings', {
+    symbol: ticker,
+    limit:  '8',
+  });
+  return data?.data ?? [];
+}
+
+// ── Company news (custom date range) ─────────────────────────────────────────
+
+export async function getCompanyNewsRange(
+  ticker: string,
+  from:   string,
+  to:     string,
+): Promise<FinnhubNewsItem[]> {
+  const data = await finnhubFetch<FinnhubNewsItem[]>('/company-news', {
+    symbol: ticker,
+    from,
+    to,
+  });
+  return data ?? [];
+}
+
+// ── Earnings calendar (custom date range) ─────────────────────────────────────
+
+export async function getEarningsCalendarRange(
+  from: string,
+  to:   string,
+): Promise<FinnhubEarningsEvent[]> {
+  const data = await finnhubFetch<{ earningsCalendar: FinnhubEarningsEvent[] }>(
+    '/calendar/earnings',
+    { from, to },
+  );
+  return data?.earningsCalendar ?? [];
+}
