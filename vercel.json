@@ -1,7 +1,7 @@
 {
   "framework": "nextjs",
   "crons": [
-    { "path": "/api/alerts/monitor", "schedule": "0 * * * *" },
+    { "path": "/api/alerts/monitor", "schedule": "0 9 * * *" },
     { "path": "/api/ai/autopilot/run", "schedule": "0 9 * * 1-5" }
   ]
 }
