@@ -99,6 +99,7 @@ export interface IntelligenceResponse {
   portfolio_summary:     string;
   generated_at:          string;
   health_alerts:         HealthAlert[];
+  correlationMatrix:     CorrelationMatrix | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -184,16 +185,21 @@ export async function POST() {
       rebalancing_suggestions: [], portfolio_summary: 'No holdings to analyze.',
       generated_at: new Date().toISOString(),
       health_alerts: [],
+      correlationMatrix: null,
     } satisfies IntelligenceResponse);
   }
 
   const tickers = holdings.map((h) => h.ticker);
 
+  function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([p, new Promise<T>((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
+  }
+
   // Parallel: Finnhub data per ticker + Alpaca account
   const [financialsResults, sentimentResults, accountResult] = await Promise.all([
-    Promise.allSettled(tickers.map((t) => getBasicFinancials(t))),
-    Promise.allSettled(tickers.map((t) => getSentiment(t))),
-    getAccount().catch(() => null),
+    Promise.allSettled(tickers.map((t) => withTimeout(getBasicFinancials(t), 8000))),
+    Promise.allSettled(tickers.map((t) => withTimeout(getSentiment(t), 8000))),
+    withTimeout(getAccount(), 8000).catch(() => null),
   ]);
 
   const financialsMap = new Map<string, FinnhubBasicFinancials | null>(
@@ -394,6 +400,14 @@ export async function POST() {
     });
   }
 
+  // Non-fatal correlation computation
+  let correlationMatrix: CorrelationMatrix | null = null;
+  try {
+    if (tickers.length >= 2) {
+      correlationMatrix = await computeCorrelationMatrix(tickers);
+    }
+  } catch { /* non-fatal */ }
+
   return NextResponse.json({
     health_score:            healthScore,
     risk_score:              riskScore,
@@ -406,6 +420,7 @@ export async function POST() {
     portfolio_summary:       portfolioSummary,
     generated_at:            new Date().toISOString(),
     health_alerts:           healthAlerts,
+    correlationMatrix,
   } satisfies IntelligenceResponse);
   } catch (err: unknown) {
     console.error('[portfolio/intelligence]', err instanceof Error ? err.message : err);

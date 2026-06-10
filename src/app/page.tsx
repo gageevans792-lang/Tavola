@@ -103,10 +103,10 @@ const footerColumns = [
   {
     heading: 'Company',
     links: [
-      { label: 'About',    href: '#' },
-      { label: 'Careers',  href: '#' },
-      { label: 'Press',    href: '#' },
-      { label: 'Contact',  href: '#' },
+      { label: 'About',         href: '/about' },
+      { label: 'How It Works',  href: '/how-it-works' },
+      { label: 'Security',      href: '/security' },
+      { label: 'Contact',       href: 'mailto:hello@tavola.app' },
     ],
   },
   {
@@ -115,25 +115,25 @@ const footerColumns = [
       { label: 'Terms of Service',   href: '/legal/terms' },
       { label: 'Privacy Policy',     href: '/legal/privacy' },
       { label: 'Legal Hub',          href: '/legal' },
-      { label: 'FINRA BrokerCheck',  href: '#' },
+      { label: 'FINRA BrokerCheck',  href: 'https://brokercheck.finra.org' },
     ],
   },
   {
     heading: 'Resources',
     links: [
-      { label: 'Research',       href: '#' },
-      { label: 'Documentation',  href: '#' },
-      { label: 'API Reference',  href: '#' },
-      { label: 'System Status',  href: '#' },
+      { label: 'How It Works',   href: '/how-it-works' },
+      { label: 'Sign Up',        href: '/signup' },
+      { label: 'Sign In',        href: '/login' },
+      { label: 'Security',       href: '/security' },
     ],
   },
   {
     heading: 'Support',
     links: [
-      { label: 'Help Center',     href: '#' },
-      { label: 'Account Access',  href: '#' },
-      { label: 'Security',        href: '#' },
-      { label: 'Compliance',      href: '#' },
+      { label: 'Contact Us',      href: 'mailto:hello@tavola.app' },
+      { label: 'Account Access',  href: '/login' },
+      { label: 'Security',        href: '/security' },
+      { label: 'Legal',           href: '/legal' },
     ],
   },
 ];

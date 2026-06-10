@@ -82,9 +82,9 @@ export default function SignupPage() {
         <div className="px-6 pb-8 text-center shrink-0">
           <p className="text-[10px] text-[#0A1628]/30 leading-relaxed max-w-sm mx-auto">
             By creating an account you agree to our{' '}
-            <Link href="#" className="hover:text-[#0A1628]/50 transition-colors">Terms of Service</Link>{' '}
+            <Link href="/legal/terms" className="hover:text-[#0A1628]/50 transition-colors">Terms of Service</Link>{' '}
             and{' '}
-            <Link href="#" className="hover:text-[#0A1628]/50 transition-colors">Privacy Policy</Link>.
+            <Link href="/legal/privacy" className="hover:text-[#0A1628]/50 transition-colors">Privacy Policy</Link>.
           </p>
         </div>
       </div>
@@ -200,9 +200,9 @@ export default function SignupPage() {
       <div className="px-6 pb-8 text-center shrink-0">
         <p className="text-[10px] text-[#0A1628]/30 leading-relaxed max-w-sm mx-auto">
           By creating an account you agree to our{' '}
-          <Link href="#" className="hover:text-[#0A1628]/50 transition-colors">Terms of Service</Link>{' '}
+          <Link href="/legal/terms" className="hover:text-[#0A1628]/50 transition-colors">Terms of Service</Link>{' '}
           and{' '}
-          <Link href="#" className="hover:text-[#0A1628]/50 transition-colors">Privacy Policy</Link>.
+          <Link href="/legal/privacy" className="hover:text-[#0A1628]/50 transition-colors">Privacy Policy</Link>.
         </p>
       </div>
 

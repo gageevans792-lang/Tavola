@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { TopBar } from '@/components/layout/TopBar';
 import { cn } from '@/lib/utils';
-import type { IntelligenceResponse, HoldingAnalysis, RebalancingSuggestion } from '@/app/api/portfolio/intelligence/route';
+import type { IntelligenceResponse, HoldingAnalysis, RebalancingSuggestion, CorrelationMatrix } from '@/app/api/portfolio/intelligence/route';
 import type { SentimentScore } from '@/lib/sentiment/engine';
 
 // ── Attribution types ─────────────────────────────────────────────────────────
@@ -199,6 +199,65 @@ function SentimentCard({ s }: { s: SentimentScore }) {
         </div>
       )}
     </div>
+  );
+}
+
+// ── Correlation Risk Section ──────────────────────────────────────────────────
+
+function CorrelationRiskSection({ matrix }: { matrix: CorrelationMatrix | null }) {
+  const hasPairs = (matrix?.high_correlation_pairs?.length ?? 0) > 0;
+
+  return (
+    <section className="bg-white">
+      <div className="px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
+        <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Concentration Risk</p>
+        <p className="text-[9px] text-[#4A5568]/60 mt-0.5">Highly Correlated Holdings — 90-day return correlation</p>
+      </div>
+
+      {!hasPairs ? (
+        <div className="px-4 sm:px-5 py-6 text-center">
+          <p className="text-[13px] text-[#16A34A]">
+            Portfolio is well-diversified — no highly correlated pairs detected.
+          </p>
+        </div>
+      ) : (
+        <div className="divide-y divide-[#E2E8F0]">
+          {matrix!.high_correlation_pairs.slice(0, 5).map((pair) => {
+            const pct = Math.abs(pair.correlation * 100);
+            return (
+              <div key={`${pair.symbolA}-${pair.symbolB}`} className="px-4 sm:px-5 py-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-[13px] font-semibold tracking-[0.05em] text-[#0A1628]">
+                    {pair.symbolA}
+                  </span>
+                  <span className="text-[11px] text-[#4A5568]/60">/</span>
+                  <span className="text-[13px] font-semibold tracking-[0.05em] text-[#0A1628]">
+                    {pair.symbolB}
+                  </span>
+                  <span className="ml-auto font-serif text-[14px] text-[#C41E3A]">
+                    {pct.toFixed(0)}% correlated
+                  </span>
+                  <span className="shrink-0 px-2 py-0.5 text-[9px] tracking-[0.12em] uppercase font-semibold bg-[#C41E3A]/10 text-[#C41E3A] border border-[#C41E3A]/30">
+                    HIGH RISK
+                  </span>
+                </div>
+                <div className="h-1.5 w-full bg-[#F0F2F5]">
+                  <div
+                    className="h-full bg-[#C41E3A]"
+                    style={{ width: `${Math.min(pct, 100)}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          <div className="px-4 sm:px-5 py-3 text-right">
+            <p className="text-[9px] text-[#4A5568]/50 tracking-[0.1em]">
+              Pairs with |correlation| ≥ 85% over 90 trading days. Consider reducing one position in each pair to improve diversification.
+            </p>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -639,6 +698,9 @@ export default function IntelligencePage() {
               )}
             </div>
           </section>
+
+          {/* ── S4b: Correlation Risk ───────────────────────────────────────── */}
+          <CorrelationRiskSection matrix={data.correlationMatrix ?? null} />
 
           {/* ── S5: Portfolio Summary ───────────────────────────────────────── */}
           {data.portfolio_summary && (
