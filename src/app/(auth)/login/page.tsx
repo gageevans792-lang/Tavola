@@ -43,9 +43,23 @@ export default function LoginPage() {
       return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const next = params.get('next') ?? '/dashboard';
-    router.push(next.startsWith('/') ? next : '/dashboard');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from('risk_profiles')
+        .select('onboarding_done')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (profile?.onboarding_done) {
+        const params = new URLSearchParams(window.location.search);
+        const next = params.get('next') ?? '/dashboard';
+        router.push(next.startsWith('/') ? next : '/dashboard');
+      } else {
+        router.push('/onboarding');
+      }
+    } else {
+      router.push('/onboarding');
+    }
     router.refresh();
   }
 

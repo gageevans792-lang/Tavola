@@ -211,7 +211,6 @@ export default function OnboardingPage() {
           initial_deposit:    depositAmt || null,
           monthly_contrib:    monthly || null,
           net_worth_range:    netWorth,
-          onboarding_done:    true,
         },
         { onConflict: 'user_id' },
       );

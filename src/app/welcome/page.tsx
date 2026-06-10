@@ -25,6 +25,7 @@ const STEPS = [
 export default function WelcomePage() {
   const router = useRouter();
   const [firstName, setFirstName] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -33,6 +34,21 @@ export default function WelcomePage() {
       if (name) setFirstName(name.split(' ')[0]);
     }).catch(() => {});
   }, []);
+
+  async function handleStart() {
+    setStarting(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('risk_profiles').upsert(
+          { user_id: user.id, onboarding_done: true },
+          { onConflict: 'user_id' },
+        );
+      }
+    } catch { /* non-fatal */ }
+    router.push('/dashboard');
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 text-center">
@@ -77,10 +93,11 @@ export default function WelcomePage() {
 
       {/* CTA */}
       <button
-        onClick={() => router.push('/dashboard')}
-        className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase px-12 py-4 hover:bg-[#162035] transition-colors"
+        onClick={handleStart}
+        disabled={starting}
+        className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase px-12 py-4 hover:bg-[#162035] transition-colors disabled:opacity-60"
       >
-        See My Portfolio
+        {starting ? 'Loading...' : 'See My Portfolio'}
       </button>
 
       <p className="mt-6 text-[11px] text-[#4A5568]/50">
