@@ -11,8 +11,8 @@ type CardVariant = 'pending' | 'executed' | 'rejected';
 interface RecommendationCardProps {
   rec:          TradeRecommendation | RejectedRecommendation | ExecutedRecommendation;
   variant:      CardVariant;
-  onExecute?:   (rec: TradeRecommendation) => Promise<void>;
-  onExecuted?:  (rec: TradeRecommendation) => void;
+  onExecute?:   (rec: TradeRecommendation) => Promise<number | undefined>;
+  onExecuted?:  (rec: TradeRecommendation, fillPrice?: number) => void;
   executing?:   boolean;
 }
 
@@ -41,9 +41,9 @@ function ConfidenceBar({ value }: { value: number }) {
 }
 
 export function RecommendationCard({ rec, variant, onExecute, onExecuted, executing }: RecommendationCardProps) {
-  // Local executed state — flips to true after a successful onExecute call
   const [selfExecuted, setSelfExecuted] = useState(variant === 'executed');
-  const [expanded, setExpanded] = useState(false);
+  const [fillPrice, setFillPrice]       = useState<number | undefined>(undefined);
+  const [expanded, setExpanded]         = useState(false);
 
   const isRejected = variant === 'rejected';
   const isExecuted = selfExecuted;
@@ -55,13 +55,11 @@ export function RecommendationCard({ rec, variant, onExecute, onExecuted, execut
   async function handleExecute() {
     if (!onExecute) return;
     try {
-      await onExecute(rec as TradeRecommendation);
+      const price = await onExecute(rec as TradeRecommendation);
       setSelfExecuted(true);
-      onExecuted?.(rec as TradeRecommendation);
-      // Sync positions after trade so holdings table reflects new position
-      setTimeout(() => {
-        fetch('/api/alpaca/sync').catch(() => {});
-      }, 2_000);
+      setFillPrice(price);
+      onExecuted?.(rec as TradeRecommendation, price);
+      setTimeout(() => fetch('/api/alpaca/sync').catch(() => {}), 2_000);
     } catch {
       // error is handled upstream (dashboard page sets error state)
     }
@@ -95,7 +93,11 @@ export function RecommendationCard({ rec, variant, onExecute, onExecuted, execut
 
           <div className="flex items-center gap-2 shrink-0">
             {isExecuted && (
-              <span className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Executed</span>
+              <span className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">
+                {fillPrice != null
+                  ? `Filled @ $${fillPrice.toFixed(2)}`
+                  : 'Executed'}
+              </span>
             )}
             {isRejected && (
               <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]/50">Blocked</span>

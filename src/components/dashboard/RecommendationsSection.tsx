@@ -26,8 +26,8 @@ const cardVariant = {
 interface Props {
   result: AutoInvestResult;
   onDismiss: () => void;
-  onExecuteOne: (rec: TradeRecommendation) => Promise<void>;
-  onExecuted: (rec: TradeRecommendation) => void;
+  onExecuteOne: (rec: TradeRecommendation) => Promise<number | undefined>;
+  onExecuted: (rec: TradeRecommendation, fillPrice?: number) => void;
   executingSymbol: string | null;
 }
 

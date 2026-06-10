@@ -250,8 +250,9 @@ export default function DashboardPage() {
   }, []);
 
   // ── Execute a single recommendation ───────────────────────────────────────
-  // Re-throws on failure so RecommendationCard knows not to flip selfExecuted.
-  const executeOne = useCallback(async (rec: TradeRecommendation) => {
+  // Returns fill price on success; re-throws on failure so RecommendationCard
+  // stays in pending state.
+  const executeOne = useCallback(async (rec: TradeRecommendation): Promise<number | undefined> => {
     setExecutingSymbol(rec.symbol);
     try {
       const res = await fetch('/api/alpaca/orders', {
@@ -263,6 +264,9 @@ export default function DashboardPage() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? 'Order failed');
       }
+      const body = await res.json().catch(() => ({})) as { filled_avg_price?: string };
+      const fillPrice = body.filled_avg_price ? parseFloat(body.filled_avg_price) : undefined;
+
       // Promote from approved → executed in result state
       setResult((prev) => {
         if (!prev) return prev;
@@ -272,6 +276,8 @@ export default function DashboardPage() {
           executed: [...prev.executed, { ...rec, order_id: 'manual' }],
         };
       });
+
+      return fillPrice;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Order failed. Please try again.');
       throw err; // re-throw so RecommendationCard stays in pending state
@@ -280,16 +286,15 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // ── Post-execution: sync portfolio + show toast ────────────────────────────
-  const handleExecuted = useCallback((rec: TradeRecommendation) => {
-    // Delay 1s to let Alpaca process the order before syncing
+  // ── Post-execution: refresh portfolio + show toast ────────────────────────
+  const handleExecuted = useCallback((rec: TradeRecommendation, fillPrice?: number) => {
     setTimeout(refreshPortfolio, 1_000);
-
-    // Compute approximate per-share price from the risk guard estimate
-    const price = rec.estimated_value != null && rec.qty > 0
-      ? rec.estimated_value / rec.qty
-      : undefined;
-
+    // Use fill price from API response; fall back to estimated_value / qty
+    const price = fillPrice ?? (
+      rec.estimated_value != null && rec.qty > 0
+        ? rec.estimated_value / rec.qty
+        : undefined
+    );
     setToast({ ticker: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, price });
   }, [refreshPortfolio]);
 

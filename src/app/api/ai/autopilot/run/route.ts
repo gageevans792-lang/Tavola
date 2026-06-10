@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import {
   getAccount,
@@ -12,7 +13,10 @@ import type { TickerPrice, DailyBar } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { getMacroContext, buildMacroPromptSection } from '@/lib/macro/client';
-import type { AlpacaPosition, AutoInvestConfig, TradeRecommendation } from '@/types';
+import { isFounder } from '@/lib/founder';
+import { executeSimulatedTrade } from '@/lib/simulated/execute';
+import type { AlpacaPosition, AutoInvestConfig, TradeRecommendation, TradeSide } from '@/types';
+import type { SyncedHolding } from '@/lib/alpaca/sync';
 import type { AutopilotDecision, AutopilotRun } from '../history/route';
 import { getSentimentScores, buildSentimentPromptSection } from '@/lib/sentiment/engine';
 import { getUpcomingEarnings, buildEarningsPromptSection } from '@/lib/earnings/intelligence';
@@ -378,6 +382,32 @@ EXECUTION RULES
 • You MUST call submit_portfolio_analysis. Do not reply in plain text.`;
 }
 
+// ── Simulated account helpers ─────────────────────────────────────────────────
+
+function holdingToPosition(h: SyncedHolding): AlpacaPosition {
+  const upl    = h.unrealized_pl ?? 0;
+  const uplpc  = (h.unrealized_plpc ?? 0) / 100; // stored as %, Alpaca uses decimal
+  return {
+    asset_id:                 h.ticker,
+    symbol:                   h.ticker,
+    exchange:                 'SIMULATED',
+    asset_class:              'us_equity',
+    qty:                      String(h.qty),
+    qty_available:            String(h.qty),
+    avg_entry_price:          String(h.avg_entry_price),
+    side:                     'buy' as TradeSide,
+    market_value:             String(h.market_value),
+    cost_basis:               String(h.qty * h.avg_entry_price),
+    unrealized_pl:            String(upl),
+    unrealized_plpc:          String(uplpc),
+    unrealized_intraday_pl:   '0',
+    unrealized_intraday_plpc: '0',
+    current_price:            String(h.current_price),
+    lastday_price:            String(h.current_price),
+    change_today:             '0',
+  };
+}
+
 // ── Next run timestamp ────────────────────────────────────────────────────────
 
 function computeNextRunAt(frequency: string): string {
@@ -420,19 +450,51 @@ export async function POST() {
       // Table missing — proceed with defaults
     }
 
-    // ── 2. Fetch account + positions + macro + sector momentum in parallel ────
-    const [account, positions, macroCtx, sectorData] = await Promise.all([
-      getAccount(),
-      getPositions(),
+    // ── 2. Fetch account + positions (founder: Alpaca; non-founder: DB) ─────────
+    const founderUser = isFounder(user.id);
+    const supabaseAdmin = createSupabaseAdmin(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+
+    let positions: AlpacaPosition[];
+    let equity: number;
+    let buyingPower: number;
+    let cash: number;
+
+    const [macroCtx, sectorData] = await Promise.all([
       getMacroContext().catch(() => null),
       fetchSectorMomentum().catch(() => ({
         sectors: [] as SectorMoment[], spyRet30d: 0, shyRet30d: 0, vixyPrice: 0,
       })),
     ]);
 
-    const equity      = parseFloat(account.equity);
-    const buyingPower = parseFloat(account.buying_power);
-    const cash        = parseFloat(account.cash);
+    if (founderUser) {
+      const [account, alpacaPositions] = await Promise.all([getAccount(), getPositions()]);
+      equity      = parseFloat(account.equity);
+      buyingPower = parseFloat(account.buying_power);
+      cash        = parseFloat(account.cash);
+      positions   = alpacaPositions;
+    } else {
+      // Read from simulated DB
+      const { data: acctRow } = await supabaseAdmin
+        .from('user_accounts')
+        .select('cash')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      cash = acctRow ? Number(acctRow.cash) : 100_000;
+
+      const { data: holdingRows } = await supabaseAdmin
+        .from('holdings')
+        .select('*')
+        .eq('user_id', user.id);
+      const holdings = (holdingRows ?? []) as SyncedHolding[];
+
+      const longMv = holdings.reduce((s, h) => s + h.market_value, 0);
+      equity      = cash + longMv;
+      buyingPower = cash;
+      positions   = holdings.map(holdingToPosition);
+    }
 
     // ── 3. Build full universe (watchlist + FULL_UNIVERSE) ────────────────────
     let watchlistTickers: string[] = [];
@@ -579,31 +641,50 @@ export async function POST() {
         continue;
       }
 
-      try {
-        const order = await placeMarketOrder(rec.symbol, rec.action as 'buy' | 'sell', rec.qty);
-
-        const price  = latestPrices[rec.symbol] ?? null;
-        const insert = await supabase.from('trades').insert({
-          user_id:          user.id,
-          ticker:           rec.symbol,
-          side:             rec.action,
-          qty:              rec.qty,
-          price:            price || null,
-          alpaca_order_id:  order.id,
-          ai_reasoning:     rec.reasoning,
-          confidence_score: rec.confidence,
-          status:           'pending',
-        });
-        if (insert.error) {
-          console.error('[autopilot/run] trade insert:', insert.error.message);
+      if (founderUser) {
+        // ── Real Alpaca order ───────────────────────────────────────────────────
+        try {
+          const order = await placeMarketOrder(rec.symbol, rec.action as 'buy' | 'sell', rec.qty);
+          const price = latestPrices[rec.symbol] ?? null;
+          const ins   = await supabase.from('trades').insert({
+            user_id:          user.id,
+            ticker:           rec.symbol,
+            side:             rec.action,
+            qty:              rec.qty,
+            price:            price || null,
+            alpaca_order_id:  order.id,
+            ai_reasoning:     rec.reasoning,
+            confidence_score: rec.confidence,
+            status:           'pending',
+          });
+          if (ins.error) console.error('[autopilot/run] trade insert:', ins.error.message);
+          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'executed', order_id: order.id });
+          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'executed', order_id: order.id });
+        } catch (err: unknown) {
+          const errMsg = err instanceof Error ? err.message : 'Order failed';
+          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: errMsg });
+          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: errMsg });
         }
-
-        tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'executed', order_id: order.id });
-        decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'executed', order_id: order.id });
-      } catch (err: unknown) {
-        const errMsg = err instanceof Error ? err.message : 'Order failed';
-        tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: errMsg });
-        decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: errMsg });
+      } else {
+        // ── Simulated execution ─────────────────────────────────────────────────
+        const price = latestPrices[rec.symbol];
+        if (!price || price <= 0) {
+          const errMsg = `Price unavailable for ${rec.symbol}`;
+          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: errMsg });
+          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: errMsg });
+          continue;
+        }
+        const result = await executeSimulatedTrade(
+          user.id, rec.symbol, rec.action as 'buy' | 'sell', rec.qty, price,
+          { ai_reasoning: rec.reasoning, confidence_score: rec.confidence },
+        );
+        if (result.ok) {
+          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'executed', order_id: result.fill.id });
+          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'executed', order_id: result.fill.id });
+        } else {
+          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: result.error.message });
+          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: result.error.message });
+        }
       }
     }
 

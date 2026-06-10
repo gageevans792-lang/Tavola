@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getAccount } from '@/lib/alpaca/client';
 import { isFounder } from '@/lib/founder';
@@ -43,6 +44,59 @@ function userIdSeed(userId: string): number {
   return userId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
 }
 
+// ── Simulated chart from equity_history ──────────────────────────────────────
+
+async function buildSimulatedChart(userId: string): Promise<NextResponse> {
+  const BASELINE = 100_000;
+  const DAYS     = 90;
+
+  const supabaseAdmin = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  // Read all equity_history rows for user, most recent 90 days
+  const { data: rows } = await supabaseAdmin
+    .from('equity_history')
+    .select('date, value')
+    .eq('user_id', userId)
+    .order('date', { ascending: true })
+    .limit(DAYS);
+
+  // Build a date → value map from DB rows
+  const dbMap = new Map<string, number>();
+  for (const r of rows ?? []) {
+    dbMap.set(r.date as string, Number(r.value));
+  }
+
+  // Generate 90-day series; use DB value if available, else BASELINE
+  const today = new Date();
+  const portfolio: ChartDataPoint[] = [];
+  for (let i = 0; i < DAYS; i++) {
+    const d    = new Date(today.getTime() - (DAYS - 1 - i) * 86_400_000);
+    const iso  = d.toISOString().slice(0, 10);
+    portfolio.push({ date: iso, value: dbMap.get(iso) ?? BASELINE });
+  }
+
+  // Benchmark: flat BASELINE line (simulated accounts have no benchmark)
+  const benchmark: ChartDataPoint[] = portfolio.map((p) => ({ date: p.date, value: BASELINE }));
+
+  const currentEquity = portfolio[DAYS - 1].value;
+  const equity30d     = portfolio[DAYS - 30]?.value ?? BASELINE;
+  const equityChange  = currentEquity - equity30d;
+  const equityChangePct = equity30d > 0 ? (equityChange / equity30d) * 100 : 0;
+  const periodReturn    = (currentEquity - BASELINE) / BASELINE * 100;
+
+  return NextResponse.json({
+    portfolio,
+    benchmark,
+    current_equity:    Math.round(currentEquity * 100) / 100,
+    equity_change:     Math.round(equityChange * 100) / 100,
+    equity_change_pct: Math.round(equityChangePct * 100) / 100,
+    period_return:     Math.round(periodReturn * 100) / 100,
+  } satisfies ChartApiResponse);
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -51,20 +105,7 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   if (!isFounder(user.id)) {
-    const BASELINE = 100_000;
-    const today = new Date();
-    const flat = Array.from({ length: 90 }, (_, i) => {
-      const d = new Date(today.getTime() - (89 - i) * 86_400_000);
-      return { date: d.toISOString().slice(0, 10), value: BASELINE };
-    });
-    return NextResponse.json({
-      portfolio:         flat,
-      benchmark:         flat,
-      current_equity:    BASELINE,
-      equity_change:     0,
-      equity_change_pct: 0,
-      period_return:     0,
-    } satisfies ChartApiResponse);
+    return buildSimulatedChart(user.id);
   }
 
   try {

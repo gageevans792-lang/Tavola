@@ -5,8 +5,9 @@ import {
   getAccount,
   getPositions,
   getPortfolioHistory,
+  getTickerPrices,
 } from '@/lib/alpaca/client';
-import { isFounder, newUserPortfolio } from '@/lib/founder';
+import { isFounder } from '@/lib/founder';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
 import type { AlpacaPosition } from '@/types';
 
@@ -82,6 +83,165 @@ function buildFlatChart(equity: number): PortfolioData['chart'] {
   }));
 }
 
+// ── Simulated portfolio (non-founder) ─────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function buildSimulatedPortfolio(
+  userId:        string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
+): Promise<NextResponse> {
+  const BASELINE = 100_000;
+  const today    = new Date().toISOString().slice(0, 10);
+
+  // 1. Get cash balance (create row if first visit)
+  let cash = BASELINE;
+  const { data: acctRow } = await supabaseAdmin
+    .from('user_accounts')
+    .select('cash')
+    .eq('user_id', userId)
+    .maybeSingle() as { data: { cash: number } | null };
+
+  if (acctRow) {
+    cash = Number(acctRow.cash);
+  } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabaseAdmin.from('user_accounts') as any).insert({ user_id: userId, cash: BASELINE });
+  }
+
+  // 2. Get holdings
+  const { data: rawHoldings } = await supabaseAdmin
+    .from('holdings')
+    .select('*')
+    .eq('user_id', userId)
+    .order('market_value', { ascending: false });
+
+  let holdings: SyncedHolding[] = (rawHoldings ?? []) as SyncedHolding[];
+
+  // 3. Refresh live prices if there are holdings
+  if (holdings.length > 0) {
+    try {
+      const tickers = holdings.map((h) => h.ticker);
+      const prices  = await getTickerPrices(tickers);
+
+      let totalMv = 0;
+      for (const h of holdings) {
+        const info = prices[h.ticker];
+        if (info && !info.price_unavailable && info.price > 0) {
+          const price  = info.price;
+          const mv     = h.qty * price;
+          const upl    = (price - h.avg_entry_price) * h.qty;
+          const uplpc  = h.avg_entry_price > 0
+            ? ((price - h.avg_entry_price) / h.avg_entry_price) * 100
+            : 0;
+          totalMv += mv;
+
+          await supabaseAdmin.from('holdings').update({
+            current_price:   price,
+            market_value:    mv,
+            unrealized_pl:   upl,
+            unrealized_plpc: uplpc,
+            updated_at:      new Date().toISOString(),
+          })
+          .eq('user_id', userId)
+          .eq('ticker', h.ticker);
+
+          h.current_price   = price;
+          h.market_value    = mv;
+          h.unrealized_pl   = upl;
+          h.unrealized_plpc = uplpc;
+        } else {
+          totalMv += h.market_value;
+        }
+      }
+
+      // Refresh weight_pct now that we have totalMv
+      const portfolioValue = cash + totalMv;
+      for (const h of holdings) {
+        const wt = portfolioValue > 0 ? (h.market_value / portfolioValue) * 100 : 0;
+        h.weight_pct = wt;
+        await supabaseAdmin.from('holdings').update({ weight_pct: wt })
+          .eq('user_id', userId)
+          .eq('ticker', h.ticker);
+      }
+
+      // Re-fetch after updates
+      const { data: fresh } = await supabaseAdmin
+        .from('holdings')
+        .select('*')
+        .eq('user_id', userId)
+        .order('market_value', { ascending: false });
+      if (fresh) holdings = fresh as SyncedHolding[];
+    } catch (err) {
+      console.warn('[portfolio/simulated] price refresh failed (non-fatal):', err instanceof Error ? err.message : err);
+    }
+  }
+
+  const longMarketValue = holdings.reduce((s, h) => s + h.market_value, 0);
+  const portfolioValue  = cash + longMarketValue;
+
+  // 4. Yesterday's equity for day P&L
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const { data: yesterdayRow } = await supabaseAdmin
+    .from('equity_history')
+    .select('value')
+    .eq('user_id', userId)
+    .eq('date', yesterday)
+    .maybeSingle();
+  const lastEquity = yesterdayRow ? Number(yesterdayRow.value) : BASELINE;
+
+  const dayPl          = portfolioValue - lastEquity;
+  const dayPlPct       = lastEquity > 0 ? (dayPl / lastEquity) * 100 : 0;
+  const totalReturn    = portfolioValue - BASELINE;
+  const totalReturnPct = (totalReturn / BASELINE) * 100;
+
+  // 5. Upsert today's equity snapshot (max once per day, non-blocking)
+  supabaseAdmin.from('equity_history').upsert(
+    { user_id: userId, date: today, value: portfolioValue },
+    { onConflict: 'user_id,date' },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ).then(({ error }: { error: any }) => {
+    if (error) console.warn('[portfolio/simulated] equity_history upsert:', error.message);
+  });
+
+  // 6. Allocation pie
+  const allocation: PortfolioData['allocation'] = [];
+  if (holdings.length > 0 && portfolioValue > 0) {
+    const slices = holdings.map((h, i) => ({
+      name:  h.ticker,
+      value: (h.market_value / portfolioValue) * 100,
+      color: ALLOC_COLORS[i % ALLOC_COLORS.length],
+    }));
+    const main  = slices.filter((s) => s.value >= 3);
+    const small = slices.filter((s) => s.value < 3);
+    if (small.length > 0) {
+      main.push({
+        name:  'Other',
+        value: small.reduce((a, s) => a + s.value, 0),
+        color: ALLOC_COLORS[main.length % ALLOC_COLORS.length],
+      });
+    }
+    allocation.push(...main);
+  }
+
+  return NextResponse.json({
+    equity:            portfolioValue,
+    last_equity:       lastEquity,
+    cash,
+    buying_power:      cash,
+    long_market_value: longMarketValue,
+    portfolio_value:   portfolioValue,
+    day_pl:            dayPl,
+    day_pl_pct:        dayPlPct,
+    total_return:      totalReturn,
+    total_return_pct:  totalReturnPct,
+    chart:             buildFlatChart(portfolioValue),
+    allocation,
+    holdings,
+    positions_synced:  holdings.length,
+  } satisfies PortfolioData);
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -90,14 +250,15 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (!isFounder(user.id)) {
-    return NextResponse.json(newUserPortfolio() satisfies PortfolioData);
-  }
-
   const supabaseAdmin = createSupabaseAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
+
+  // ── Non-founder: compute portfolio from DB (no Alpaca account access) ───────
+  if (!isFounder(user.id)) {
+    return buildSimulatedPortfolio(user.id, supabaseAdmin);
+  }
 
   // ── Step 1: Fetch Alpaca account (required) ──────────────────────────────────
   console.log('[portfolio] Fetching Alpaca account...');

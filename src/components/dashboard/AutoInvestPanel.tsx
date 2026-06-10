@@ -243,7 +243,7 @@ export function AutoInvestPanel() {
     }
   }, [config]);
 
-  const executeOne = useCallback(async (rec: TradeRecommendation) => {
+  const executeOne = useCallback(async (rec: TradeRecommendation): Promise<number | undefined> => {
     setExecutingSymbol(rec.symbol);
     try {
       const res = await fetch('/api/alpaca/orders', {
@@ -253,6 +253,9 @@ export function AutoInvestPanel() {
       });
       if (!res.ok) throw new Error('Order failed');
 
+      const body = await res.json().catch(() => ({})) as { filled_avg_price?: string };
+      const fillPrice = body.filled_avg_price ? parseFloat(body.filled_avg_price) : undefined;
+
       setResult((prev) => {
         if (!prev) return prev;
         return {
@@ -261,6 +264,8 @@ export function AutoInvestPanel() {
           executed: [...prev.executed, { ...rec, order_id: 'manual' }],
         };
       });
+
+      return fillPrice;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Order failed');
     } finally {

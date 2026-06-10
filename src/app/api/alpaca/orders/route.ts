@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getRecentOrders, getTickerPrices, placeMarketOrder } from '@/lib/alpaca/client';
+import { isFounder } from '@/lib/founder';
+import { executeSimulatedTrade } from '@/lib/simulated/execute';
 import type { TradeSide } from '@/types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -147,7 +149,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── 4. Log trade attempt to Supabase before placing ─────────────────────────
+    // ── 4. Non-founder: simulated execution ────────────────────────────────────
+    if (!isFounder(user.id)) {
+      if (priceUnavailable) {
+        return NextResponse.json(
+          { error: 'Price unavailable for this symbol. Cannot execute simulated trade.', code: 'PRICE_UNAVAILABLE' },
+          { status: 422 },
+        );
+      }
+
+      const result = await executeSimulatedTrade(user.id, symbol, side, qty, pricePerShare);
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: result.error.message, code: result.error.code },
+          { status: 422 },
+        );
+      }
+
+      return NextResponse.json(
+        {
+          id:               result.fill.id,
+          symbol:           result.fill.symbol,
+          side:             result.fill.side,
+          qty:              String(result.fill.qty),
+          status:           'filled',
+          filled_avg_price: result.fill.fill_price.toFixed(4),
+          filled_at:        new Date().toISOString(),
+          simulated:        true,
+        },
+        { status: 201 },
+      );
+    }
+
+    // ── 5. Log trade attempt to Supabase before placing (founder only) ──────────
     const { error: logErr } = await supabase.from('trades').insert({
       user_id: user.id,
       ticker:  symbol,
@@ -160,7 +194,7 @@ export async function POST(req: NextRequest) {
       console.error('[alpaca/orders] trade log failed:', logErr.message);
     }
 
-    // ── 5. Place order with Alpaca ───────────────────────────────────────────────
+    // ── 6. Place order with Alpaca ───────────────────────────────────────────────
     let order;
     try {
       order = await placeMarketOrder(symbol, side, qty);
