@@ -17,6 +17,19 @@ export async function GET() {
 
   // ── Non-founder: refresh holding prices from DATA API ────────────────────────
   if (!isFounder(user.id)) {
+    // Require user_accounts to exist — if it doesn't, the user is likely the founder
+    // with a missing FOUNDER_USER_ID env var. Return early rather than touching data.
+    const { data: acctCheck } = await supabaseAdmin
+      .from('user_accounts')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!acctCheck) {
+      console.warn('[sync/simulated] No user_accounts row — skipping simulated sync (FOUNDER_USER_ID may be unset).');
+      return NextResponse.json({ synced: true, count: 0 });
+    }
+
     const { data: holdings } = await supabaseAdmin
       .from('holdings')
       .select('ticker, qty, avg_entry_price')

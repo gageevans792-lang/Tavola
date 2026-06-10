@@ -213,7 +213,7 @@ export function HoldingsTable({ holdings, sentimentScores, sentimentLoading }: H
                       <div className="w-12 h-1 bg-[#E2E8F0] hidden sm:block">
                         <div
                           className={cn('h-full', positive ? 'bg-[#166534]' : 'bg-[#991b1b]')}
-                          style={{ width: `${Math.min(Math.abs(h.unrealized_plpc * 100) * 2, 100)}%` }}
+                          style={{ width: `${Math.min(Math.abs(h.unrealized_plpc) * 2, 100)}%` }}
                         />
                       </div>
                     </div>

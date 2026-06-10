@@ -94,20 +94,41 @@ async function buildSimulatedPortfolio(
   const BASELINE = 100_000;
   const today    = new Date().toISOString().slice(0, 10);
 
-  // 1. Get cash balance (create row if first visit)
-  let cash = BASELINE;
+  // 1. Get cash balance.
+  // SAFETY: if the user has synced holdings but NO user_accounts row, they are
+  // almost certainly the founder accessed with FOUNDER_USER_ID env var missing.
+  // Return a safe flat baseline rather than mixing real Alpaca data with simulated cash.
   const { data: acctRow } = await supabaseAdmin
     .from('user_accounts')
     .select('cash')
     .eq('user_id', userId)
     .maybeSingle() as { data: { cash: number } | null };
 
-  if (acctRow) {
-    cash = Number(acctRow.cash);
-  } else {
+  if (!acctRow) {
+    const { data: existingHoldings } = await supabaseAdmin
+      .from('holdings')
+      .select('ticker')
+      .eq('user_id', userId)
+      .limit(1);
+
+    if (existingHoldings && existingHoldings.length > 0) {
+      console.warn(
+        '[portfolio/simulated] User has holdings but no user_accounts — FOUNDER_USER_ID env var may be unset. Returning baseline to prevent data mixing.',
+      );
+      return NextResponse.json({
+        equity: BASELINE, last_equity: BASELINE, cash: BASELINE,
+        buying_power: BASELINE, long_market_value: 0, portfolio_value: BASELINE,
+        day_pl: 0, day_pl_pct: 0, total_return: 0, total_return_pct: 0,
+        chart: buildFlatChart(BASELINE), allocation: [], holdings: [], positions_synced: 0,
+      } satisfies PortfolioData);
+    }
+
+    // New simulated user — initialise account row
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabaseAdmin.from('user_accounts') as any).insert({ user_id: userId, cash: BASELINE });
   }
+
+  const cash = acctRow ? Number(acctRow.cash) : BASELINE;
 
   // 2. Get holdings
   const { data: rawHoldings } = await supabaseAdmin

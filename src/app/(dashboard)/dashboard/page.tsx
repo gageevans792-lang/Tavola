@@ -547,7 +547,7 @@ export default function DashboardPage() {
                               className="font-mono text-[11px]"
                               style={{ color: plPos ? '#166534' : '#991b1b' }}
                             >
-                              {plPos ? '+' : ''}{(h.unrealized_plpc * 100).toFixed(2)}%
+                              {plPos ? '+' : ''}{h.unrealized_plpc.toFixed(2)}%
                             </p>
                           </div>
                         </div>

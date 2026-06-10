@@ -35,19 +35,26 @@ export async function executeSimulatedTrade(
   const supabase = adminClient();
 
   // ── 1. Get current cash ────────────────────────────────────────────────────
-  let cash = BASELINE_CASH;
+  // SAFETY: require user_accounts to exist. It is created on first dashboard load
+  // for non-founders. If it doesn't exist the caller is likely a founder whose
+  // FOUNDER_USER_ID env var is missing — refuse rather than corrupt real holdings.
   const { data: acct } = await supabase
     .from('user_accounts')
     .select('cash')
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (acct) {
-    cash = Number(acct.cash);
-  } else {
-    // First trade ever — initialise account row
-    await supabase.from('user_accounts').insert({ user_id: userId, cash: BASELINE_CASH });
+  if (!acct) {
+    return {
+      ok: false,
+      error: {
+        code:    'NO_SIMULATED_ACCOUNT',
+        message: 'Simulated account not initialised. Please visit the dashboard first.',
+      },
+    };
   }
+
+  const cash = Number(acct.cash);
 
   const notional = qty * pricePerShare;
 
