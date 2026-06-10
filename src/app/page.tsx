@@ -227,7 +227,7 @@ export default function Home() {
             <p className="text-[15px] leading-[1.85] text-[#4A5568]">
               For decades, the most sophisticated risk-adjusted investment strategies were available
               only to institutional investors with minimum commitments measured in millions. The
-              barriers were deliberate — operational complexity, regulatory burden, and the economics
+              barriers were deliberate: operational complexity, regulatory burden, and the economics
               of bespoke portfolio management made broad access impractical.
             </p>
             <p className="text-[15px] leading-[1.85] text-[#4A5568]">
@@ -315,7 +315,7 @@ export default function Home() {
             15 years of real market data.<br />No cherry-picked periods.
           </h2>
           <p className="text-[14px] leading-[1.75] text-white/45 max-w-lg mb-16">
-            Run any strategy against historical market conditions — including the 2008 crash,
+            Run any strategy against historical market conditions, including the 2008 crash,
             COVID selloff, and 2022 rate shock. See exactly what your portfolio would have done.
           </p>
 
@@ -344,7 +344,7 @@ export default function Home() {
           <div className="mb-12 border border-white/10">
             <div className="border-b border-white/10 px-8 py-4">
               <span className="text-[10px] tracking-[0.2em] uppercase text-white/40">
-                Crisis Period Performance — Growth Strategy
+                Crisis Period Performance: Growth Strategy
               </span>
             </div>
             <div className="grid md:grid-cols-4">

@@ -48,7 +48,7 @@ function buildIntelligence(
 
   if (nearEarnings) {
     riskLevel    = 'high';
-    sizeGuidance = `Size conservatively — earnings in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}; limit to 50% of normal position`;
+    sizeGuidance = `Size conservatively. Earnings in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}; limit to 50% of normal position.`;
   } else {
     sizeGuidance = 'Normal position sizing';
   }
@@ -64,10 +64,10 @@ function buildIntelligence(
       `Negative sentiment (${sentScore}) supports reducing exposure before earnings.`;
   } else if (isHighBeater) {
     preBias       = 'bullish';
-    recommendation = `${event.symbol} beats ${beatRate.toFixed(0)}% of the time. Neutral sentiment — hold current position into earnings.`;
+    recommendation = `${event.symbol} beats ${beatRate.toFixed(0)}% of the time. Neutral sentiment. Hold current position into earnings.`;
   } else {
     recommendation = `${event.symbol}: ${beatRate.toFixed(0)}% historical beat rate. ` +
-      (nearEarnings ? 'Earnings imminent — high event risk, size conservatively.' : 'Monitor sentiment into earnings.');
+      (nearEarnings ? 'Earnings imminent. High event risk, size conservatively.' : 'Monitor sentiment into earnings.');
   }
 
   return {
@@ -122,10 +122,10 @@ export function buildEarningsPromptSection(earnings: EarningsIntelligence[]): st
   if (!earnings.length) return '';
 
   const lines = earnings.map((e) =>
-    `  ${e.ticker.padEnd(7)} earnings in ${e.days_until}d (${e.earnings_date}) — ` +
+    `  ${e.ticker.padEnd(7)} earnings in ${e.days_until}d (${e.earnings_date}): ` +
     `beat rate: ${e.historical_beat_rate}% over ${e.quarters_analyzed}Q, ` +
-    `avg EPS surprise: ${e.average_surprise_pct > 0 ? '+' : ''}${e.average_surprise_pct}% — ` +
-    `bias: ${e.pre_earnings_bias.toUpperCase()} — ${e.size_guidance}`,
+    `avg EPS surprise: ${e.average_surprise_pct > 0 ? '+' : ''}${e.average_surprise_pct}%, ` +
+    `bias: ${e.pre_earnings_bias.toUpperCase()}, ${e.size_guidance}`,
   );
 
   return `
@@ -134,7 +134,7 @@ UPCOMING EARNINGS (within 14 days)
 ${lines.join('\n')}
 
 Earnings rules:
-• Earnings within 5 days = HIGH RISK EVENT — cut recommended position size by 50%
+• Earnings within 5 days = HIGH RISK EVENT: cut recommended position size by 50%
 • Beat rate >75% + positive sentiment = favorable pre-earnings setup
 • Miss rate >50% + negative sentiment = reduce before event
 • Always note upcoming earnings date in reasoning for affected positions`;

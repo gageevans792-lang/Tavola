@@ -10,11 +10,11 @@ import type { SentimentScore } from '@/lib/sentiment/engine';
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 function fmtNum(n: number, decimals = 2): string {
-  return n ? n.toFixed(decimals) : '—';
+  return n ? n.toFixed(decimals) : '–';
 }
 
 function fmtPrice(n: number): string {
-  if (!n) return '—';
+  if (!n) return '–';
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
@@ -456,13 +456,13 @@ export default function IntelligencePage() {
 
                         <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                           <span className="font-serif text-[14px] text-[#0A1628]">
-                            {h.pe_ratio > 0 ? fmtNum(h.pe_ratio, 1) : '—'}
+                            {h.pe_ratio > 0 ? fmtNum(h.pe_ratio, 1) : '–'}
                           </span>
                         </td>
 
                         <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                           <span className="font-serif text-[14px] text-[#0A1628]">
-                            {h.week52_high > 0 ? `$${fmtPrice(h.week52_high)}` : '—'}
+                            {h.week52_high > 0 ? `$${fmtPrice(h.week52_high)}` : '–'}
                           </span>
                         </td>
 

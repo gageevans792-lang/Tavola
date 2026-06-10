@@ -319,7 +319,7 @@ export default function OnboardingPage() {
           </p>
 
           {/* ═══════════════════════════════════════════════════════════════════
-              STEP 1 — INVESTMENT GOALS
+              STEP 1: INVESTMENT GOALS
           ═══════════════════════════════════════════════════════════════════ */}
           {step === 1 && (
             <div>
@@ -372,7 +372,7 @@ export default function OnboardingPage() {
           )}
 
           {/* ═══════════════════════════════════════════════════════════════════
-              STEP 2 — TIME HORIZON
+              STEP 2: TIME HORIZON
           ═══════════════════════════════════════════════════════════════════ */}
           {step === 2 && (
             <div>
@@ -432,7 +432,7 @@ export default function OnboardingPage() {
           )}
 
           {/* ═══════════════════════════════════════════════════════════════════
-              STEP 3 — RISK TOLERANCE QUIZ
+              STEP 3: RISK TOLERANCE QUIZ
           ═══════════════════════════════════════════════════════════════════ */}
           {step === 3 && (
             <div>
@@ -571,7 +571,7 @@ export default function OnboardingPage() {
           )}
 
           {/* ═══════════════════════════════════════════════════════════════════
-              STEP 4 — FINANCIAL PICTURE
+              STEP 4: FINANCIAL PICTURE
           ═══════════════════════════════════════════════════════════════════ */}
           {step === 4 && (
             <div>
@@ -723,7 +723,7 @@ export default function OnboardingPage() {
           )}
 
           {/* ═══════════════════════════════════════════════════════════════════
-              STEP 5 — YOUR TAVOLA PLAN
+              STEP 5: YOUR TAVOLA PLAN
           ═══════════════════════════════════════════════════════════════════ */}
           {step === 5 && (
             <div>
@@ -826,7 +826,7 @@ export default function OnboardingPage() {
                   <div>
                     <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568]">Horizon</p>
                     <p className="text-[13px] text-[#0A1628] mt-0.5">
-                      {HORIZONS.find((h) => h.id === horizon)?.label ?? '—'}
+                      {HORIZONS.find((h) => h.id === horizon)?.label ?? '–'}
                     </p>
                   </div>
                   {netWorth && (

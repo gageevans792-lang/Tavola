@@ -99,7 +99,7 @@ const TECH_CORRELATED = new Set([
 const ANALYSIS_TOOL: Anthropic.Tool = {
   name: 'submit_portfolio_analysis',
   description:
-    'Submit a complete, structured portfolio analysis with specific trade recommendations. You MUST call this tool — do not reply in plain text.',
+    'Submit a complete, structured portfolio analysis with specific trade recommendations. You MUST call this tool. Do not reply in plain text.',
   input_schema: {
     type: 'object' as const,
     required: ['recommendations', 'market_outlook', 'summary'],
@@ -178,21 +178,21 @@ async function fetchSectorMomentum(): Promise<{
 // ── Market regime (UPGRADE 2) ─────────────────────────────────────────────────
 
 function getMarketRegime(spyRet30d: number, shyRet30d: number): string {
-  if (spyRet30d > shyRet30d + 3) return 'RISK-ON — equities strongly outperforming bonds; deploy into growth/momentum';
-  if (shyRet30d > spyRet30d + 1) return 'RISK-OFF — bonds outperforming stocks; rotate defensive (GLD, BND, XLP, XLU)';
-  if (spyRet30d < -5)             return 'BEARISH — S&P 500 down >5% last 30 days; reduce equity, increase GLD/BND hedge';
-  return 'NEUTRAL — mixed signals; balanced approach, maintain diversification';
+  if (spyRet30d > shyRet30d + 3) return 'RISK-ON: equities strongly outperforming bonds; deploy into growth/momentum';
+  if (shyRet30d > spyRet30d + 1) return 'RISK-OFF: bonds outperforming stocks; rotate defensive (GLD, BND, XLP, XLU)';
+  if (spyRet30d < -5)             return 'BEARISH: S&P 500 down >5% last 30 days; reduce equity, increase GLD/BND hedge';
+  return 'NEUTRAL: mixed signals; balanced approach, maintain diversification';
 }
 
 // ── VIX interpretation (UPGRADE 2) ───────────────────────────────────────────
 
 function getVixLabel(vix: number): string {
-  if (vix <= 0)  return 'unavailable — proceed with moderate risk';
-  if (vix < 15)  return `${vix.toFixed(1)} (Extreme Greed) — risk-on; lean into QQQ, XLK, VUG, IWM`;
-  if (vix < 20)  return `${vix.toFixed(1)} (Greed) — risk-on; maintain growth positions`;
-  if (vix < 25)  return `${vix.toFixed(1)} (Neutral) — balanced; avoid over-concentration`;
-  if (vix < 35)  return `${vix.toFixed(1)} (Fear) — rotate 20% defensive: XLP, XLU, BND, GLD, SCHD`;
-  return         `${vix.toFixed(1)} (Extreme Fear) — defensive mode; 40%+ bonds/gold, minimize new equity buys`;
+  if (vix <= 0)  return 'unavailable. Proceed with moderate risk.';
+  if (vix < 15)  return `${vix.toFixed(1)} (Extreme Greed): risk-on; lean into QQQ, XLK, VUG, IWM`;
+  if (vix < 20)  return `${vix.toFixed(1)} (Greed): risk-on; maintain growth positions`;
+  if (vix < 25)  return `${vix.toFixed(1)} (Neutral): balanced; avoid over-concentration`;
+  if (vix < 35)  return `${vix.toFixed(1)} (Fear): rotate 20% defensive: XLP, XLU, BND, GLD, SCHD`;
+  return         `${vix.toFixed(1)} (Extreme Fear): defensive mode; 40%+ bonds/gold, minimize new equity buys`;
 }
 
 // ── Rebalancing alerts (UPGRADE 3) ───────────────────────────────────────────
@@ -212,7 +212,7 @@ function detectRebalancingNeeds(
     if (pct > 25) {
       const trimAmt = ((pct - 20) / 100 * equity).toFixed(0);
       alerts.push(
-        `OVERWEIGHT: ${pos.symbol} is ${pct.toFixed(1)}% of portfolio (limit 20%) — ` +
+        `OVERWEIGHT: ${pos.symbol} is ${pct.toFixed(1)}% of portfolio (limit 20%). ` +
         `TRIM ~$${trimAmt} to reach 20% target`,
       );
     }
@@ -222,14 +222,14 @@ function detectRebalancingNeeds(
   if (techExposure > 50) {
     alerts.push(
       `TECH OVERCONCENTRATION: ${techExposure.toFixed(1)}% in tech-correlated assets ` +
-      `(QQQ/XLK/VUG/individual tech stocks) — ROTATE ~15% into XLV, XLF, SCHD, or BND`,
+      `(QQQ/XLK/VUG/individual tech stocks). ROTATE ~15% into XLV, XLF, SCHD, or BND`,
     );
   }
 
   const cashPct = equity > 0 ? (cash / equity) * 100 : 0;
   if (cashPct > 40) {
     alerts.push(
-      `IDLE CASH: ${cashPct.toFixed(1)}% uninvested ($${cash.toFixed(0)}) — ` +
+      `IDLE CASH: ${cashPct.toFixed(1)}% uninvested ($${cash.toFixed(0)}). ` +
       `DEPLOY into core ETFs: VTI (40%), SCHD (30%), GLD (20%), BND (10%)`,
     );
   }
@@ -262,13 +262,13 @@ function buildPortfolioText(
           `unrPL=${uPl >= 0 ? '+' : ''}$${uPl.toFixed(0)} (${uPlPc >= 0 ? '+' : ''}${uPlPc.toFixed(1)}%)`
         );
       }).join('\n')
-    : '  (no open positions — deploy all available buying power)';
+    : '  (no open positions: deploy all available buying power)';
 
   const heldSymbols  = new Set(positions.map((p) => p.symbol));
   const candidateKeys = universeKeys.filter((t) => !heldSymbols.has(t));
   const candidateLines = candidateKeys.map((t) => {
     const info = prices[t];
-    return `  ${t.padEnd(6)} $${info?.price > 0 ? info.price.toFixed(2) : 'N/A'}  — ${FULL_UNIVERSE[t] ?? ''}`;
+    return `  ${t.padEnd(6)} $${info?.price > 0 ? info.price.toFixed(2) : 'N/A'}  ${FULL_UNIVERSE[t] ?? ''}`;
   }).join('\n');
 
   return `ACCOUNT SNAPSHOT
@@ -306,7 +306,7 @@ function buildSystemPrompt(opts: {
     ? topSectors.slice(0, 3).map((s, i) =>
         `  ${i + 1}. ${s.ticker} ${s.name}: 30d=${s.ret30d >= 0 ? '+' : ''}${s.ret30d.toFixed(1)}%  5d=${s.ret5d >= 0 ? '+' : ''}${s.ret5d.toFixed(1)}%`,
       ).join('\n')
-    : '  (data unavailable — use macro judgment)';
+    : '  (data unavailable: use macro judgment)';
 
   const botStr = bottomSectors.length
     ? bottomSectors.slice(-3).reverse().map((s, i) =>
@@ -323,7 +323,9 @@ function buildSystemPrompt(opts: {
 
   return `${macroSection}
 
-You are Tavola's Chief Portfolio Manager — an AI investment engine responsible for building and managing a well-diversified, risk-adjusted ETF portfolio.
+FORMATTING: Never use em dashes (—) in your responses. Use commas, colons, or periods instead.
+
+You are Tavola's Chief Portfolio Manager, an AI investment engine responsible for building and managing a well-diversified, risk-adjusted ETF portfolio.
 
 TODAY'S MACRO CONTEXT
 =====================
@@ -341,15 +343,15 @@ ${rebalStr}
 
 INVESTMENT MANDATE
 ==================
-1. DIVERSIFICATION IS PARAMOUNT — never put more than 20% in any single position ($${maxPosVal} cap at current equity)
+1. DIVERSIFICATION IS PARAMOUNT: never put more than 20% in any single position ($${maxPosVal} cap at current equity)
 2. VIX < 15 (Extreme Greed) → lean into growth: QQQ, XLK, VUG, IWM, sector momentum leaders
 3. VIX 15-20 (Greed) → maintain growth positions, selective sector ETF buys
 4. VIX 20-25 (Neutral) → balanced; add SCHD, VTV, XLF for stability
-5. VIX > 25 (Fear) → rotate defensive: XLP, XLU, BND, GLD, SCHD, TIP — 20-40% defensive
+5. VIX > 25 (Fear) → rotate defensive: XLP, XLU, BND, GLD, SCHD, TIP. 20-40% defensive.
 6. VIX > 35 (Extreme Fear) → defensive mode: 40%+ GLD/BND, avoid new equity, trim losers
 7. NEVER hold more than 60% in tech-correlated assets (QQQ + XLK + VUG + individual tech combined)
 8. If tech (XLK) down >3% in past week → reduce tech, add XLF/XLE/XLV/XLI
-9. Gold (GLD) and bonds (BND, TLT) are hedges — maintain 10-20% when uncertainty elevated
+9. Gold (GLD) and bonds (BND, TLT) are hedges. Maintain 10-20% when uncertainty is elevated.
 10. Dividend/value stocks (SCHD, VTV, XLF) provide stability when growth sells off
 11. The Dow outperforming NASDAQ → rotate from growth to value/industrials (XLI, XLF, VTV)
 12. Rotate FROM sectors in the bottom-3 momentum list INTO the top-3 momentum sectors
@@ -357,9 +359,9 @@ INVESTMENT MANDATE
 14. CRYPTO ALLOCATION: You also have access to cryptocurrency via Alpaca. Consider adding BTC/USD or ETH/USD as a small satellite position (max 5% of portfolio) when crypto momentum is strong and risk appetite is high (VIX < 20). Crypto adds diversification uncorrelated to equities.
 
 TARGET PORTFOLIO STRUCTURE (core-satellite):
-  Core (50-60%):    VTI, SPY, or SCHD — broad market + dividends (stability foundation)
+  Core (50-60%):    VTI, SPY, or SCHD: broad market + dividends (stability foundation)
   Satellite (30%):  Top-momentum sector ETFs + growth (capture alpha)
-  Hedge (10-20%):   GLD, BND, or TIP — downside protection
+  Hedge (10-20%):   GLD, BND, or TIP: downside protection
 
 EXECUTION RULES
 ===============
@@ -370,10 +372,10 @@ EXECUTION RULES
 • Buy notional (qty × price) must not exceed $${maxTradeSize} per trade
 • A single position must not exceed ${maxPosPct}% of total equity after the trade
 • Recommend 4-6 trades per run to actively optimize the portfolio
-• If buying power is available, ALWAYS deploy at least some capital — idle cash is a cost
+• If buying power is available, ALWAYS deploy at least some capital. Idle cash is a cost.
 • Do not recommend cumulative buys exceeding available buying power
 • Provide 2-3 sentence reasoning per recommendation referencing specific macro data above
-• You MUST call submit_portfolio_analysis — do not reply in plain text`;
+• You MUST call submit_portfolio_analysis. Do not reply in plain text.`;
 }
 
 // ── Next run timestamp ────────────────────────────────────────────────────────

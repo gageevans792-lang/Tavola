@@ -8,13 +8,13 @@ import type { FinnhubIPO } from '@/lib/finnhub/client';
 import type { IpoAnalysis } from '@/app/api/ai/ipo/route';
 
 function fmtDate(dateStr: string): string {
-  if (!dateStr) return '—';
+  if (!dateStr) return '–';
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function fmtSharesValue(v: number): string {
-  if (!v) return '—';
+  if (!v) return '–';
   if (v >= 1_000_000_000) return '$' + (v / 1_000_000_000).toFixed(1) + 'B';
   if (v >= 1_000_000)     return '$' + (v / 1_000_000).toFixed(0) + 'M';
   return '$' + v.toLocaleString();
@@ -181,7 +181,7 @@ export default function IpoPage() {
                     {ipos.map((ipo, i) => (
                       <tr key={`${ipo.symbol}-${i}`} className="hover:bg-[#F8F9FA] transition-colors">
                         <td className="px-4 sm:px-6 py-4">
-                          <p className="font-medium text-[#0A1628] truncate max-w-[160px] sm:max-w-xs">{ipo.name || '—'}</p>
+                          <p className="font-medium text-[#0A1628] truncate max-w-[160px] sm:max-w-xs">{ipo.name || '–'}</p>
                           <p className={cn(
                             'text-[9px] tracking-[0.1em] uppercase mt-0.5',
                             ipo.status === 'expected' ? 'text-[#166534]' : 'text-[#4A5568]',
@@ -191,17 +191,17 @@ export default function IpoPage() {
                         </td>
                         <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
                           <span className="font-mono font-bold text-[#0A1628] text-xs">
-                            {ipo.symbol || '—'}
+                            {ipo.symbol || '–'}
                           </span>
                         </td>
                         <td className="px-4 sm:px-6 py-4 text-[#4A5568] hidden md:table-cell">
-                          {ipo.exchange || '—'}
+                          {ipo.exchange || '–'}
                         </td>
                         <td className="px-4 sm:px-6 py-4 text-[#0A1628] whitespace-nowrap">
                           {fmtDate(ipo.date)}
                         </td>
                         <td className="px-4 sm:px-6 py-4 font-mono text-[#0A1628] hidden lg:table-cell">
-                          {ipo.price ? `$${ipo.price}` : '—'}
+                          {ipo.price ? `$${ipo.price}` : '–'}
                         </td>
                         <td className="px-4 sm:px-6 py-4 text-right font-mono text-[#0A1628] hidden lg:table-cell">
                           {fmtSharesValue(ipo.totalSharesValue)}

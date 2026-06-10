@@ -308,7 +308,7 @@ function ConnectedView({
             <div>
               <p className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C] mb-0.5">AutoPilot</p>
               <p className="text-sm font-medium text-[#0A1628]">
-                AI AutoPilot Active — Deposits automatically invested by your AI agent
+                AI AutoPilot Active. Deposits automatically invested by your AI agent.
               </p>
             </div>
           </div>

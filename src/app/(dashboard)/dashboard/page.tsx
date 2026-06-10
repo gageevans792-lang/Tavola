@@ -297,11 +297,11 @@ export default function DashboardPage() {
   const p = portfolio;
   const loading = statsLoading && !p;
 
-  const portfolioValue = loading ? '' : p ? fmtUSD(p.equity)        : '$—';
-  const cashAvailable  = loading ? '' : p ? fmtUSD(p.cash)          : '$—';
-  const totalReturn    = loading ? '' : p ? fmtPL(p.total_return)   : '$—';
+  const portfolioValue = loading ? '' : p ? fmtUSD(p.equity)        : '$–';
+  const cashAvailable  = loading ? '' : p ? fmtUSD(p.cash)          : '$–';
+  const totalReturn    = loading ? '' : p ? fmtPL(p.total_return)   : '$–';
   const totalReturnPct = loading ? undefined : p ? fmtPct(p.total_return_pct) : undefined;
-  const dayPl          = loading ? '' : p ? fmtPL(p.day_pl)         : '$—';
+  const dayPl          = loading ? '' : p ? fmtPL(p.day_pl)         : '$–';
   const dayPlPct       = loading ? undefined : p ? fmtPct(p.day_pl_pct) : undefined;
   const dayPlChange    = loading ? undefined : p ? `${fmtPL(p.day_pl)} today` : undefined;
 
@@ -311,7 +311,7 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <TopBar
-        title={firstName ? `Dashboard — ${firstName}` : 'Dashboard'}
+        title={firstName ? `Dashboard | ${firstName}` : 'Dashboard'}
         onRunAnalysis={runAnalysis}
         analyzing={analyzing}
         mode={mode}
@@ -367,7 +367,7 @@ export default function DashboardPage() {
             <div className="bg-white overflow-hidden min-w-0 border border-[#E2E8F0]">
               <StatCard
                 title="Market Status"
-                value={marketOpen === null ? '—' : marketOpen ? 'Open' : 'Closed'}
+                value={marketOpen === null ? '–' : marketOpen ? 'Open' : 'Closed'}
                 change={marketOpen === null ? undefined : marketOpen ? 'NYSE · Live' : 'NYSE · After hours'}
                 changePositive={marketOpen === true ? true : undefined}
                 loading={false}
@@ -462,7 +462,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-1.5">
                     <span className={`h-1.5 w-1.5 rounded-full ${marketOpen ? 'bg-[#166534]' : 'bg-[#9CA3AF]'}`} />
                     <p className="text-[13px] font-medium text-[#0A1628]">
-                      {marketOpen === null ? '—' : marketOpen ? 'Market Open' : 'After Hours'}
+                      {marketOpen === null ? '–' : marketOpen ? 'Market Open' : 'After Hours'}
                     </p>
                   </div>
                 </div>
@@ -525,7 +525,7 @@ export default function DashboardPage() {
                 <p className="text-[10px] tracking-[0.15em] uppercase text-[#4A5568] mb-4">
                   Top Holdings</p>
                 {holdings.length === 0 ? (
-                  <p className="text-sm text-[#4A5568] italic">Your portfolio is empty — make your first trade to see holdings here.</p>
+                  <p className="text-sm text-[#4A5568] italic">Your portfolio is empty. Make your first trade to see holdings here.</p>
                 ) : (
                   <div className="space-y-3">
                     {holdings.slice(0, 8).map((h) => {

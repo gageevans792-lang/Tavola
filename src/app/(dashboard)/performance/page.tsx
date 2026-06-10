@@ -242,7 +242,7 @@ export default function PerformancePage() {
               {/* Return display */}
               <div>
                 <p className="text-[10px] tracking-[0.2em] uppercase text-[#4A5568] mb-2">
-                  Portfolio Return — {period}
+                  Portfolio Return: {period}
                 </p>
                 {loading ? (
                   <Skeleton h="h-14" w="w-48" />
@@ -552,9 +552,9 @@ export default function PerformancePage() {
                 <div className="space-y-0 divide-y divide-[#E2E8F0]">
                   {[
                     { label: 'Total Trades Executed', value: (d?.trade_stats.total_trades ?? 0).toString() },
-                    { label: 'Avg. Holding Period', value: d?.trade_stats.avg_holding_days ? `${d.trade_stats.avg_holding_days}d` : '—' },
-                    { label: 'Win Rate', value: d ? `${d.win_rate.toFixed(1)}%` : '—', color: d ? posColor(d.win_rate - 50) : undefined },
-                    { label: 'Sharpe Ratio (Period)', value: d ? d.sharpe_ratio.toFixed(2) : '—', color: d ? (d.sharpe_ratio >= 1 ? '#166534' : d.sharpe_ratio >= 0 ? '#B8960C' : '#991b1b') : undefined },
+                    { label: 'Avg. Holding Period', value: d?.trade_stats.avg_holding_days ? `${d.trade_stats.avg_holding_days}d` : '–' },
+                    { label: 'Win Rate', value: d ? `${d.win_rate.toFixed(1)}%` : '–', color: d ? posColor(d.win_rate - 50) : undefined },
+                    { label: 'Sharpe Ratio (Period)', value: d ? d.sharpe_ratio.toFixed(2) : '–', color: d ? (d.sharpe_ratio >= 1 ? '#166534' : d.sharpe_ratio >= 0 ? '#B8960C' : '#991b1b') : undefined },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="flex items-center justify-between py-3.5">
                       <span className="text-xs sm:text-[13px] text-[#4A5568]">{label}</span>

@@ -66,13 +66,13 @@ async function getVix(): Promise<VixReading> {
   try {
     const prices = await getTickerPrices(['VIXY']);
     const vix = prices['VIXY']?.price ?? 0;
-    if (vix === 0) return { vix: 0, sentiment: 'Neutral', portfolio_implication: 'VIX unavailable — monitor manually.' };
+    if (vix === 0) return { vix: 0, sentiment: 'Neutral', portfolio_implication: 'VIX unavailable. Monitor manually.' };
 
     let sentiment: FearGreedLabel;
     let portfolio_implication: string;
     if (vix < 15) {
       sentiment = 'Extreme Greed';
-      portfolio_implication = 'Low volatility — risk-on environment. Good time to deploy capital in equities.';
+      portfolio_implication = 'Low volatility. Risk-on environment. Good time to deploy capital in equities.';
     } else if (vix < 20) {
       sentiment = 'Greed';
       portfolio_implication = 'Calm markets. Maintain positions, consider selective buys.';
@@ -84,7 +84,7 @@ async function getVix(): Promise<VixReading> {
       portfolio_implication = 'Elevated fear. Reduce position sizes, increase cash buffer to 20%+.';
     } else {
       sentiment = 'Extreme Fear';
-      portfolio_implication = 'Extreme volatility. Defensive positioning — bonds, gold, cash. Avoid new equity positions.';
+      portfolio_implication = 'Extreme volatility. Defensive positioning: bonds, gold, cash. Avoid new equity positions.';
     }
     return { vix, sentiment, portfolio_implication };
   } catch {
@@ -168,11 +168,11 @@ export async function getMacroContext(): Promise<MacroContext> {
 
 export function buildMacroPromptSection(ctx: MacroContext): string {
   const fedStance = ctx.fed.length > 0
-    ? ctx.fed[0].sentiment.toUpperCase() + ' — ' + ctx.fed[0].title
+    ? ctx.fed[0].sentiment.toUpperCase() + ': ' + ctx.fed[0].title
     : 'No recent Fed communications';
 
   const vixLine = ctx.vix.vix > 0
-    ? `VIXY ~${ctx.vix.vix.toFixed(2)} — ${ctx.vix.sentiment}. ${ctx.vix.portfolio_implication}`
+    ? `VIXY ~${ctx.vix.vix.toFixed(2)} (${ctx.vix.sentiment}). ${ctx.vix.portfolio_implication}`
     : 'VIX data unavailable';
 
   const eventsLine = ctx.events.length > 0

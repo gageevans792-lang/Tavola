@@ -212,7 +212,7 @@ function TradeTable({
                 <RiskBadge level={row.risk_level} />
               </td>
               <td className="py-3 pr-4 font-mono tabular-nums text-[#0A1628]">
-                {row.estimated_value != null ? fmtUSD(row.estimated_value) : '—'}
+                {row.estimated_value != null ? fmtUSD(row.estimated_value) : '–'}
               </td>
               <td className="py-3 pr-4">
                 {row.isExecuted ? (
@@ -221,7 +221,7 @@ function TradeTable({
                     <span className="text-[11px] uppercase tracking-[0.08em]">Executed</span>
                   </span>
                 ) : row.action === 'hold' ? (
-                  <span className="text-[#4A5568]">—</span>
+                  <span className="text-[#4A5568]">–</span>
                 ) : (
                   <span className="flex items-center gap-1 text-[#166534]">
                     <span>✓</span>
@@ -670,7 +670,7 @@ export default function AutonomousPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 flex-shrink-0 text-[#B8960C]">·</span>
-                    Enforces risk limits — position sizing and confidence thresholds
+                    Enforces risk limits: position sizing and confidence thresholds
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 flex-shrink-0 text-[#B8960C]">·</span>

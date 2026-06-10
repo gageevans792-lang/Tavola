@@ -245,7 +245,7 @@ export function HoldingsTable({ holdings, sentimentScores, sentimentLoading }: H
                           )}
                         </button>
                       ) : (
-                        <span className="text-[11px] text-[#4A5568]/40">—</span>
+                        <span className="text-[11px] text-[#4A5568]/40">–</span>
                       )}
                     </td>
                   )}

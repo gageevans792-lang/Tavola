@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Legal — Tavola',
+  title: 'Legal | Tavola',
 };
 
 const documents = [
@@ -81,7 +81,7 @@ export default function LegalPage() {
           </p>
           <p className="mt-3 text-[12px] text-[#4A5568]/60">
             Tavola is a paper trading platform for educational purposes. Not investment advice.
-            All trading during the beta period is simulated — no real money is involved.
+            All trading during the beta period is simulated. No real money is involved.
           </p>
         </div>
       </main>

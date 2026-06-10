@@ -79,7 +79,7 @@ export const STRATEGIES: InvestmentStrategy[] = [
       'Capital preservation paramount',
     ],
     system_prompt:
-      'Prioritize equities with dividend yields above 2.5% and payout ratios below 75%. Focus on Utilities, Consumer Staples, Healthcare, and REITs. Capital preservation is paramount — avoid speculative positions. Only recommend buy or sell when there is high conviction supported by yield sustainability and balance sheet strength.',
+      'Prioritize equities with dividend yields above 2.5% and payout ratios below 75%. Focus on Utilities, Consumer Staples, Healthcare, and REITs. Capital preservation is paramount. Avoid speculative positions. Only recommend buy or sell when there is high conviction supported by yield sustainability and balance sheet strength.',
   },
   {
     id: 'momentum',
@@ -108,7 +108,7 @@ export const STRATEGIES: InvestmentStrategy[] = [
     name: 'AI Conviction',
     tagline: 'Full analytical freedom, maximum conviction',
     description:
-      'Unleashes the full analytical arsenal — technical, fundamental, macro, and sentiment — with no sector constraints. Built for investors seeking maximum AI-driven alpha.',
+      'Unleashes the full analytical arsenal: technical, fundamental, macro, and sentiment, with no sector constraints. Built for investors seeking maximum AI-driven alpha.',
     risk_level: 'very_aggressive',
     target_return_pct: 13,
     max_drawdown_pct: 25,
@@ -123,7 +123,7 @@ export const STRATEGIES: InvestmentStrategy[] = [
       'Maximum alpha pursuit',
     ],
     system_prompt:
-      'Apply full analytical freedom — technical analysis (RSI, MACD, support/resistance levels), fundamental analysis, macro environment assessment, and market sentiment. No sector constraints. Identify the highest-conviction opportunities regardless of category, using every analytical lens available to generate maximum alpha.',
+      'Apply full analytical freedom: technical analysis (RSI, MACD, support/resistance levels), fundamental analysis, macro environment assessment, and market sentiment. No sector constraints. Identify the highest-conviction opportunities regardless of category, using every analytical lens available to generate maximum alpha.',
   },
 ];
 

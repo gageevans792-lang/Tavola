@@ -19,7 +19,7 @@ function fmtPct(n: number): string {
 }
 
 function fmtTime(iso: string): string {
-  if (!iso) return '—';
+  if (!iso) return '–';
   try {
     return new Date(iso).toLocaleTimeString('en-US', {
       hour:   'numeric',
@@ -27,7 +27,7 @@ function fmtTime(iso: string): string {
       hour12: true,
     });
   } catch {
-    return '—';
+    return '–';
   }
 }
 

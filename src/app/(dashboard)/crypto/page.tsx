@@ -31,7 +31,7 @@ const CRYPTO_NAMES: Record<string, string> = {
 const TILE_SYMBOLS = ['BTC/USD', 'ETH/USD', 'SOL/USD', 'DOGE/USD', 'AVAX/USD', 'LINK/USD'];
 
 function fmtPrice(n: number): string {
-  if (!n) return '—';
+  if (!n) return '–';
   if (n >= 1000) return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 });
   if (n >= 1)    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
   return '$' + n.toFixed(6);
@@ -130,14 +130,14 @@ export default function CryptoPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setTradeMsg({ text: `Order placed — ${tradeSide.toUpperCase()} $${amt} ${tradeSymbol}`, ok: true });
+        setTradeMsg({ text: `Order placed: ${tradeSide.toUpperCase()} $${amt} ${tradeSymbol}`, ok: true });
         setTradeAmount('');
         setTimeout(fetchPositions, 3000);
       } else {
         setTradeMsg({ text: data.error ?? 'Order failed', ok: false });
       }
     } catch {
-      setTradeMsg({ text: 'Order failed — please try again', ok: false });
+      setTradeMsg({ text: 'Order failed. Please try again.', ok: false });
     } finally {
       setTradeLoading(false);
     }
@@ -203,7 +203,7 @@ export default function CryptoPage() {
                         'mt-1 text-[13px] font-medium',
                         pos ? 'text-[#166534]' : neg ? 'text-[#991b1b]' : 'text-[#4A5568]',
                       )}>
-                        {pos ? '▲' : neg ? '▼' : ''} {p.price > 0 ? fmtPct(p.change_pct_24h) : '—'}
+                        {pos ? '▲' : neg ? '▼' : ''} {p.price > 0 ? fmtPct(p.change_pct_24h) : '–'}
                       </p>
                     </div>
                   );
@@ -318,7 +318,7 @@ export default function CryptoPage() {
                   >
                     {prices.filter((p) => p.price > 0).map((p) => (
                       <option key={p.symbol} value={p.symbol}>
-                        {p.symbol.replace('/USD', '')} — {CRYPTO_NAMES[p.symbol]} ({fmtPrice(p.price)})
+                        {p.symbol.replace('/USD', '')} · {CRYPTO_NAMES[p.symbol]} ({fmtPrice(p.price)})
                       </option>
                     ))}
                   </select>

@@ -150,7 +150,7 @@ export async function POST() {
     const aiResponse = await anthropic.messages.create({
       model:      'claude-sonnet-4-6',
       max_tokens: 200,
-      system: `You are Tavola's Chief Investment Strategist. Generate exactly three atomic market signals — one sentence each, bold and specific.
+      system: `You are Tavola's Chief Investment Strategist. Generate exactly three atomic market signals, one sentence each, bold and specific. Never use em dashes (—) in your responses.
 
 Output format (three lines only, no other text):
 MARKET SENTIMENT: [one punchy sentence on today's market tone, max 15 words]

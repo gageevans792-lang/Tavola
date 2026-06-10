@@ -95,10 +95,10 @@ export function MobileNav() {
                 }),
             );
           } else {
-            setEquity('—');
+            setEquity('–');
           }
         })
-        .catch(() => { setEquity('—'); })
+        .catch(() => { setEquity('–'); })
         .finally(() => { setEquityLoading(false); });
     } else {
       document.body.style.overflow = '';
@@ -155,7 +155,7 @@ export function MobileNav() {
                 <div className="h-[22px] w-28 animate-pulse rounded bg-white/10" />
               ) : (
                 <p className="font-mono text-[18px] text-white tabular-nums">
-                  {equity ?? '—'}
+                  {equity ?? '–'}
                 </p>
               )}
             </div>

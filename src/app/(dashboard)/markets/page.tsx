@@ -13,12 +13,12 @@ import type { SnapshotTile, SnapshotResponse } from '@/app/api/market/snapshot/r
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 function fmtPrice(n: number): string {
-  if (!n) return '—';
+  if (!n) return '–';
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmtChangePct(pct: number): string {
-  if (!pct) return '—';
+  if (!pct) return '–';
   return (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
 }
 
@@ -226,7 +226,7 @@ export default function MarketsPage() {
                         AI SIGNAL · {label}
                       </p>
                       <p className="font-serif text-[14px] sm:text-[15px] font-light leading-snug text-[#0A1628]">
-                        {text || '—'}
+                        {text || '–'}
                       </p>
                       {signals && (
                         <p className="mt-3 text-[10px] text-[#4A5568]">
@@ -419,7 +419,7 @@ export default function MarketsPage() {
                         'mt-1 font-serif text-[16px] sm:text-[18px] font-light leading-none',
                         pos ? 'text-[#166534]' : neg ? 'text-[#991b1b]' : 'text-[#4A5568]',
                       )}>
-                        {pos ? '▲' : neg ? '▼' : ''} {tile.change_pct ? Math.abs(tile.change_pct).toFixed(2) + '%' : '—'}
+                        {pos ? '▲' : neg ? '▼' : ''} {tile.change_pct ? Math.abs(tile.change_pct).toFixed(2) + '%' : '–'}
                       </p>
                     </div>
                   );

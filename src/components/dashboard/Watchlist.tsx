@@ -213,7 +213,7 @@ export function Watchlist() {
                     </span>
                   </>
                 ) : (
-                  <span className="ml-auto text-xs text-[#4A5568]/60">—</span>
+                  <span className="ml-auto text-xs text-[#4A5568]/60">–</span>
                 )}
 
                 <button

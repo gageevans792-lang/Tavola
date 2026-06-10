@@ -71,7 +71,7 @@ export default function OptionsPage() {
               Options Trading
             </h1>
             <p className="text-[15px] sm:text-[17px] text-[#4A5568] max-w-xl mx-auto leading-relaxed">
-              Covered calls, protective puts, and AI-generated options strategies — built for intelligent investors.
+              Covered calls, protective puts, and AI-generated options strategies, built for intelligent investors.
             </p>
           </div>
 

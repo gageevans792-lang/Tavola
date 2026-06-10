@@ -98,7 +98,7 @@ Your mandate:
 • Analyse the user's current holdings, cash position, and recent performance
 • Consider macro context and sector concentration
 • Generate specific, actionable trade recommendations aligned with the user's risk profile
-• Never recommend trades purely for activity — only act when there is genuine conviction
+• Never recommend trades purely for activity. Only act when there is genuine conviction.
 
 Risk profile: ${risk_level.toUpperCase()}
 ${RISK_GUIDANCE[risk_level] ?? RISK_GUIDANCE.balanced}
@@ -111,7 +111,7 @@ Execution rules:
 • Do not recommend buying a symbol already at max allocation
 • Provide reasoning that references actual data from the snapshot provided
 
-Always call submit_portfolio_analysis with your complete analysis — do not respond in plain text.`;
+Always call submit_portfolio_analysis with your complete analysis. Do not respond in plain text.`;
 }
 
 function userPrompt(input: AnalysisInput): string {
@@ -128,7 +128,7 @@ function userPrompt(input: AnalysisInput): string {
               `Today ${(p.daily_change_pct >= 0 ? '+' : '') + p.daily_change_pct.toFixed(2)}%`,
           )
           .join('\n')
-      : '  (no current positions — deploy available cash)';
+      : '  (no current positions: deploy available cash)';
 
   const watchBlock =
     Object.keys(input.watchlist_prices).length > 0
@@ -150,7 +150,7 @@ CURRENT POSITIONS
 ══════════════════
 ${posBlock}
 
-WATCHLIST — candidate buys
+WATCHLIST: candidate buys
 ══════════════════
 ${watchBlock}
 

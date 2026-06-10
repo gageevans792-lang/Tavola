@@ -91,7 +91,7 @@ function buildReasoning(
       return `Position down ${Math.abs(unrealizedPlpc * 100).toFixed(1)}% from entry. Monitor closely for further deterioration.`;
     }
     if (unrealizedPlpc > 0) {
-      return `Position up ${pctStr}% — maintaining current exposure. Monitor for momentum continuation.`;
+      return `Position up ${pctStr}%. Maintaining current exposure. Monitor for momentum continuation.`;
     }
     return `Position near entry price. Holding steady within normal volatility range.`;
   }

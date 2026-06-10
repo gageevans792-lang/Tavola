@@ -80,7 +80,7 @@ function assertExecutable(
     throw new Error('Insight has already been executed');
   }
   if (insight.type !== 'buy' && insight.type !== 'sell') {
-    throw new Error(`Insight type "${insight.type}" is not executable — only buy/sell can be traded`);
+    throw new Error(`Insight type "${insight.type}" is not executable: only buy/sell can be traded`);
   }
   if (!insight.ticker) {
     throw new Error('Insight has no ticker');

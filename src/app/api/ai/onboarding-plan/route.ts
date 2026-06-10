@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `Write exactly 2 sentences for a personalized investment strategy summary. Be specific, institutional, and direct — no fluff, no emojis, no markdown.
+          content: `Write exactly 2 sentences for a personalized investment strategy summary. Be specific, institutional, and direct. No fluff, no emojis, no markdown.
 
 Investor profile:
 - Primary goals: ${goalText}

@@ -280,7 +280,7 @@ export default function ChatPage() {
             </button>
           </div>
           <p className="max-w-2xl mx-auto mt-2 text-[10px] text-[#4A5568]/50">
-            Press Enter to send · Shift+Enter for new line · AI may make errors — verify trades before confirming
+            Press Enter to send · Shift+Enter for new line · AI may make errors. Verify trades before confirming.
           </p>
         </div>
 

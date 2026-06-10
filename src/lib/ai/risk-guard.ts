@@ -89,7 +89,7 @@ export function applyRiskGuard(
       const tradePct = tradeValue / ctx.portfolioValue;
       if (tradePct > MAX_TRADE_PORTFOLIO_PCT) {
         reject(
-          `Trade value $${tradeValue.toFixed(0)} is ${(tradePct * 100).toFixed(1)}% of portfolio — hard cap is ${MAX_TRADE_PORTFOLIO_PCT * 100}%`,
+          `Trade value $${tradeValue.toFixed(0)} is ${(tradePct * 100).toFixed(1)}% of portfolio. Hard cap is ${MAX_TRADE_PORTFOLIO_PCT * 100}%.`,
         );
         continue;
       }
@@ -107,7 +107,7 @@ export function applyRiskGuard(
       // ── Buying power ───────────────────────────────────────────────────────
       if (cashReserved + tradeValue > ctx.availableCash) {
         reject(
-          `Insufficient buying power — need $${tradeValue.toFixed(0)}, $${(ctx.availableCash - cashReserved).toFixed(0)} remaining`,
+          `Insufficient buying power. Need $${tradeValue.toFixed(0)}, $${(ctx.availableCash - cashReserved).toFixed(0)} remaining.`,
         );
         continue;
       }
@@ -120,7 +120,7 @@ export function applyRiskGuard(
 
         if (projectedPct > config.max_position_pct) {
           reject(
-            `Would create ${(projectedPct * 100).toFixed(1)}% concentration — max is ${(config.max_position_pct * 100).toFixed(0)}%`,
+            `Would create ${(projectedPct * 100).toFixed(1)}% concentration. Max is ${(config.max_position_pct * 100).toFixed(0)}%.`,
           );
           continue;
         }
@@ -136,7 +136,7 @@ export function applyRiskGuard(
         const projectedCount = existingPositionCount + newPositions.size;
         if (projectedCount > MAX_POSITION_COUNT_WARN) {
           warnings.push(
-            `Portfolio would have ${projectedCount} positions after buying ${rec.symbol} — consider diversification risk (warning threshold: ${MAX_POSITION_COUNT_WARN})`,
+            `Portfolio would have ${projectedCount} positions after buying ${rec.symbol}. Consider diversification risk (warning threshold: ${MAX_POSITION_COUNT_WARN}).`,
           );
         }
       }

@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
     const estimatedNotional = qty * pricePerShare;
     if (estimatedNotional > MAX_ORDER_NOTIONAL) {
       const priceNote = priceUnavailable
-        ? ` (price unavailable — used $${FALLBACK_PRICE_PER_SHARE}/share estimate)`
+        ? ` (price unavailable: used $${FALLBACK_PRICE_PER_SHARE}/share estimate)`
         : ` (price: $${pricePerShare.toFixed(2)}/share)`;
       return NextResponse.json(
         {

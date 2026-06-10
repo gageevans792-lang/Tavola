@@ -17,7 +17,7 @@ import type {
 const ANALYSIS_TOOL: Anthropic.Tool = {
   name: 'submit_portfolio_analysis',
   description:
-    'Submit a complete, structured portfolio analysis with specific trade recommendations. You MUST call this tool — do not reply in plain text.',
+    'Submit a complete, structured portfolio analysis with specific trade recommendations. You MUST call this tool. Do not reply in plain text.',
   input_schema: {
     type: 'object' as const,
     required: ['recommendations', 'market_outlook', 'summary'],
@@ -203,7 +203,9 @@ Rules you must follow:
 • Provide 2–3 sentence reasoning that references the data you were given
 • If a ticker shows price=N/A, note this in your reasoning and estimate conservatively${pricingNote}
 
-You MUST call submit_portfolio_analysis — do not reply in plain text.`;
+FORMATTING: Never use em dashes (—) in your responses. Use commas, colons, or periods instead.
+
+You MUST call submit_portfolio_analysis. Do not reply in plain text.`;
 
     const systemPrompt = `You are a senior AI portfolio manager operating under the "${finalStrategy.name}" strategy.
 

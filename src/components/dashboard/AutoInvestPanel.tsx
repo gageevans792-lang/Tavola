@@ -56,7 +56,7 @@ function WatchlistInput({
   return (
     <div>
       <label className="block text-xs font-medium text-[#4A5568] mb-1">
-        Watchlist — candidate buys
+        Watchlist: candidate buys
       </label>
       <div className="flex flex-wrap gap-1.5 mb-2">
         {value.map((sym) => (
@@ -380,7 +380,7 @@ export function AutoInvestPanel() {
               <div className="mb-2 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-[#B8960C]" />
                 <h4 className="text-sm font-medium text-[#0A1628]">
-                  Recommendations — approve to execute ({actionablePending.length})
+                  Recommendations: approve to execute ({actionablePending.length})
                 </h4>
               </div>
               <div className="space-y-2">

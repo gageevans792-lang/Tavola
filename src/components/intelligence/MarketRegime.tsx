@@ -18,19 +18,19 @@ const REGIME_CONFIG: Record<
 > = {
   bull: {
     label: 'Bull Market',
-    description: 'Bull Market — Risk appetite elevated',
+    description: 'Bull Market: risk appetite elevated',
     markerPct: 80,
     textColor: '#166534',
   },
   bear: {
     label: 'Bear Market',
-    description: 'Bear Market — Defensive positioning advised',
+    description: 'Bear Market: defensive positioning advised',
     markerPct: 20,
     textColor: '#991b1b',
   },
   neutral: {
     label: 'Neutral',
-    description: 'Neutral — Mixed signals, maintain current allocation',
+    description: 'Neutral: mixed signals, maintain current allocation',
     markerPct: 50,
     textColor: '#4A5568',
   },

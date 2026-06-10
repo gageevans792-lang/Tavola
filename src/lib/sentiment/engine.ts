@@ -581,7 +581,7 @@ export async function detectNarrativeShift(ticker: string): Promise<NarrativeShi
 
   const shiftDetected = direction !== 'stable';
   const shiftDesc = shiftDetected
-    ? `${ticker}'s narrative has ${direction === 'improving' ? 'improved' : 'deteriorated'} — ` +
+    ? `${ticker}'s narrative has ${direction === 'improving' ? 'improved' : 'deteriorated'}, ` +
       `shifting from "${previousTheme}" to "${currentTheme}" over the past week`
     : `${ticker}'s narrative remains stable around "${currentTheme}"`;
 
@@ -613,7 +613,7 @@ export function buildSentimentPromptSection(
     const shift   = narratives[s.ticker]?.shift_detected
       ? ` NARRATIVE: ${narratives[s.ticker].shift_description}`
       : '';
-    return `  ${s.ticker.padEnd(7)} score=${s.overall_score > 0 ? '+' : ''}${s.overall_score} (${s.sentiment_label}, conf=${s.confidence}%) — ${signals}${flags}${shift}`;
+    return `  ${s.ticker.padEnd(7)} score=${s.overall_score > 0 ? '+' : ''}${s.overall_score} (${s.sentiment_label}, conf=${s.confidence}%): ${signals}${flags}${shift}`;
   });
 
   return `

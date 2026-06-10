@@ -56,7 +56,7 @@ const ALERT_CONFIG: Record<string, AlertConfig> = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtPrice(n: number): string {
-  if (n === 0) return '—';
+  if (n === 0) return '–';
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 

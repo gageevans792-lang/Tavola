@@ -51,7 +51,7 @@ Respond with ONLY a JSON object (no markdown, no explanation) in this exact form
       analysis = {
         market_regime:   'Mixed signals across the crypto market.',
         top_opportunity: 'No clear opportunity identified at this time.',
-        risk_warning:    'Elevated volatility — maintain disciplined position sizing.',
+        risk_warning:    'Elevated volatility. Maintain disciplined position sizing.',
       };
     }
 

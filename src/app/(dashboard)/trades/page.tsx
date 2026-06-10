@@ -27,7 +27,7 @@ function fmtDateTime(iso: string): string {
 }
 
 function fmtPrice(price: number | null): string {
-  if (price == null) return '—';
+  if (price == null) return '–';
   return '$' + price.toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -35,7 +35,7 @@ function fmtPrice(price: number | null): string {
 }
 
 function fmtTotal(qty: number, price: number | null): string {
-  if (price == null) return '—';
+  if (price == null) return '–';
   const total = qty * price;
   return '$' + total.toLocaleString('en-US', {
     minimumFractionDigits: 2,

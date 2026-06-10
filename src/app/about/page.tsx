@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'About — Tavola',
+  title: 'About | Tavola',
   description: 'Everyone deserves a seat at the table. Tavola brings institutional-grade AI investing to everyone.',
 };
 
@@ -49,12 +49,12 @@ export default function AboutPage() {
           </h1>
           <p className="text-[16px] leading-[1.9] text-[#0A1628]/60 max-w-[560px] mb-6">
             For too long, sophisticated investing has been reserved for the wealthy. The best
-            portfolio managers, the smartest strategies, the most advanced market intelligence —
+            portfolio managers, the smartest strategies, the most advanced market intelligence,
             all locked behind minimum investments of $1 million or more.
           </p>
           <p className="text-[16px] leading-[1.9] text-[#0A1628]/60 max-w-[560px]">
             Tavola changes that. We built an AI that thinks, adapts, and executes like a Goldman
-            Sachs portfolio manager — and we put it in everyone&apos;s pocket. Free.
+            Sachs portfolio manager. We put it in everyone&apos;s pocket. Free.
           </p>
           <div className="mt-14 w-full h-px bg-[#B8960C]/35" />
         </div>
@@ -105,7 +105,7 @@ export default function AboutPage() {
             {[
               {
                 title: 'Your AI Portfolio Manager',
-                body: 'Tavola AI analyzes thousands of data points every hour — market conditions, news sentiment, economic indicators, insider activity — and manages your portfolio the way a seasoned fund manager would. Except it never sleeps, never takes a vacation, and never charges you $10,000 a year.',
+                body: 'Tavola AI analyzes thousands of data points every hour: market conditions, news sentiment, economic indicators, insider activity. It manages your portfolio the way a seasoned fund manager would, except it never sleeps, never takes a vacation, and never charges you $10,000 a year.',
               },
               {
                 title: 'Institutional Strategy. Zero Minimums.',
@@ -184,7 +184,7 @@ export default function AboutPage() {
             </h2>
             <div className="space-y-5 text-[15px] leading-[1.85] text-[#4A5568]">
               <p>
-                I grew up watching people around me work incredibly hard — and still struggle to
+                I grew up watching people around me work incredibly hard and still struggle to
                 build wealth. Not because they weren&apos;t smart enough or disciplined enough.
                 But because the financial system was never designed to help them.
               </p>
@@ -193,8 +193,8 @@ export default function AboutPage() {
                 people who could afford one already had generational wealth working for them.
               </p>
               <p>
-                I built Tavola to change that equation. To give everyone — regardless of
-                background, net worth, or financial knowledge — access to the same quality of
+                I built Tavola to change that equation. To give everyone, regardless of
+                background, net worth, or financial knowledge, access to the same quality of
                 investment management that used to cost millions to access.
               </p>
               <p>
@@ -202,7 +202,7 @@ export default function AboutPage() {
               </p>
             </div>
             <div className="mt-10 pt-8 border-t border-[#E2E8F0]">
-              <p className="font-serif text-[18px] font-light text-[#0A1628]">— Gage Evans</p>
+              <p className="font-serif text-[18px] font-light text-[#0A1628]">Gage Evans</p>
               <p className="text-[11px] tracking-[0.18em] uppercase text-[#B8960C] mt-1">
                 Founder, Tavola
               </p>

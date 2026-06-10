@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Privacy Policy — Tavola',
+  title: 'Privacy Policy | Tavola',
 };
 
 const LAST_UPDATED = 'June 2025';
@@ -116,7 +116,7 @@ export default function PrivacyPage() {
                 'To comply with applicable laws and legal obligations.',
               ].map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-[#B8960C] shrink-0 mt-1">—</span>
+                  <span className="text-[#B8960C] shrink-0 mt-1">·</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -186,7 +186,7 @@ export default function PrivacyPage() {
               ].map(({ name, role, detail }) => (
                 <div key={name} className="pl-4 border-l-2 border-[#E2E8F0]">
                   <p className="font-medium text-[#0A1628] mb-0.5">
-                    {name} <span className="font-normal text-[#4A5568]">— {role}</span>
+                    {name}<span className="font-normal text-[#4A5568]">, {role}</span>
                   </p>
                   <p>{detail}</p>
                 </div>
@@ -206,13 +206,13 @@ export default function PrivacyPage() {
               {[
                 'All data is transmitted over HTTPS with TLS 1.2+ encryption.',
                 'Passwords are hashed using bcrypt and never stored in plaintext.',
-                'Supabase Row-Level Security (RLS) ensures database isolation — your data is never accessible to other users.',
+                'Supabase Row-Level Security (RLS) ensures database isolation. Your data is never accessible to other users.',
                 'API keys for third-party services (Alpaca, Finnhub, Anthropic) are stored as server-side environment variables and never exposed to the browser.',
                 'Stripe handles payment data under PCI-DSS Level 1 compliance.',
                 'Access to production systems is restricted to authorized personnel only.',
               ].map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-[#B8960C] shrink-0 mt-1">—</span>
+                  <span className="text-[#B8960C] shrink-0 mt-1">·</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -289,7 +289,7 @@ export default function PrivacyPage() {
                 'Performance results displayed are simulated and do not represent actual investment returns.',
               ].map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-[#B8960C] shrink-0 mt-1">—</span>
+                  <span className="text-[#B8960C] shrink-0 mt-1">·</span>
                   <span>{item}</span>
                 </li>
               ))}

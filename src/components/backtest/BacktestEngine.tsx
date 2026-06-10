@@ -138,7 +138,7 @@ export function BacktestEngine({ isPublic = false }: Props) {
       if (!res.ok) { setError(data.error ?? 'Backtest failed'); return; }
       setResult(data as BacktestResult);
     } catch {
-      setError('Network error — please try again');
+      setError('Network error. Please try again.');
     } finally {
       setRunning(false);
     }

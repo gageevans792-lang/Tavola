@@ -64,7 +64,7 @@ export function Toast({ data, onDismiss }: ToastProps) {
           </p>
           <p className="text-sm text-[#0A1628]">
             <span className="font-medium">{data.ticker}</span>
-            {' '}{verb} — {data.qty} {data.qty === 1 ? 'share' : 'shares'}{price}
+            {' '}{verb}: {data.qty} {data.qty === 1 ? 'share' : 'shares'}{price}
           </p>
         </div>
         <button

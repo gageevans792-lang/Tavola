@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Terms of Service — Tavola',
+  title: 'Terms of Service | Tavola',
 };
 
 const LAST_UPDATED = 'June 2025';
@@ -53,7 +53,7 @@ export default function TermsPage() {
             <strong className="text-[#991b1b]">Tavola does not provide investment advice.</strong>{' '}
             The platform is an AI-powered paper trading tool for educational and entertainment purposes
             only. Nothing on this platform constitutes a recommendation, solicitation, or offer to buy
-            or sell any security. All trading during the beta period is simulated — no real money is
+            or sell any security. All trading during the beta period is simulated. No real money is
             invested. Past performance of any strategy does not guarantee future results. You can lose
             money in real markets.
           </p>
@@ -94,7 +94,7 @@ export default function TermsPage() {
                 'AutoPilot automated paper trading based on user-configured parameters',
               ].map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-[#B8960C] shrink-0 mt-1">—</span>
+                  <span className="text-[#B8960C] shrink-0 mt-1">·</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -112,8 +112,8 @@ export default function TermsPage() {
               ANY OTHER TYPE OF FINANCIAL PROFESSIONAL.
             </p>
             <p>
-              Nothing on the platform — including AI-generated recommendations, portfolio analysis,
-              sentiment scores, earnings intelligence, or any other content — constitutes investment
+              Nothing on the platform, including AI-generated recommendations, portfolio analysis,
+              sentiment scores, earnings intelligence, or any other content, constitutes investment
               advice, financial advice, trading advice, or any other type of advice. You should not
               treat any content on this platform as such.
             </p>
@@ -144,7 +144,7 @@ export default function TermsPage() {
                 'Deposits initiated through the platform are simulated and do not result in real ACH transfers.',
               ].map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-[#B8960C] shrink-0 mt-1">—</span>
+                  <span className="text-[#B8960C] shrink-0 mt-1">·</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -167,7 +167,7 @@ export default function TermsPage() {
                 'Provide accurate, current, and complete registration information.',
               ].map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-[#B8960C] shrink-0 mt-1">—</span>
+                  <span className="text-[#B8960C] shrink-0 mt-1">·</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -194,7 +194,7 @@ export default function TermsPage() {
                 'Use AI-generated recommendations to make real investment decisions without independent verification.',
               ].map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-[#991b1b] shrink-0 mt-1">—</span>
+                  <span className="text-[#991b1b] shrink-0 mt-1">·</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -216,10 +216,10 @@ export default function TermsPage() {
                 'The AI may make systematic errors, be subject to hallucinations, or produce recommendations based on outdated information.',
                 'Market conditions can change rapidly in ways that invalidate any recommendation.',
                 'AI models cannot account for your full financial situation, tax position, or risk tolerance.',
-                'AutoPilot executes trades automatically based on AI decisions — automated trading carries additional risks.',
+                'AutoPilot executes trades automatically based on AI decisions. Automated trading carries additional risks.',
               ].map((item) => (
                 <li key={item} className="flex gap-2">
-                  <span className="text-[#991b1b] shrink-0 mt-1">—</span>
+                  <span className="text-[#991b1b] shrink-0 mt-1">·</span>
                   <span>{item}</span>
                 </li>
               ))}

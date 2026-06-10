@@ -159,13 +159,13 @@ export default function InsightsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 font-mono text-xs font-bold text-[#0A1628] tracking-wide">
-                        {insight.ticker ?? '—'}
+                        {insight.ticker ?? '–'}
                       </td>
                       <td className="px-6 py-4 text-[#4A5568] max-w-sm">
                         <p className="line-clamp-2 text-xs leading-relaxed">{insight.message}</p>
                       </td>
                       <td className="px-6 py-4 text-[#4A5568] whitespace-nowrap text-xs">
-                        {insight.confidence_score !== null ? `${insight.confidence_score}%` : '—'}
+                        {insight.confidence_score !== null ? `${insight.confidence_score}%` : '–'}
                       </td>
                       <td className="px-6 py-4 text-[#4A5568] whitespace-nowrap text-xs">
                         {new Date(insight.created_at).toLocaleDateString('en-US', {
