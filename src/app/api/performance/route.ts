@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
   const VALID_PERIODS = ['1W', '1M', '3M', '6M', '1Y', 'ALL'];
   const safePeriod = VALID_PERIODS.includes(period) ? period : '3M';
 
-  if (!isFounder(user.id)) {
+  if (!isFounder(user.id, user.email)) {
     const BASELINE = 100_000;
     const today = new Date();
     const days = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365, 'ALL': 90 }[safePeriod] ?? 90;

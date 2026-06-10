@@ -277,7 +277,7 @@ export async function GET() {
   );
 
   // ── Non-founder: compute portfolio from DB (no Alpaca account access) ───────
-  if (!isFounder(user.id)) {
+  if (!isFounder(user.id, user.email)) {
     return buildSimulatedPortfolio(user.id, supabaseAdmin);
   }
 
@@ -320,6 +320,10 @@ export async function GET() {
   let holdings: SyncedHolding[] = [];
 
   try {
+    // Always wipe founder's holdings first so simulated rows can never linger
+    console.log('[portfolio] Wiping stale holdings for founder', user.id);
+    await supabaseAdmin.from('holdings').delete().eq('user_id', user.id);
+
     if (positions.length > 0) {
       for (const pos of positions) {
         const mv = parseFloat(pos.market_value);
@@ -336,35 +340,20 @@ export async function GET() {
           weight_pct:      portValue > 0 ? (mv / portValue) * 100 : 0,
           updated_at:      new Date().toISOString(),
         };
-        console.log('[portfolio] upserting', pos.symbol, 'qty=', row.qty, 'market_value=', row.market_value);
+        console.log('[portfolio] inserting', pos.symbol, 'qty=', row.qty, 'market_value=', row.market_value);
 
         const { error: upsertErr } = await supabaseAdmin
           .from('holdings')
-          .upsert(row, { onConflict: 'user_id,ticker' });
+          .insert(row);
 
         if (upsertErr) {
-          console.error('[portfolio] upsert failed for', pos.symbol, ':', upsertErr.message);
+          console.error('[portfolio] insert failed for', pos.symbol, ':', upsertErr.message);
         } else {
-          console.log('[portfolio] upserted', pos.symbol, 'OK');
+          console.log('[portfolio] inserted', pos.symbol, 'OK');
         }
       }
-
-      // Delete holdings no longer in Alpaca positions
-      const currentTickers = positions.map((p) => p.symbol);
-      const { error: deleteErr } = await supabaseAdmin
-        .from('holdings')
-        .delete()
-        .eq('user_id', user.id)
-        .not('ticker', 'in', `(${currentTickers.join(',')})`);
-
-      if (deleteErr) {
-        console.warn('[portfolio] stale delete failed (non-fatal):', deleteErr.message);
-      } else {
-        console.log('[portfolio] stale holdings deleted');
-      }
     } else {
-      console.log('[portfolio] No positions — wiping holdings for user', user.id);
-      await supabaseAdmin.from('holdings').delete().eq('user_id', user.id);
+      console.log('[portfolio] No positions — holdings wiped for user', user.id);
     }
 
     // Fetch the now-fresh holdings from Supabase

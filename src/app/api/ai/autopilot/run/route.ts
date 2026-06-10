@@ -451,7 +451,7 @@ export async function POST() {
     }
 
     // ── 2. Fetch account + positions (founder: Alpaca; non-founder: DB) ─────────
-    const founderUser = isFounder(user.id);
+    const founderUser = isFounder(user.id, user.email);
     const supabaseAdmin = createSupabaseAdmin(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,

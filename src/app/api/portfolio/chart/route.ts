@@ -104,7 +104,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  if (!isFounder(user.id)) {
+  if (!isFounder(user.id, user.email)) {
     return buildSimulatedChart(user.id);
   }
 

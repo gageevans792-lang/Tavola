@@ -134,7 +134,7 @@ export async function POST() {
   }
 
   // ── Non-founder: generate a starter ETF portfolio recommendation ─────────────
-  if (!isFounder(user.id)) {
+  if (!isFounder(user.id, user.email)) {
     try {
       const { data: riskProfile } = await supabase
         .from('risk_profiles')

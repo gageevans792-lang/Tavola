@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 4. Non-founder: simulated execution ────────────────────────────────────
-    if (!isFounder(user.id)) {
+    if (!isFounder(user.id, user.email)) {
       if (priceUnavailable) {
         return NextResponse.json(
           { error: 'Price unavailable for this symbol. Cannot execute simulated trade.', code: 'PRICE_UNAVAILABLE' },

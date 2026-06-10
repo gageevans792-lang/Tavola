@@ -16,7 +16,7 @@ export async function GET() {
   );
 
   // ── Non-founder: refresh holding prices from DATA API ────────────────────────
-  if (!isFounder(user.id)) {
+  if (!isFounder(user.id, user.email)) {
     // Require user_accounts to exist — if it doesn't, the user is likely the founder
     // with a missing FOUNDER_USER_ID env var. Return early rather than touching data.
     const { data: acctCheck } = await supabaseAdmin
@@ -92,6 +92,15 @@ export async function GET() {
   console.log('[sync] Upserting', positions.length, 'positions...');
 
   try {
+    // Wipe all founder holdings first so simulated rows can never linger
+    const { error: wipeErr } = await supabaseAdmin
+      .from('holdings')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (wipeErr) console.warn('[sync] wipe failed (non-fatal):', wipeErr.message);
+    else console.log('[sync] holdings wiped for user', user.id);
+
     if (positions.length > 0) {
       for (const pos of positions) {
         const mv = parseFloat(pos.market_value);
@@ -109,40 +118,20 @@ export async function GET() {
           updated_at:      new Date().toISOString(),
         };
 
-        console.log('[sync] upserting', pos.symbol, 'qty=', row.qty, 'mv=', row.market_value);
+        console.log('[sync] inserting', pos.symbol, 'qty=', row.qty, 'mv=', row.market_value);
 
         const { error } = await supabaseAdmin
           .from('holdings')
-          .upsert(row, { onConflict: 'user_id,ticker' });
+          .insert(row);
 
         if (error) {
-          console.error('[sync] upsert failed for', pos.symbol, ':', error.message);
+          console.error('[sync] insert failed for', pos.symbol, ':', error.message);
         } else {
-          console.log('[sync] upserted', pos.symbol, 'OK');
+          console.log('[sync] inserted', pos.symbol, 'OK');
         }
       }
-
-      // Delete stale holdings no longer in Alpaca positions
-      const currentTickers = positions.map((p) => p.symbol);
-      const { error: deleteErr } = await supabaseAdmin
-        .from('holdings')
-        .delete()
-        .eq('user_id', user.id)
-        .not('ticker', 'in', `(${currentTickers.map((t) => `"${t}"`).join(',')})`);
-
-      if (deleteErr) {
-        console.warn('[sync] stale delete failed (non-fatal):', deleteErr.message);
-      } else {
-        console.log('[sync] stale holdings cleaned up');
-      }
     } else {
-      console.log('[sync] No positions — wiping holdings table for user', user.id);
-      const { error } = await supabaseAdmin
-        .from('holdings')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (error) console.error('[sync] wipe failed:', error.message);
+      console.log('[sync] No positions — holdings already wiped for user', user.id);
     }
 
     console.log('[sync] Sync complete for user', user.id, '— count:', positions.length);

@@ -175,7 +175,7 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Non-founder accounts use simulated data — no real positions to analyze
-  if (!isFounder(user.id)) {
+  if (!isFounder(user.id, user.email)) {
     return NextResponse.json({ ...EMPTY_INTELLIGENCE, generated_at: new Date().toISOString() } satisfies IntelligenceResponse);
   }
 
