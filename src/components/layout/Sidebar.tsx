@@ -3,50 +3,37 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-type NavLink    = { href: string; label: string; badge?: string };
-type NavSection = { section: string };
-type NavItem    = NavLink | NavSection;
-
-const navItems: NavItem[] = [
-  { section: 'Portfolio' },
-  { href: '/dashboard',    label: 'Dashboard'    },
-  { href: '/holdings',     label: 'Holdings'     },
-  { href: '/performance',  label: 'Performance'  },
-  { href: '/backtest',     label: 'Backtest'     },
-
-  { section: 'AI Suite' },
-  { href: '/autopilot',    label: 'AutoPilot'    },
-  { href: '/insights',     label: 'Analysis'     },
-  { href: '/intelligence', label: 'Intelligence' },
-  { href: '/chat',         label: 'AI Chat'      },
-
-  { section: 'Markets' },
-  { href: '/markets',      label: 'Markets'      },
-  { href: '/crypto',       label: 'Crypto'       },
-  { href: '/ipo',          label: 'IPO'          },
-
-  { section: 'Trading' },
-  { href: '/trades',       label: 'Trade History' },
-  { href: '/options',      label: 'Options', badge: 'Soon' },
-
-  { section: 'Account' },
-  { href: '/bank',         label: 'Banking'      },
-  { href: '/deposit',      label: 'Deposit'      },
-  { href: '/settings',     label: 'Settings'     },
+const PRIMARY_LINKS = [
+  { href: '/dashboard',    label: 'Home'      },
+  { href: '/autopilot',    label: 'AutoPilot' },
+  { href: '/holdings',     label: 'Holdings'  },
 ];
 
-function isSection(item: NavItem): item is NavSection {
-  return 'section' in item;
-}
+const EXPLORE_LINKS = [
+  { href: '/performance',  label: 'Performance'  },
+  { href: '/intelligence', label: 'Intelligence' },
+  { href: '/markets',      label: 'Markets'      },
+  { href: '/backtest',     label: 'Backtest'     },
+  { href: '/chat',         label: 'AI Chat'      },
+];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
 
-  const [equity, setEquity] = useState<string | null>(null);
-  const [dayPl,  setDayPl]  = useState<{ value: string; positive: boolean } | null>(null);
+  const [equity,       setEquity]       = useState<string | null>(null);
+  const [dayPl,        setDayPl]        = useState<{ value: string; positive: boolean } | null>(null);
+  const [exploreOpen,  setExploreOpen]  = useState(() =>
+    EXPLORE_LINKS.some(l => pathname === l.href)
+  );
+
+  // Keep Explore open when navigating to an Explore route
+  useEffect(() => {
+    if (EXPLORE_LINKS.some(l => pathname === l.href)) setExploreOpen(true);
+  }, [pathname]);
 
   useEffect(() => {
     fetch('/api/alpaca/portfolio')
@@ -70,6 +57,23 @@ export function Sidebar() {
     router.refresh();
   }
 
+  function navLink(href: string, label: string) {
+    const active = pathname === href;
+    return (
+      <Link
+        key={href}
+        href={href}
+        className={`flex items-center px-6 py-2 text-[13px] transition-colors border-l-2 ${
+          active
+            ? 'text-white bg-white/5 border-[#B8960C]'
+            : 'text-white/60 hover:text-white hover:bg-white/5 border-transparent'
+        }`}
+      >
+        {label}
+      </Link>
+    );
+  }
+
   return (
     <aside className="flex h-full w-56 flex-col bg-[#0A1628] shrink-0">
 
@@ -80,39 +84,36 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-3">
-        {navItems.map((item, idx) => {
-          if (isSection(item)) {
-            return (
-              <p
-                key={`section-${idx}`}
-                className="px-6 pt-4 pb-1 text-[8px] tracking-[0.25em] uppercase text-white/25 font-medium"
-              >
-                {item.section}
-              </p>
-            );
-          }
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center justify-between px-6 py-2 text-[13px] transition-colors ${
-                active
-                  ? 'text-white bg-white/5 border-l-2 border-[#B8960C]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5 border-l-2 border-transparent'
-              }`}
-            >
-              <span>{item.label}</span>
-              {item.badge && (
-                <span className="text-[8px] tracking-[0.1em] uppercase border border-[#B8960C]/50 text-[#B8960C] px-1.5 py-0.5">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+        {/* Primary links */}
+        <div className="mb-2">
+          {PRIMARY_LINKS.map(({ href, label }) => navLink(href, label))}
+        </div>
+
+        {/* Divider */}
+        <div className="mx-6 my-2 h-px bg-white/[0.08]" />
+
+        {/* Explore section — collapsible */}
+        <div>
+          <button
+            onClick={() => setExploreOpen(o => !o)}
+            className="flex w-full items-center justify-between px-6 pt-3 pb-1.5 text-[8px] tracking-[0.25em] uppercase text-white/25 font-medium hover:text-white/40 transition-colors"
+          >
+            <span>Explore</span>
+            {exploreOpen
+              ? <ChevronDown className="h-3 w-3" />
+              : <ChevronRight className="h-3 w-3" />
+            }
+          </button>
+
+          {exploreOpen && (
+            <div>
+              {EXPLORE_LINKS.map(({ href, label }) => navLink(href, label))}
+            </div>
+          )}
+        </div>
       </nav>
 
+      {/* Portfolio value */}
       {equity && (
         <div className="border-t border-white/10 px-6 py-4">
           <p className="text-[9px] tracking-[0.15em] uppercase text-white/30 mb-1">Portfolio</p>
@@ -129,10 +130,20 @@ export function Sidebar() {
         <p className="text-[9px] text-white/20 tracking-[0.1em]">⌘K quick nav</p>
       </div>
 
-      <div className="border-t border-white/10 py-4">
+      <div className="border-t border-white/10 py-2">
+        <Link
+          href="/settings"
+          className={`flex items-center px-6 py-2 text-[13px] transition-colors border-l-2 ${
+            pathname === '/settings'
+              ? 'text-white bg-white/5 border-[#B8960C]'
+              : 'text-white/40 hover:text-white/70 border-transparent'
+          }`}
+        >
+          Settings
+        </Link>
         <button
           onClick={handleSignOut}
-          className="flex w-full items-center px-6 py-2.5 text-[13px] text-white/40 hover:text-white/70 transition-colors"
+          className="flex w-full items-center px-6 py-2 text-[13px] text-white/40 hover:text-white/70 transition-colors"
         >
           Sign out
         </button>

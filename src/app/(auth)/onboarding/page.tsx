@@ -218,7 +218,7 @@ export default function OnboardingPage() {
 
       setShowReady(true);
     } catch {
-      router.push('/dashboard');
+      router.push('/welcome');
     } finally {
       setSaving(false);
     }
@@ -239,7 +239,7 @@ export default function OnboardingPage() {
           Tavola
         </Link>
         <button
-          onClick={() => router.push('/dashboard')}
+          onClick={() => router.push('/welcome')}
           className="text-[11px] tracking-[0.1em] uppercase text-[#0A1628]/40 hover:text-[#0A1628] transition-colors"
         >
           Skip
@@ -305,10 +305,10 @@ export default function OnboardingPage() {
               Fund Your Account
             </a>
             <a
-              href="/dashboard"
+              href="/welcome"
               className="block w-full text-center text-[12px] text-[#0A1628]/40 hover:text-[#0A1628] transition-colors py-3"
             >
-              Explore Dashboard →
+              Continue →
             </a>
           </div>
         ) : (
@@ -849,7 +849,7 @@ export default function OnboardingPage() {
                 {saving ? 'Saving your plan...' : 'Start Investing'}
               </button>
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/welcome')}
                 className="w-full text-center text-[12px] text-[#0A1628]/40 hover:text-[#0A1628] transition-colors py-2"
               >
                 Skip to dashboard

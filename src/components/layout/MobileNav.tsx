@@ -3,39 +3,21 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { X, LayoutGrid } from 'lucide-react';
+import { X, LayoutGrid, ChevronDown, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
-const NAV_SECTIONS = [
-  {
-    heading: 'Overview',
-    items: [
-      { href: '/dashboard',   label: 'Dashboard'   },
-      { href: '/performance', label: 'Performance' },
-      { href: '/markets',     label: 'Markets'     },
-    ],
-  },
-  {
-    heading: 'AI Suite',
-    items: [
-      { href: '/chat',         label: 'AI Chat'      },
-      { href: '/autopilot',    label: 'Autopilot'    },
-      { href: '/autonomous',   label: 'AI Agent'     },
-      { href: '/strategy',     label: 'Strategy'     },
-      { href: '/insights',     label: 'AI Insights'  },
-      { href: '/intelligence', label: 'Intelligence' },
-    ],
-  },
-  {
-    heading: 'Account',
-    items: [
-      { href: '/holdings', label: 'Holdings' },
-      { href: '/trades',   label: 'Trades'   },
-      { href: '/bank',     label: 'Bank'     },
-      { href: '/deposit',  label: 'Deposit'  },
-      { href: '/settings', label: 'Settings' },
-    ],
-  },
+const PRIMARY_ITEMS = [
+  { href: '/dashboard',   label: 'Home'      },
+  { href: '/autopilot',   label: 'AutoPilot' },
+  { href: '/holdings',    label: 'Holdings'  },
+];
+
+const EXPLORE_ITEMS = [
+  { href: '/performance',  label: 'Performance'  },
+  { href: '/intelligence', label: 'Intelligence' },
+  { href: '/markets',      label: 'Markets'      },
+  { href: '/backtest',     label: 'Backtest'     },
+  { href: '/chat',         label: 'AI Chat'      },
 ];
 
 export function MobileMenuButton() {
@@ -52,9 +34,10 @@ export function MobileMenuButton() {
 }
 
 export function MobileNav() {
-  const [open, setOpen]           = useState(false);
-  const [equity, setEquity]       = useState<string | null>(null);
+  const [open,          setOpen]          = useState(false);
+  const [equity,        setEquity]        = useState<string | null>(null);
   const [equityLoading, setEquityLoading] = useState(false);
+  const [exploreOpen,   setExploreOpen]   = useState(false);
   const pathname = usePathname();
   const router   = useRouter();
 
@@ -68,12 +51,15 @@ export function MobileNav() {
   // Close on route change
   useEffect(() => { setOpen(false); }, [pathname]);
 
+  // Auto-expand Explore if current route is in it
+  useEffect(() => {
+    if (EXPLORE_ITEMS.some(i => i.href === pathname)) setExploreOpen(true);
+  }, [pathname]);
+
   // ESC key closes the drawer
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [open]);
@@ -87,16 +73,9 @@ export function MobileNav() {
       fetch('/api/alpaca/portfolio')
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => {
-          if (d?.equity) {
-            setEquity(
-              '$' +
-                Number(d.equity).toLocaleString('en-US', {
-                  maximumFractionDigits: 0,
-                }),
-            );
-          } else {
-            setEquity('–');
-          }
+          setEquity(d?.equity
+            ? '$' + Number(d.equity).toLocaleString('en-US', { maximumFractionDigits: 0 })
+            : '–');
         })
         .catch(() => { setEquity('–'); })
         .finally(() => { setEquityLoading(false); });
@@ -113,30 +92,43 @@ export function MobileNav() {
     router.refresh();
   }
 
+  function navLink(href: string, label: string) {
+    const active = pathname === href;
+    return (
+      <Link
+        key={href}
+        href={href}
+        onClick={() => setOpen(false)}
+        className={`flex items-center px-6 py-2.5 text-[13px] transition-colors border-l-2 ${
+          active
+            ? 'text-white bg-white/5 border-[#B8960C]'
+            : 'text-white/55 hover:text-white hover:bg-white/5 border-transparent'
+        }`}
+      >
+        {label}
+        {active && <span className="ml-auto h-1 w-1 rounded-full bg-[#B8960C]" />}
+      </Link>
+    );
+  }
+
   return (
     <>
       {open && (
-        <div
-          className="fixed inset-0 z-50"
-          aria-modal="true"
-          role="dialog"
-        >
-          {/* Backdrop — click closes */}
+        <div className="fixed inset-0 z-50" aria-modal="true" role="dialog">
+          {/* Backdrop */}
           <div
             className="absolute inset-0 bg-[#0A1628]/60 backdrop-blur-[2px]"
             onClick={() => setOpen(false)}
           />
 
-          {/* Drawer — slides in from right */}
+          {/* Drawer */}
           <aside
             className="absolute top-0 right-0 bottom-0 flex flex-col bg-[#0A1628] shadow-2xl animate-[slideInRight_0.25s_ease-out]"
             style={{ width: 'min(76vw, 300px)' }}
           >
             {/* Header */}
             <div className="h-14 flex items-center justify-between px-6 border-b border-white/10 shrink-0">
-              <span className="font-serif text-[12px] tracking-[0.4em] uppercase text-white">
-                Tavola
-              </span>
+              <span className="font-serif text-[12px] tracking-[0.4em] uppercase text-white">Tavola</span>
               <button
                 onClick={() => setOpen(false)}
                 className="flex items-center justify-center h-7 w-7 text-white/40 hover:text-white transition-colors"
@@ -146,73 +138,53 @@ export function MobileNav() {
               </button>
             </div>
 
-            {/* Portfolio equity — skeleton while loading, value or dash when done */}
+            {/* Portfolio value */}
             <div className="px-6 py-4 border-b border-white/10 shrink-0">
-              <p className="text-[9px] tracking-[0.2em] uppercase text-white/30 mb-0.5">
-                Portfolio Value
-              </p>
-              {equityLoading ? (
-                <div className="h-[22px] w-28 animate-pulse rounded bg-white/10" />
-              ) : (
-                <p className="font-mono text-[18px] text-white tabular-nums">
-                  {equity ?? '–'}
-                </p>
-              )}
+              <p className="text-[9px] tracking-[0.2em] uppercase text-white/30 mb-0.5">Portfolio Value</p>
+              {equityLoading
+                ? <div className="h-[22px] w-28 animate-pulse rounded bg-white/10" />
+                : <p className="font-mono text-[18px] text-white tabular-nums">{equity ?? '–'}</p>
+              }
             </div>
 
-            {/* Nav sections */}
+            {/* Nav */}
             <nav className="flex-1 overflow-y-auto py-3">
-              {NAV_SECTIONS.map((section, si) => (
-                <div key={section.heading}>
-                  {si > 0 && <div className="mx-6 my-1.5 h-px bg-white/[0.08]" />}
-                  <p className="px-6 pt-3 pb-1.5 text-[9px] tracking-[0.3em] uppercase text-white/25">
-                    {section.heading}
-                  </p>
-                  {section.items.map((item) => {
-                    const active = pathname === item.href;
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        onClick={() => setOpen(false)}
-                        className={`flex items-center px-6 py-2.5 text-[13px] transition-colors border-l-2 ${
-                          active
-                            ? 'text-white bg-white/5 border-[#B8960C]'
-                            : 'text-white/55 hover:text-white hover:bg-white/5 border-transparent'
-                        }`}
-                      >
-                        {item.label}
-                        {active && (
-                          <span className="ml-auto h-1 w-1 rounded-full bg-[#B8960C]" />
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              ))}
+              {/* Primary */}
+              <div className="mb-1">
+                {PRIMARY_ITEMS.map(({ href, label }) => navLink(href, label))}
+              </div>
+
+              {/* Divider */}
+              <div className="mx-6 my-2 h-px bg-white/[0.08]" />
+
+              {/* Explore — collapsible */}
+              <div>
+                <button
+                  onClick={() => setExploreOpen(o => !o)}
+                  className="flex w-full items-center justify-between px-6 pt-2 pb-1.5 text-[9px] tracking-[0.3em] uppercase text-white/25 hover:text-white/40 transition-colors"
+                >
+                  <span>Explore</span>
+                  {exploreOpen
+                    ? <ChevronDown className="h-3 w-3" />
+                    : <ChevronRight className="h-3 w-3" />
+                  }
+                </button>
+                {exploreOpen && EXPLORE_ITEMS.map(({ href, label }) => navLink(href, label))}
+              </div>
+
+              {/* Divider */}
+              <div className="mx-6 my-2 h-px bg-white/[0.08]" />
+
+              {/* Settings */}
+              {navLink('/settings', 'Settings')}
             </nav>
 
-            {/* Footer links + sign out */}
+            {/* Footer */}
             <div className="border-t border-white/10 py-3 shrink-0">
               <div className="flex items-center gap-4 px-6 pb-2">
-                <Link
-                  href="/about"
-                  className="text-[10px] tracking-[0.1em] uppercase text-white/25 hover:text-white/50 transition-colors"
-                >
-                  About
-                </Link>
-                <Link
-                  href="/legal/terms"
-                  className="text-[10px] tracking-[0.1em] uppercase text-white/25 hover:text-white/50 transition-colors"
-                >
-                  Terms
-                </Link>
-                <Link
-                  href="/legal/privacy"
-                  className="text-[10px] tracking-[0.1em] uppercase text-white/25 hover:text-white/50 transition-colors"
-                >
-                  Privacy
-                </Link>
+                <Link href="/about"         className="text-[10px] tracking-[0.1em] uppercase text-white/25 hover:text-white/50 transition-colors">About</Link>
+                <Link href="/legal/terms"   className="text-[10px] tracking-[0.1em] uppercase text-white/25 hover:text-white/50 transition-colors">Terms</Link>
+                <Link href="/legal/privacy" className="text-[10px] tracking-[0.1em] uppercase text-white/25 hover:text-white/50 transition-colors">Privacy</Link>
               </div>
               <button
                 onClick={handleSignOut}

@@ -242,9 +242,35 @@ export default function SettingsPage() {
       <main className="flex-1 overflow-y-auto bg-[#F8F9FA]">
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-8">
 
+          {/* Quick Links — features accessible from Settings */}
+          <div className="mb-8 border border-[#E2E8F0] bg-white">
+            <div className="px-6 py-4 border-b border-[#E2E8F0]">
+              <p className="text-[10px] tracking-[0.2em] uppercase text-[#B8960C]">Quick Links</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 divide-x divide-y divide-[#E2E8F0]">
+              {[
+                { href: '/bank',       label: 'Banking',       desc: 'Link accounts, manage transfers' },
+                { href: '/deposit',    label: 'Deposit',       desc: 'Add funds to your portfolio' },
+                { href: '/trades',     label: 'Trade History', desc: 'Full history of all orders' },
+                { href: '/strategy',   label: 'Strategy',      desc: 'Manage your investment strategy' },
+                { href: '/insights',   label: 'AI Insights',   desc: 'Historical AI recommendations' },
+                { href: '/autopilot',  label: 'AutoPilot',     desc: 'Automated portfolio management' },
+              ].map(({ href, label, desc }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex flex-col px-5 py-4 hover:bg-[#F8F9FA] transition-colors group"
+                >
+                  <span className="text-[13px] text-[#0A1628] font-medium group-hover:text-[#B8960C] transition-colors">{label}</span>
+                  <span className="text-[11px] text-[#4A5568] mt-0.5 leading-snug">{desc}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
           {/* Page header */}
           <div className="border-b border-[#E2E8F0] pb-6 mb-8">
-            <h2 className="font-serif text-2xl font-light text-[#0A1628]">Settings</h2>
+            <h2 className="font-serif text-2xl font-light text-[#0A1628]">Account Settings</h2>
             <p className="mt-1 text-sm text-[#4A5568]">Manage your account and preferences</p>
           </div>
 

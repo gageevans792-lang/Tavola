@@ -375,7 +375,40 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* ── Feature 3: Health Alerts ────────────────────────────────────── */}
+          {/* ── Portfolio chart (90-day area chart with benchmark) ───────────── */}
+          <section>
+            <PortfolioChart data={chartData} loading={chartLoading} />
+          </section>
+
+          {/* ── AutoPilot Status ─────────────────────────────────────────────── */}
+          <section>
+            <div className="bg-white border border-[#E2E8F0] px-4 sm:px-6 py-4">
+              <p className="text-[9px] tracking-[0.2em] uppercase text-[#B8960C] mb-3">AutoPilot</p>
+              <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:divide-x sm:divide-[#E2E8F0]">
+                <div className="sm:pr-6">
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Last Run</p>
+                  <p className="text-[13px] font-medium text-[#0A1628]">{timeAgo(lastAnalysisAt)}</p>
+                </div>
+                <div className="sm:px-6">
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Positions Monitored</p>
+                  <p className="text-[13px] font-medium text-[#0A1628]">{holdings.length} position{holdings.length === 1 ? '' : 's'}</p>
+                </div>
+                <div className="sm:px-6">
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Next Scheduled Run</p>
+                  <p className="text-[13px] font-medium text-[#0A1628]">Daily at market open</p>
+                </div>
+                <div className="sm:pl-6">
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Status</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C] animate-pulse" />
+                    <p className="text-[13px] font-medium text-[#0A1628]">Monitoring 24/7</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Health Alerts ────────────────────────────────────────────────── */}
           {healthAlerts.filter((a) => !dismissedAlerts.has(`${a.type}-${a.message}`)).map((alert) => {
             const key = `${alert.type}-${alert.message}`;
             const borderColor =
@@ -445,39 +478,7 @@ export default function DashboardPage() {
             </section>
           )}
 
-          {/* ── Feature 4: Tavola AI Status ──────────────────────────────────── */}
-          <section>
-            <div className="bg-white border border-[#E2E8F0] px-4 sm:px-6 py-4">
-              <div className="grid grid-cols-2 gap-4 sm:flex sm:items-center sm:divide-x sm:divide-[#E2E8F0]">
-                <div className="sm:pr-6">
-                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Last Analysis</p>
-                  <p className="text-[13px] font-medium text-[#0A1628]">{timeAgo(lastAnalysisAt)}</p>
-                </div>
-                <div className="sm:px-6">
-                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Positions Monitored</p>
-                  <p className="text-[13px] font-medium text-[#0A1628]">{holdings.length} position{holdings.length === 1 ? '' : 's'}</p>
-                </div>
-                <div className="sm:px-6">
-                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Market Status</p>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`h-1.5 w-1.5 rounded-full ${marketOpen ? 'bg-[#166534]' : 'bg-[#9CA3AF]'}`} />
-                    <p className="text-[13px] font-medium text-[#0A1628]">
-                      {marketOpen === null ? '–' : marketOpen ? 'Market Open' : 'After Hours'}
-                    </p>
-                  </div>
-                </div>
-                <div className="sm:pl-6">
-                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">AI Status</p>
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C] animate-pulse" />
-                    <p className="text-[13px] font-medium text-[#0A1628]">Monitoring 24/7</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── Feature 5: AI Portfolio Brief ────────────────────────────────── */}
+          {/* ── AI Portfolio Brief ────────────────────────────────────────────── */}
           <section>
             <div className="bg-white border border-[#E2E8F0] border-l-2 border-l-[#B8960C] px-6 py-5">
               <div className="flex items-center justify-between mb-3">
@@ -508,11 +509,6 @@ export default function DashboardPage() {
                 <p className="text-sm text-[#4A5568] italic">Click refresh to generate your AI portfolio brief.</p>
               )}
             </div>
-          </section>
-
-          {/* ── Portfolio chart (90-day area chart with benchmark) ───────────── */}
-          <section>
-            <PortfolioChart data={chartData} loading={chartLoading} />
           </section>
 
           {/* ── Sector allocation + top holdings ────────────────────────────── */}
