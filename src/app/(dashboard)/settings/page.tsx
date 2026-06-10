@@ -13,27 +13,18 @@ type Section = 'profile' | 'security' | 'notifications' | 'danger';
 type Msg = { type: 'success' | 'error'; text: string };
 
 interface NotificationPrefs {
-  emailTrades: boolean;
-  weeklyPortfolio: boolean;
-  marketAlerts: boolean;
+  pre_trade_alerts:        boolean;
+  execution_confirmations: boolean;
+  checkpoint_summaries:    boolean;
+  weekly_letter:           boolean;
 }
 
-const NOTIF_KEY = 'tavola:notifications';
-
-function loadNotifPrefs(): NotificationPrefs {
-  if (typeof window === 'undefined') return { emailTrades: true, weeklyPortfolio: true, marketAlerts: false };
-  try {
-    const stored = localStorage.getItem(NOTIF_KEY);
-    if (stored) return JSON.parse(stored) as NotificationPrefs;
-  } catch {}
-  return { emailTrades: true, weeklyPortfolio: true, marketAlerts: false };
-}
-
-function saveNotifPrefs(prefs: NotificationPrefs) {
-  try {
-    localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs));
-  } catch {}
-}
+const DEFAULT_NOTIF_PREFS: NotificationPrefs = {
+  pre_trade_alerts:        true,
+  execution_confirmations: true,
+  checkpoint_summaries:    true,
+  weekly_letter:           true,
+};
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -110,11 +101,8 @@ export default function SettingsPage() {
   const [securityMsg, setSecurityMsg] = useState<Msg | null>(null);
 
   // Notifications
-  const [notifs, setNotifs] = useState<NotificationPrefs>({
-    emailTrades: true,
-    weeklyPortfolio: true,
-    marketAlerts: false,
-  });
+  const [notifs, setNotifs]           = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS);
+  const [notifSaving, setNotifSaving] = useState(false);
 
   // Danger zone
   const [deleteInput, setDeleteInput]         = useState('');
@@ -137,7 +125,10 @@ export default function SettingsPage() {
       }
     }
     load();
-    setNotifs(loadNotifPrefs());
+    fetch('/api/notifications/settings')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { settings?: NotificationPrefs } | null) => { if (d?.settings) setNotifs(d.settings); })
+      .catch(() => {});
   }, []);
 
   // ── Load strategy ──────────────────────────────────────────────────────────
@@ -205,10 +196,19 @@ export default function SettingsPage() {
     }
   }
 
-  function handleNotifChange(key: keyof NotificationPrefs, val: boolean) {
+  async function handleNotifChange(key: keyof NotificationPrefs, val: boolean) {
     const updated = { ...notifs, [key]: val };
     setNotifs(updated);
-    saveNotifPrefs(updated);
+    setNotifSaving(true);
+    try {
+      await fetch('/api/notifications/settings', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ [key]: val }),
+      });
+    } catch { /* non-fatal */ } finally {
+      setNotifSaving(false);
+    }
   }
 
   async function handleDeleteAccount() {
@@ -468,39 +468,55 @@ export default function SettingsPage() {
               {/* ── Notifications ── */}
               {activeSection === 'notifications' && (
                 <section className="bg-white border border-[#E2E8F0] p-4 sm:p-8">
-                  <h3 className="font-serif text-xl font-light text-[#0A1628] mb-6">Notifications</h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-serif text-xl font-light text-[#0A1628]">Notifications</h3>
+                    {notifSaving && (
+                      <span className="text-[11px] text-[#4A5568]">Saving...</span>
+                    )}
+                  </div>
 
                   <div className="space-y-6">
                     <div className="flex items-center justify-between gap-4 border-b border-[#E2E8F0] pb-6">
                       <div>
-                        <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Email alerts on AI trades</p>
-                        <p className="text-[12px] text-[#4A5568]">Get notified when AutoPilot executes a trade.</p>
+                        <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Pre-trade alerts</p>
+                        <p className="text-[12px] text-[#4A5568]">15-minute advance notice before AutoPilot executes intraday trades. Includes a cancel option.</p>
                       </div>
                       <Toggle
-                        checked={notifs.emailTrades}
-                        onChange={(v) => handleNotifChange('emailTrades', v)}
+                        checked={notifs.pre_trade_alerts}
+                        onChange={(v) => handleNotifChange('pre_trade_alerts', v)}
                       />
                     </div>
 
                     <div className="flex items-center justify-between gap-4 border-b border-[#E2E8F0] pb-6">
                       <div>
-                        <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Weekly portfolio summary</p>
-                        <p className="text-[12px] text-[#4A5568]">Receive a weekly digest of your portfolio performance.</p>
+                        <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Execution confirmations</p>
+                        <p className="text-[12px] text-[#4A5568]">Notification for each filled trade with reasoning summary.</p>
                       </div>
                       <Toggle
-                        checked={notifs.weeklyPortfolio}
-                        onChange={(v) => handleNotifChange('weeklyPortfolio', v)}
+                        checked={notifs.execution_confirmations}
+                        onChange={(v) => handleNotifChange('execution_confirmations', v)}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 border-b border-[#E2E8F0] pb-6">
+                      <div>
+                        <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Checkpoint summaries</p>
+                        <p className="text-[12px] text-[#4A5568]">Low-priority digest after each intraday checkpoint, even when no action is taken. Default on.</p>
+                      </div>
+                      <Toggle
+                        checked={notifs.checkpoint_summaries}
+                        onChange={(v) => handleNotifChange('checkpoint_summaries', v)}
                       />
                     </div>
 
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Market alerts</p>
-                        <p className="text-[12px] text-[#4A5568]">Significant market movements and signals.</p>
+                        <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Weekly letter</p>
+                        <p className="text-[12px] text-[#4A5568]">Weekly AI-written portfolio performance digest and market outlook.</p>
                       </div>
                       <Toggle
-                        checked={notifs.marketAlerts}
-                        onChange={(v) => handleNotifChange('marketAlerts', v)}
+                        checked={notifs.weekly_letter}
+                        onChange={(v) => handleNotifChange('weekly_letter', v)}
                       />
                     </div>
                   </div>

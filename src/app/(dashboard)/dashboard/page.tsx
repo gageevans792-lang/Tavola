@@ -182,6 +182,19 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
+  // ── Intraday checkpoints ──────────────────────────────────────────────────
+  const [checkpoints, setCheckpoints] = useState<Array<{
+    id: string; checkpoint_time: string; action_taken: string; trades_count: number; summary: string | null;
+  }>>([]);
+  useEffect(() => {
+    fetch('/api/ai/intraday/checkpoint')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { checkpoints?: typeof checkpoints } | null) => {
+        if (d?.checkpoints) setCheckpoints(d.checkpoints);
+      })
+      .catch(() => {});
+  }, []);
+
   // ── Feature 4: Fetch last analysis time ───────────────────────────────────
   useEffect(() => {
     async function fetchLastAnalysis() {
@@ -399,8 +412,21 @@ export default function DashboardPage() {
                   <p className="text-[13px] font-medium text-[#0A1628]">{holdings.length} position{holdings.length === 1 ? '' : 's'}</p>
                 </div>
                 <div className="sm:px-6">
-                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Next Scheduled Run</p>
-                  <p className="text-[13px] font-medium text-[#0A1628]">Daily at market open</p>
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Today&apos;s Checkpoints</p>
+                  {checkpoints.length === 0 ? (
+                    <p className="text-[13px] font-medium text-[#4A5568]">0 of 3 complete</p>
+                  ) : (() => {
+                    const acted = checkpoints.filter((c) => c.action_taken === 'pending_window');
+                    const label = acted.length > 0
+                      ? `${acted.length} adjustment${acted.length > 1 ? 's' : ''} at ${acted[acted.length - 1].checkpoint_time}`
+                      : 'No action needed';
+                    return (
+                      <p className="text-[13px] font-medium text-[#0A1628]">
+                        {checkpoints.length} of 3 complete{' '}
+                        <span className={acted.length > 0 ? 'text-[#B8960C]' : 'text-[#166534]'}>· {label}</span>
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="sm:pl-6">
                   <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Status</p>

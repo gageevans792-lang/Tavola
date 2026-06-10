@@ -1,7 +1,10 @@
 {
   "framework": "nextjs",
   "crons": [
-    { "path": "/api/alerts/monitor", "schedule": "0 9 * * *" },
-    { "path": "/api/ai/autopilot/run", "schedule": "0 9 * * 1-5" }
+    { "path": "/api/alerts/monitor",          "schedule": "0 9 * * *"      },
+    { "path": "/api/ai/autopilot/run",        "schedule": "0 9 * * 1-5"    },
+    { "path": "/api/ai/intraday/checkpoint",  "schedule": "35 14 * * 1-5"  },
+    { "path": "/api/ai/intraday/checkpoint",  "schedule": "0 18 * * 1-5"   },
+    { "path": "/api/ai/intraday/checkpoint",  "schedule": "30 20 * * 1-5"  }
   ]
 }

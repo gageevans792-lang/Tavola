@@ -383,6 +383,14 @@ export default function AutopilotPage() {
   const [running, setRunning]             = useState(false);
   const [runResult, setRunResult]         = useState<RunResultData | null>(null);
   const [error, setError]                 = useState<string | null>(null);
+  const [checkpoints, setCheckpoints]     = useState<Array<{
+    id: string; checkpoint_time: string; triggers_fired: string[]; positions_reviewed: string[];
+    action_taken: string; trades_count: number; summary: string | null; run_at: string;
+  }>>([]);
+  const [pendingTrades, setPendingTrades] = useState<Array<{
+    id: string; ticker: string; side: string; qty: number; cancel_token: string | null; pending_until: string | null;
+  }>>([]);
+  const [cancellingToken, setCancellingToken] = useState<string | null>(null);
 
   // Local edits before saving
   const [localFrequency, setLocalFrequency]     = useState<'daily' | 'weekly' | 'monthly'>('weekly');
@@ -440,10 +448,35 @@ export default function AutopilotPage() {
     }
   }, []);
 
+  const loadCheckpoints = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ai/intraday/checkpoint');
+      if (!res.ok) return;
+      const d = await res.json() as { checkpoints?: typeof checkpoints; pendingTrades?: typeof pendingTrades };
+      if (d.checkpoints) setCheckpoints(d.checkpoints);
+      if (d.pendingTrades) setPendingTrades(d.pendingTrades);
+    } catch { /* non-fatal */ }
+  }, []);
+
+  const handleCancelTrades = useCallback(async (cancelToken: string) => {
+    setCancellingToken(cancelToken);
+    try {
+      await fetch('/api/ai/intraday/cancel', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ cancel_token: cancelToken }),
+      });
+      setPendingTrades((prev) => prev.filter((t) => t.cancel_token !== cancelToken));
+    } catch { /* non-fatal */ } finally {
+      setCancellingToken(null);
+    }
+  }, []);
+
   useEffect(() => {
     loadSettings();
     loadHistory();
-  }, [loadSettings, loadHistory]);
+    loadCheckpoints();
+  }, [loadSettings, loadHistory, loadCheckpoints]);
 
   // ── Toggle enabled ─────────────────────────────────────────────────────────
   const handleToggle = useCallback(async () => {
@@ -786,6 +819,122 @@ export default function AutopilotPage() {
                 </p>
               )}
             </div>
+          </div>
+        </section>
+
+        {/* ── INTRADAY CHECKPOINT LOG ──────────────────────────────────────── */}
+        <section className="bg-[#F8F9FA] px-6 py-10 sm:px-10 border-b border-[#E2E8F0]">
+          <div className="mx-auto max-w-6xl">
+            <div className="border-b border-[#E2E8F0] pb-6 mb-6">
+              <h2 className="font-serif text-2xl font-light text-[#0A1628]">Intraday Intelligence</h2>
+              <p className="text-sm text-[#4A5568] mt-1">
+                3 scheduled checkpoints per trading day. Calculated readjustments, never reactive panic trading.
+              </p>
+            </div>
+
+            {/* Pending cancellable trades */}
+            {pendingTrades.length > 0 && (
+              <div className="mb-6 border border-[#B8960C]/40 bg-[#B8960C]/5 px-5 py-4">
+                <p className="text-[11px] tracking-[0.15em] uppercase text-[#B8960C] mb-3">Pending — 15-Minute Review Window</p>
+                <div className="space-y-2 mb-4">
+                  {pendingTrades.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between gap-4">
+                      <span className="text-[13px] text-[#0A1628]">
+                        {t.side.toUpperCase()} {t.qty} {t.ticker}
+                        {t.pending_until && (
+                          <span className="ml-2 text-[11px] text-[#4A5568]">
+                            · executes at {new Date(t.pending_until).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {pendingTrades[0]?.cancel_token && (
+                  <button
+                    type="button"
+                    onClick={() => { if (pendingTrades[0].cancel_token) handleCancelTrades(pendingTrades[0].cancel_token!); }}
+                    disabled={cancellingToken !== null}
+                    className="text-[11px] tracking-[0.15em] uppercase text-[#991b1b] border border-[#991b1b]/40 px-4 py-2 hover:bg-[#991b1b]/5 transition-colors disabled:opacity-50"
+                  >
+                    {cancellingToken ? 'Cancelling...' : 'Cancel Pending Trades'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Checkpoint schedule grid */}
+            {(() => {
+              const SCHEDULE = ['9:35am', '1:00pm', '3:30pm'] as const;
+              return (
+                <div className="grid gap-px bg-[#E2E8F0] sm:grid-cols-3">
+                  {SCHEDULE.map((time) => {
+                    const row = checkpoints.find((c) => c.checkpoint_time === time);
+                    const done = !!row;
+                    const acted = row?.action_taken === 'pending_window';
+                    return (
+                      <div key={time} className="bg-white px-6 py-6">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={cn(
+                            'h-2 w-2 shrink-0',
+                            done && acted  ? 'bg-[#B8960C]' :
+                            done           ? 'bg-[#166534]' :
+                                             'bg-[#E2E8F0]',
+                          )} />
+                          <p className="font-mono text-[12px] tracking-[0.1em] text-[#0A1628]">{time}</p>
+                          {done && (
+                            <span className={cn(
+                              'ml-auto text-[10px] tracking-[0.12em] uppercase px-2 py-0.5 border',
+                              acted
+                                ? 'text-[#B8960C] border-[#B8960C]/40 bg-[#B8960C]/5'
+                                : 'text-[#166534] border-[#166534]/30 bg-[#166534]/5',
+                            )}>
+                              {acted ? `${row.trades_count} trade${row.trades_count !== 1 ? 's' : ''} queued` : 'Complete'}
+                            </span>
+                          )}
+                          {!done && (
+                            <span className="ml-auto text-[10px] tracking-[0.12em] uppercase text-[#4A5568]/40">
+                              Scheduled
+                            </span>
+                          )}
+                        </div>
+
+                        {done ? (
+                          <div className="space-y-2">
+                            {row.positions_reviewed.length > 0 && (
+                              <p className="text-[11px] text-[#4A5568]">
+                                Reviewed: {row.positions_reviewed.join(', ')}
+                              </p>
+                            )}
+                            {row.triggers_fired.length > 0 ? (
+                              <div>
+                                <p className="text-[10px] tracking-[0.1em] uppercase text-[#B8960C] mb-1">Triggers</p>
+                                <ul className="space-y-1">
+                                  {row.triggers_fired.map((t, i) => (
+                                    <li key={i} className="text-[11px] text-[#0A1628] leading-snug">⚡ {t}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-[#166534]">No triggers — portfolio within tolerance</p>
+                            )}
+                            {row.summary && (
+                              <p className="text-[11px] text-[#4A5568] leading-snug pt-1 border-t border-[#E2E8F0]">
+                                {row.summary}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-[#4A5568]/50 italic">
+                            Awaiting scheduled run — will review all held positions, VIX, sector signals, and sentiment.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         </section>
 
