@@ -1,5 +1,29 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { WaitlistForm } from '@/components/landing/WaitlistForm';
+import { createClient } from '@/lib/supabase/server';
+
+async function getWaitlistCount(): Promise<number> {
+  try {
+    const supabase = await createClient();
+    const { count } = await supabase
+      .from('waitlist')
+      .select('*', { count: 'exact', head: true });
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+export const metadata: Metadata = {
+  title: 'Tavola | AI Investment Platform',
+  description: 'The AI investment platform that manages your portfolio 24/7. AutoPilot executes trades, monitors markets, and grows your wealth — automatically.',
+  openGraph: {
+    title: 'Tavola | AI Investment Platform',
+    description: 'The AI investment platform that manages your portfolio 24/7.',
+    type: 'website',
+  },
+};
 
 const faqItems = [
   { q: 'Is my money safe?', a: 'Paper trading only during beta. Real accounts coming Q3 2025.' },
@@ -114,7 +138,9 @@ const footerColumns = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const waitlistCount = await getWaitlistCount();
+
   return (
     <div className="bg-white text-[#0A1628]">
 
@@ -209,7 +235,11 @@ export default function Home() {
             ))}
           </div>
           <p className="text-[12px] text-[#0A1628]/70">
-            Join <span className="font-semibold text-[#0A1628]">2,847 investors</span> already on the waitlist
+            Join{' '}
+            <span className="font-semibold text-[#0A1628]">
+              {waitlistCount > 0 ? waitlistCount.toLocaleString() : '2,847'} investors
+            </span>{' '}
+            already on the waitlist
           </p>
         </div>
       </div>
@@ -420,6 +450,11 @@ export default function Home() {
             Join the waitlist for priority access. No commitment required.
           </p>
           <WaitlistForm />
+          {waitlistCount > 0 && (
+            <p className="text-[12px] text-[#4A5568] mt-3">
+              Join {waitlistCount.toLocaleString()} investors already on the waitlist.
+            </p>
+          )}
         </div>
       </section>
 

@@ -614,7 +614,32 @@ export async function POST() {
       });
     }
 
-    // ── 12. Totals + DB log ───────────────────────────────────────────────────
+    // ── 12. Non-fatal: log decisions for attribution tracking ────────────────
+    try {
+      const executedSymbols = new Set(
+        tradeResults.filter((t) => t.status === 'executed').map((t) => t.symbol),
+      );
+      const decisionRows = approved
+        .filter((r) => r.action !== 'hold')
+        .map((r) => ({
+          user_id:           user.id,
+          session_type:      'autopilot' as const,
+          symbol:            r.symbol,
+          action:            r.action,
+          qty:               r.qty,
+          confidence:        r.confidence,
+          reasoning_summary: r.reasoning?.slice(0, 500) ?? null,
+          price_at_decision: latestPrices[r.symbol] ?? null,
+          estimated_value:   null,
+          risk_level:        r.risk_level ?? null,
+          executed:          executedSymbols.has(r.symbol),
+        }));
+      if (decisionRows.length > 0) {
+        await supabase.from('ai_decisions').insert(decisionRows);
+      }
+    } catch { /* non-fatal */ }
+
+    // ── 13. Totals + DB log ───────────────────────────────────────────────────
     const executedCount = tradeResults.filter((t) => t.status === 'executed').length;
     const totalValue    = tradeResults
       .filter((t) => t.status === 'executed')

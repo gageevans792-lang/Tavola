@@ -35,24 +35,18 @@ export async function GET() {
   }
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
     let res: Response;
-    try {
-      res = await fetch(
-        `${process.env.ALPACA_BASE_URL ?? 'https://paper-api.alpaca.markets'}/v2/clock`,
-        {
-          headers: {
-            'APCA-API-KEY-ID':     process.env.ALPACA_API_KEY!,
-            'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY!,
-          },
-          signal: controller.signal,
-          cache:  'no-store',
+    res = await fetch(
+      `${process.env.ALPACA_BASE_URL ?? 'https://paper-api.alpaca.markets'}/v2/clock`,
+      {
+        headers: {
+          'APCA-API-KEY-ID':     process.env.ALPACA_API_KEY!,
+          'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY!,
         },
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
+        signal: AbortSignal.timeout(8000),
+        cache:  'no-store',
+      },
+    );
 
     if (!res.ok) {
       throw new Error(`Alpaca clock API responded with ${res.status}`);
@@ -71,7 +65,7 @@ export async function GET() {
     return NextResponse.json(payload);
 
   } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
+    if (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')) {
       console.error('[market/clock] request timeout');
     } else {
       console.error('[market/clock]', err instanceof Error ? err.message : err);

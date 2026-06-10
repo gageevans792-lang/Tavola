@@ -55,6 +55,7 @@ async function fetchAlpacaNews(params: URLSearchParams): Promise<NewsItem[]> {
   try {
     const res = await fetch(`${DATA_BASE}/v1beta1/news?${params}`, {
       headers: alpacaHeaders(),
+      signal: AbortSignal.timeout(8000),
       next: { revalidate: 300 },
     });
     if (!res.ok) {

@@ -4,6 +4,10 @@ import { anthropic } from '@/lib/anthropic/client';
 import { getAccount } from '@/lib/alpaca/client';
 import { getBasicFinancials, getSentiment } from '@/lib/finnhub/client';
 import type { FinnhubBasicFinancials, FinnhubSentiment } from '@/lib/finnhub/client';
+import { computeCorrelationMatrix } from '@/lib/risk/correlation';
+import type { CorrelationMatrix } from '@/lib/risk/correlation';
+
+export type { CorrelationMatrix };
 
 // ── Sector map (GICS-aligned) ─────────────────────────────────────────────────
 

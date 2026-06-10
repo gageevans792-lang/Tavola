@@ -7,6 +7,35 @@ import { cn } from '@/lib/utils';
 import type { IntelligenceResponse, HoldingAnalysis, RebalancingSuggestion } from '@/app/api/portfolio/intelligence/route';
 import type { SentimentScore } from '@/lib/sentiment/engine';
 
+// ── Attribution types ─────────────────────────────────────────────────────────
+
+interface DecisionWithOutcome {
+  id: string;
+  symbol: string;
+  action: string;
+  confidence: number;
+  reasoning_summary: string | null;
+  price_at_decision: number | null;
+  estimated_value: number | null;
+  executed: boolean;
+  created_at: string;
+  session_type: string;
+  current_price: number | null;
+  return_pct: number | null;
+  outcome: 'win' | 'loss' | 'neutral' | 'pending';
+  days_since: number;
+}
+
+interface AttributionSummary {
+  total_decisions: number;
+  executed_decisions: number;
+  win_rate: number;
+  avg_confidence: number;
+  best_call: DecisionWithOutcome | null;
+  worst_call: DecisionWithOutcome | null;
+  decisions: DecisionWithOutcome[];
+}
+
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 function fmtNum(n: number, decimals = 2): string {
@@ -187,6 +216,10 @@ export default function IntelligencePage() {
   const [sentimentLoading, setSentimentLoading] = useState(false);
   const [sentimentLoaded,  setSentimentLoaded]  = useState(false);
 
+  // Attribution / Decision Track Record
+  const [attribution,        setAttribution]        = useState<AttributionSummary | null>(null);
+  const [attributionLoading, setAttributionLoading] = useState(true);
+
   const fetchIntelligence = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else           setLoading(true);
@@ -208,6 +241,16 @@ export default function IntelligencePage() {
     }
   }, []);
 
+  const fetchAttribution = useCallback(async () => {
+    setAttributionLoading(true);
+    try {
+      const res = await fetch('/api/ai/attribution');
+      if (res.ok) setAttribution(await res.json());
+    } catch { /* non-fatal */ } finally {
+      setAttributionLoading(false);
+    }
+  }, []);
+
   const fetchSentimentScores = useCallback(async (tickers: string[]) => {
     if (!tickers.length) return;
     setSentimentLoading(true);
@@ -223,7 +266,10 @@ export default function IntelligencePage() {
     }
   }, []);
 
-  useEffect(() => { fetchIntelligence(); }, [fetchIntelligence]);
+  useEffect(() => {
+    fetchIntelligence();
+    fetchAttribution();
+  }, [fetchIntelligence, fetchAttribution]);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
 
@@ -678,6 +724,194 @@ export default function IntelligencePage() {
               )}
             </section>
           )}
+
+          {/* ── S7: Decision Track Record ───────────────────────────────────── */}
+          <section className="bg-white">
+            <div className="px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
+              <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">AI Decision Track Record</p>
+              <p className="text-[9px] text-[#4A5568]/60 mt-0.5">Performance attribution for AutoPilot decisions — last 90 days</p>
+            </div>
+
+            {attributionLoading ? (
+              <div className="px-4 sm:px-6 py-10">
+                <div className="grid grid-cols-3 gap-px bg-[#E2E8F0] border border-[#E2E8F0] mb-6">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="bg-white px-4 sm:px-6 py-4 sm:py-5 space-y-2">
+                      <div className="h-2.5 w-16 animate-pulse bg-[#E2E8F0]" />
+                      <div className="h-7 w-12 animate-pulse bg-[#E2E8F0]" />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="h-10 w-full animate-pulse bg-[#F0F2F5]" />
+                  ))}
+                </div>
+              </div>
+            ) : !attribution || attribution.total_decisions === 0 ? (
+              <div className="px-4 sm:px-8 py-16 text-center">
+                <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-4">No Data Yet</p>
+                <h3 className="font-serif text-[22px] sm:text-[26px] font-light text-[#0A1628] mb-3 leading-tight">
+                  No AI decisions logged yet.
+                </h3>
+                <p className="text-[14px] text-[#4A5568] max-w-sm mx-auto leading-relaxed">
+                  Run AutoPilot or an Analysis to start tracking your AI&apos;s performance.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Summary metric cards */}
+                <div className="grid grid-cols-3 gap-px bg-[#E2E8F0] border-b border-[#E2E8F0]">
+                  <div className="bg-white px-4 sm:px-6 py-4 sm:py-5">
+                    <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Win Rate</p>
+                    <p className={cn(
+                      'mt-2 sm:mt-3 font-serif text-[22px] sm:text-[28px] font-light leading-none',
+                      attribution.win_rate >= 60 ? 'text-[#16A34A]' :
+                      attribution.win_rate >= 40 ? 'text-[#B8960C]' : 'text-[#C41E3A]',
+                    )}>
+                      {attribution.win_rate}%
+                    </p>
+                    <p className="mt-1.5 text-[11px] text-[#4A5568]">
+                      {attribution.decisions.filter(d => d.outcome === 'win').length} of{' '}
+                      {attribution.decisions.filter(d => d.outcome !== 'pending').length} scoreable
+                    </p>
+                  </div>
+                  <div className="bg-white px-4 sm:px-6 py-4 sm:py-5">
+                    <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Total Decisions</p>
+                    <p className="mt-2 sm:mt-3 font-serif text-[22px] sm:text-[28px] font-light leading-none text-[#0A1628]">
+                      {attribution.total_decisions}
+                    </p>
+                    <p className="mt-1.5 text-[11px] text-[#4A5568]">
+                      {attribution.executed_decisions} executed
+                    </p>
+                  </div>
+                  <div className="bg-white px-4 sm:px-6 py-4 sm:py-5">
+                    <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Avg Confidence</p>
+                    <p className={cn(
+                      'mt-2 sm:mt-3 font-serif text-[22px] sm:text-[28px] font-light leading-none',
+                      attribution.avg_confidence >= 75 ? 'text-[#16A34A]' :
+                      attribution.avg_confidence >= 60 ? 'text-[#B8960C]' : 'text-[#4A5568]',
+                    )}>
+                      {attribution.avg_confidence}%
+                    </p>
+                    <p className="mt-1.5 text-[11px] text-[#4A5568]">AI self-confidence</p>
+                  </div>
+                </div>
+
+                {/* Best / Worst call highlight */}
+                {(attribution.best_call || attribution.worst_call) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-[#E2E8F0] border-b border-[#E2E8F0]">
+                    {attribution.best_call && (
+                      <div className="bg-[#16A34A]/5 px-4 sm:px-5 py-3 flex items-center gap-3">
+                        <span className="shrink-0 px-2 py-0.5 text-[9px] tracking-[0.12em] uppercase font-semibold bg-[#16A34A]/10 text-[#16A34A] border border-[#16A34A]/30">
+                          Best Call
+                        </span>
+                        <span className="font-mono font-bold text-[#0A1628] text-sm">{attribution.best_call.symbol}</span>
+                        <span className="text-[12px] text-[#4A5568] uppercase">{attribution.best_call.action}</span>
+                        {attribution.best_call.return_pct !== null && (
+                          <span className="ml-auto font-serif text-[14px] text-[#16A34A]">
+                            {attribution.best_call.return_pct > 0 ? '+' : ''}{attribution.best_call.return_pct}%
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {attribution.worst_call && (
+                      <div className="bg-[#C41E3A]/5 px-4 sm:px-5 py-3 flex items-center gap-3">
+                        <span className="shrink-0 px-2 py-0.5 text-[9px] tracking-[0.12em] uppercase font-semibold bg-[#C41E3A]/10 text-[#C41E3A] border border-[#C41E3A]/30">
+                          Worst Call
+                        </span>
+                        <span className="font-mono font-bold text-[#0A1628] text-sm">{attribution.worst_call.symbol}</span>
+                        <span className="text-[12px] text-[#4A5568] uppercase">{attribution.worst_call.action}</span>
+                        {attribution.worst_call.return_pct !== null && (
+                          <span className="ml-auto font-serif text-[14px] text-[#C41E3A]">
+                            {attribution.worst_call.return_pct > 0 ? '+' : ''}{attribution.worst_call.return_pct}%
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Decisions table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse" style={{ minWidth: 560 }}>
+                    <thead>
+                      <tr className="border-b border-[#E2E8F0]">
+                        {['Symbol', 'Action', 'Confidence', 'Return', 'Outcome', 'Days Ago'].map((h) => (
+                          <th key={h} className="px-3 sm:px-4 py-3 text-[10px] tracking-[0.12em] uppercase text-[#4A5568] font-normal whitespace-nowrap">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attribution.decisions.slice(0, 10).map((d) => (
+                        <tr key={d.id} className="border-b border-[#E2E8F0] hover:bg-[#F8F9FA] transition-colors">
+                          <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                            <span className="text-[13px] font-semibold tracking-[0.05em] text-[#0A1628]">{d.symbol}</span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                            <span className={cn(
+                              'px-2 py-0.5 text-[9px] tracking-[0.12em] uppercase font-semibold',
+                              d.action === 'buy'  ? 'bg-[#16A34A]/8 text-[#16A34A] border border-[#16A34A]/30' :
+                              d.action === 'sell' ? 'bg-[#C41E3A]/8 text-[#C41E3A] border border-[#C41E3A]/30' :
+                                                    'bg-[#B8960C]/8 text-[#B8960C] border border-[#B8960C]/30',
+                            )}>
+                              {d.action}
+                            </span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                            <span className={cn(
+                              'font-serif text-[14px]',
+                              d.confidence >= 75 ? 'text-[#16A34A]' :
+                              d.confidence >= 60 ? 'text-[#B8960C]' : 'text-[#4A5568]',
+                            )}>
+                              {d.confidence ?? '–'}%
+                            </span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                            {d.return_pct !== null ? (
+                              <span className={cn(
+                                'font-serif text-[14px]',
+                                d.return_pct > 0 ? 'text-[#16A34A]' :
+                                d.return_pct < 0 ? 'text-[#C41E3A]' : 'text-[#4A5568]',
+                              )}>
+                                {d.return_pct > 0 ? '+' : ''}{d.return_pct}%
+                              </span>
+                            ) : (
+                              <span className="text-[12px] text-[#4A5568]/50">–</span>
+                            )}
+                          </td>
+                          <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                            <span className={cn(
+                              'px-2 py-0.5 text-[9px] tracking-[0.12em] uppercase font-semibold',
+                              d.outcome === 'win'     ? 'bg-[#16A34A]/8 text-[#16A34A] border border-[#16A34A]/30' :
+                              d.outcome === 'loss'    ? 'bg-[#C41E3A]/8 text-[#C41E3A] border border-[#C41E3A]/30' :
+                              d.outcome === 'neutral' ? 'bg-[#4A5568]/8 text-[#4A5568] border border-[#4A5568]/30' :
+                                                        'bg-[#B8960C]/8 text-[#B8960C] border border-[#B8960C]/30',
+                            )}>
+                              {d.outcome}
+                            </span>
+                          </td>
+                          <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                            <span className="text-[12px] text-[#4A5568]">{d.days_since}d</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {attribution.total_decisions > 10 && (
+                  <div className="px-4 sm:px-5 py-3 border-t border-[#E2E8F0] text-right">
+                    <p className="text-[10px] text-[#4A5568]/50 tracking-[0.1em]">
+                      Showing 10 of {attribution.total_decisions} decisions — last 90 days
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
 
         </div>
       </main>

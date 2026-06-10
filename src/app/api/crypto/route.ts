@@ -11,6 +11,10 @@ const CRYPTO_SYMBOLS = [
 export type { CryptoBar as CryptoPrice } from '@/lib/alpaca/client';
 
 export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const prices = await getCryptoBars(CRYPTO_SYMBOLS);
     return NextResponse.json(prices);

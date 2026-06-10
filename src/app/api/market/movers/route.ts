@@ -48,6 +48,15 @@ const alpaca = new Alpaca({
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms),
+    ),
+  ]);
+}
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -55,6 +64,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  try {
   const now = Date.now();
 
   if (moversCache && now < moversCache.expiresAt) {
@@ -63,7 +73,7 @@ export async function GET() {
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const raw: any[] = await alpaca.getSnapshots(TRACKED_SYMBOLS);
+    const raw: any[] = await withTimeout(alpaca.getSnapshots(TRACKED_SYMBOLS), 8000);
 
     const movers: Mover[] = [];
 
@@ -120,5 +130,9 @@ export async function GET() {
     console.error('[market/movers]', err instanceof Error ? err.message : err);
     // Return empty lists rather than crashing
     return NextResponse.json({ gainers: [], losers: [], as_of: new Date().toISOString() } satisfies MoversResponse);
+  }
+  } catch (err) {
+    console.error('[market/movers] outer error:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

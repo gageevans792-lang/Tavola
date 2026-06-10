@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import { TopBar } from '@/components/layout/TopBar';
 import type { Trade } from '@/app/api/trades/route';
 
@@ -234,14 +235,24 @@ export default function TradesPage() {
               </div>
             ) : filtered.length === 0 ? (
               <div className="px-4 py-12 text-center">
-                <p className="font-serif text-lg font-light text-[#0A1628] mb-2">
-                  {trades.length === 0
-                    ? 'No trades yet.'
-                    : 'No trades match this filter.'}
-                </p>
-                {trades.length === 0 && (
-                  <p className="text-sm text-[#4A5568]">
-                    Your AI agent will begin trading when AutoPilot is enabled.
+                {trades.length === 0 ? (
+                  <>
+                    <p className="font-serif text-lg font-light text-[#0A1628] mb-2">
+                      No trades yet
+                    </p>
+                    <p className="text-sm text-[#4A5568] max-w-sm mx-auto mb-6">
+                      Your trade history will appear here once AutoPilot executes its first order or you place a manual trade.
+                    </p>
+                    <Link
+                      href="/autopilot"
+                      className="inline-block border border-[#0A1628] px-6 py-2.5 text-[11px] tracking-[0.12em] uppercase text-[#0A1628] hover:bg-[#0A1628] hover:text-white transition-colors"
+                    >
+                      Configure AutoPilot
+                    </Link>
+                  </>
+                ) : (
+                  <p className="font-serif text-lg font-light text-[#0A1628] mb-2">
+                    No trades match this filter.
                   </p>
                 )}
               </div>

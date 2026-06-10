@@ -193,7 +193,10 @@ export async function GET(req: NextRequest) {
 
   try {
     // ── Alpaca account ────────────────────────────────────────────────────────
-    const account       = await getAccount();
+    const account       = await Promise.race([
+      getAccount(),
+      new Promise<never>((_, r) => setTimeout(() => r(new Error('getAccount timeout')), 8000)),
+    ]);
     const currentEquity = parseFloat(account.equity);
     const lastEquity    = parseFloat(account.last_equity);
     const totalReturn   = currentEquity - lastEquity;

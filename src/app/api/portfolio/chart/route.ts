@@ -50,7 +50,10 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const account       = await getAccount();
+    const account       = await Promise.race([
+      getAccount(),
+      new Promise<never>((_, r) => setTimeout(() => r(new Error('getAccount timeout')), 8000)),
+    ]);
     const currentEquity = parseFloat(account.equity);
 
     const DAYS     = 90;

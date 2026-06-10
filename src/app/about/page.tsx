@@ -1,8 +1,9 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'About | Tavola',
-  description: 'Everyone deserves a seat at the table. Tavola brings institutional-grade AI investing to everyone.',
+  description: 'Tavola is building the AI investment platform that gives everyone access to institutional-quality portfolio management.',
 };
 
 export default function AboutPage() {

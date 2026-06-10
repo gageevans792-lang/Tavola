@@ -1,10 +1,142 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { TopBar } from '@/components/layout/TopBar';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type { AIInsight, InsightType } from '@/types';
+
+// ── Weekly Letter ─────────────────────────────────────────────────────────────
+
+interface LetterResponse {
+  letter: string | null;
+  generated_at?: string;
+  cached?: boolean;
+  error?: string;
+}
+
+function WeeklyLetterSection() {
+  const [letter, setLetter]               = useState<string | null>(null);
+  const [generatedAt, setGeneratedAt]     = useState<string | null>(null);
+  const [letterLoading, setLetterLoading] = useState(true);
+  const [letterError, setLetterError]     = useState<string | null>(null);
+  const [generating, setGenerating]       = useState(false);
+
+  const fetchLetter = useCallback(async () => {
+    setLetterLoading(true);
+    setLetterError(null);
+    try {
+      const res = await fetch('/api/ai/letter');
+      const data: LetterResponse = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to fetch letter');
+      setLetter(data.letter ?? null);
+      setGeneratedAt(data.generated_at ?? null);
+    } catch (err) {
+      setLetterError(err instanceof Error ? err.message : 'Unable to load letter.');
+    } finally {
+      setLetterLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchLetter(); }, [fetchLetter]);
+
+  const generateLetter = async () => {
+    setGenerating(true);
+    setLetterError(null);
+    try {
+      const res = await fetch('/api/ai/letter', { method: 'POST' });
+      const data: LetterResponse = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to generate letter');
+      setLetter(data.letter ?? null);
+      setGeneratedAt(data.generated_at ?? null);
+    } catch (err) {
+      setLetterError(err instanceof Error ? err.message : 'Unable to generate letter.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-[#E2E8F0]">
+      {/* card header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#E2E8F0]">
+        <span className="text-[10px] tracking-[0.3em] uppercase text-[#B8960C] font-medium">
+          Weekly Portfolio Letter
+        </span>
+        {generatedAt && (
+          <span className="text-[11px] text-[#4A5568]">
+            Generated{' '}
+            {new Date(generatedAt).toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric', year: 'numeric',
+            })}
+          </span>
+        )}
+      </div>
+
+      <div className="px-6 py-6">
+        {letterLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-3 animate-pulse bg-[#E2E8F0] rounded" style={{ width: `${85 - i * 8}%` }} />
+            ))}
+          </div>
+        ) : letterError ? (
+          <div className="flex items-center justify-between border border-red-200 bg-red-50 px-4 py-3">
+            <p className="text-sm text-[#991b1b]">{letterError}</p>
+            <button
+              onClick={fetchLetter}
+              className="text-[11px] tracking-[0.1em] uppercase text-[#991b1b] border border-[#991b1b]/30 px-3 py-1 hover:bg-[#991b1b]/5 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        ) : letter ? (
+          <>
+            <div className="max-w-prose">
+              <div className="font-serif text-[15px] leading-[1.9] text-[#0A1628] whitespace-pre-wrap bg-[#FAFAF8] border border-[#E2E8F0] px-6 py-6">
+                {letter}
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-4">
+              <button
+                onClick={generateLetter}
+                disabled={generating}
+                className="text-[11px] tracking-[0.12em] uppercase text-[#4A5568] border border-[#E2E8F0] px-4 py-2 hover:border-[#B8960C] hover:text-[#B8960C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {generating ? 'Generating...' : 'Regenerate'}
+              </button>
+              <span className="text-[11px] text-[#4A5568]/60">
+                Regenerating uses an API call and replaces the current letter.
+              </span>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-8">
+            <p className="font-serif text-lg font-light text-[#0A1628] mb-2">
+              No letter generated yet
+            </p>
+            <p className="text-sm text-[#4A5568] mb-6 max-w-sm mx-auto">
+              Generate your first weekly portfolio letter. It will be cached for 7 days.
+            </p>
+            <button
+              onClick={generateLetter}
+              disabled={generating}
+              className="border border-[#B8960C] px-8 py-3 text-[11px] tracking-[0.15em] uppercase text-[#B8960C] hover:bg-[#B8960C]/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {generating ? 'Generating...' : 'Generate Letter'}
+            </button>
+            {generating && (
+              <p className="text-[12px] text-[#4A5568] mt-3">
+                Writing your letter. This takes about 10 seconds.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const FILTERS: { label: string; value: InsightType | 'all' }[] = [
   { label: 'All',       value: 'all'       },
@@ -83,6 +215,8 @@ export default function InsightsPage() {
             <p className="mt-1 text-sm text-[#4A5568]">AI-generated signals from your portfolio analysis</p>
           </div>
 
+          <WeeklyLetterSection />
+
           {error && (
             <div className="border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between">
               <p className="text-sm text-[#991b1b]">{error}</p>
@@ -131,11 +265,25 @@ export default function InsightsPage() {
             </div>
           ) : filtered.length === 0 && !error ? (
             <div className="bg-white border border-[#E2E8F0] px-6 py-16 text-center">
-              <p className="font-serif text-lg font-light text-[#0A1628] mb-2">
-                {insights.length === 0 ? 'No AI insights yet.' : `No ${filter} insights.`}
-              </p>
-              {insights.length === 0 && (
-                <p className="text-sm text-[#4A5568]">Run your first analysis from the dashboard to generate AI insights.</p>
+              {insights.length === 0 ? (
+                <>
+                  <p className="font-serif text-lg font-light text-[#0A1628] mb-2">
+                    No AI insights yet
+                  </p>
+                  <p className="text-sm text-[#4A5568] max-w-md mx-auto mb-6">
+                    Start by running a portfolio analysis or configuring AutoPilot. Your AI-generated trading insights will appear here.
+                  </p>
+                  <Link
+                    href="/dashboard"
+                    className="inline-block border border-[#0A1628] px-6 py-2.5 text-[11px] tracking-[0.12em] uppercase text-[#0A1628] hover:bg-[#0A1628] hover:text-white transition-colors"
+                  >
+                    Go to Dashboard
+                  </Link>
+                </>
+              ) : (
+                <p className="font-serif text-lg font-light text-[#0A1628] mb-2">
+                  No {filter} insights.
+                </p>
               )}
             </div>
           ) : !error ? (

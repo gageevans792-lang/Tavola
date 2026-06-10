@@ -58,8 +58,8 @@ export async function GET() {
 
   try {
     const [account, positions] = await Promise.all([
-      getAccount(),
-      getPositions(),
+      Promise.race([getAccount(), new Promise<never>((_, r) => setTimeout(() => r(new Error('getAccount timeout')), 8000))]),
+      Promise.race([getPositions(), new Promise<never>((_, r) => setTimeout(() => r(new Error('getPositions timeout')), 8000))]),
     ]);
 
     const equity = parseFloat(account.equity);
