@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getAccount } from '@/lib/alpaca/client';
+import { isFounder } from '@/lib/founder';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -190,6 +191,29 @@ export async function GET(req: NextRequest) {
   const period = (new URL(req.url).searchParams.get('period') ?? '3M').toUpperCase();
   const VALID_PERIODS = ['1W', '1M', '3M', '6M', '1Y', 'ALL'];
   const safePeriod = VALID_PERIODS.includes(period) ? period : '3M';
+
+  if (!isFounder(user.id)) {
+    const BASELINE = 100_000;
+    const today = new Date();
+    const days = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1Y': 365, 'ALL': 90 }[safePeriod] ?? 90;
+    const equityCurve: EquityPoint[] = Array.from({ length: days }, (_, i) => {
+      const d = new Date(today.getTime() - (days - 1 - i) * 86_400_000);
+      return { date: d.toISOString().slice(0, 10), portfolio: BASELINE, benchmark: BASELINE };
+    });
+    return NextResponse.json({
+      period: safePeriod,
+      portfolio_return: 0, benchmark_return: 0, alpha: 0,
+      total_return_value: 0, total_return_pct: 0,
+      sharpe_ratio: 0, max_drawdown: 0, win_rate: 0,
+      equity_curve: equityCurve,
+      monthly_returns: [],
+      trade_stats: { best_trade: null, worst_trade: null, avg_holding_days: 0, total_trades: 0 },
+      ai_attribution: {
+        total_ai_trades: 0, profitable_ai_trades: 0, ai_accuracy: 0,
+        high_conf_trades: 0, high_conf_accurate: 0, low_conf_trades: 0, low_conf_accurate: 0,
+      },
+    } satisfies PerformanceData);
+  }
 
   try {
     // ── Alpaca account ────────────────────────────────────────────────────────

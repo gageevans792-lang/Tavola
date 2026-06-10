@@ -6,6 +6,7 @@ import {
   getPositions,
   getPortfolioHistory,
 } from '@/lib/alpaca/client';
+import { isFounder, newUserPortfolio } from '@/lib/founder';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
 import type { AlpacaPosition } from '@/types';
 
@@ -88,6 +89,10 @@ export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!isFounder(user.id)) {
+    return NextResponse.json(newUserPortfolio() satisfies PortfolioData);
+  }
 
   const supabaseAdmin = createSupabaseAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

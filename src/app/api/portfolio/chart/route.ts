@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getAccount } from '@/lib/alpaca/client';
+import { isFounder } from '@/lib/founder';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,23 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  if (!isFounder(user.id)) {
+    const BASELINE = 100_000;
+    const today = new Date();
+    const flat = Array.from({ length: 90 }, (_, i) => {
+      const d = new Date(today.getTime() - (89 - i) * 86_400_000);
+      return { date: d.toISOString().slice(0, 10), value: BASELINE };
+    });
+    return NextResponse.json({
+      portfolio:         flat,
+      benchmark:         flat,
+      current_equity:    BASELINE,
+      equity_change:     0,
+      equity_change_pct: 0,
+      period_return:     0,
+    } satisfies ChartApiResponse);
+  }
+
   try {
     const account       = await Promise.race([
       getAccount(),
@@ -72,12 +90,16 @@ export async function GET() {
         date:  date.toISOString().slice(0, 10),
         value: Math.round(value * 100) / 100,
       });
-      if (i < DAYS - 1) {
-        value = value * (1 + randomNormal(portfolioRng, 0.0008, 0.012));
+      value = value * (1 + randomNormal(portfolioRng, 0.0008, 0.012));
+    }
+    // Scale the entire series so the last point equals currentEquity (no spike)
+    const rawEnd = portfolioData[DAYS - 1].value;
+    if (rawEnd > 0) {
+      const scale = currentEquity / rawEnd;
+      for (const pt of portfolioData) {
+        pt.value = Math.round(pt.value * scale * 100) / 100;
       }
     }
-    // Force the last data point to match current equity exactly
-    portfolioData[DAYS - 1].value = Math.round(currentEquity * 100) / 100;
 
     // ── Benchmark (S&P 500 proxy) ─────────────────────────────────────────────
     const benchmarkRng   = seededRandom(baseSeed + 999_999);

@@ -2,12 +2,17 @@ import { NextResponse } from 'next/server';
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getAccount, getPositions } from '@/lib/alpaca/client';
+import { isFounder } from '@/lib/founder';
 
 export async function GET() {
   // ── Auth ────────────────────────────────────────────────────────────────────
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!isFounder(user.id)) {
+    return NextResponse.json({ synced: true, count: 0 });
+  }
 
   const supabaseAdmin = createSupabaseAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
