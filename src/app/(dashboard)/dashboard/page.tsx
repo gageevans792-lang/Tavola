@@ -311,7 +311,7 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <TopBar
-        title={firstName ? `Dashboard | ${firstName}` : 'Dashboard'}
+        title={firstName && holdings.length > 0 ? `Dashboard | ${firstName}` : 'Dashboard'}
         onRunAnalysis={runAnalysis}
         analyzing={analyzing}
         mode={mode}

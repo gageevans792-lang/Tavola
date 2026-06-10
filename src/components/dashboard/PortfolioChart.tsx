@@ -147,11 +147,20 @@ export function PortfolioChart({ data, loading }: PortfolioChartProps) {
   const benchReturnStr = (benchReturn >= 0 ? '+' : '') + benchReturn.toFixed(2) + '%';
   const vsSpStr = ((periodReturn - benchReturn) >= 0 ? '+' : '') + (periodReturn - benchReturn).toFixed(2) + '%';
 
-  // Show only every ~15th date label to avoid crowding
-  const tickFormatter = (iso: string, index: number) => {
-    if (index % 15 === 0) return fmtMonthAbbr(iso);
-    return '';
-  };
+  // Show only the first occurrence of each calendar month
+  const monthLabels = (() => {
+    const seen = new Set<string>();
+    const result = new Map<string, string>();
+    for (const pt of merged) {
+      const month = pt.date.slice(0, 7); // YYYY-MM
+      if (!seen.has(month)) {
+        seen.add(month);
+        result.set(pt.date, fmtMonthAbbr(pt.date));
+      }
+    }
+    return result;
+  })();
+  const tickFormatter = (iso: string) => monthLabels.get(iso) ?? '';
 
   return (
     <div className="w-full bg-white border border-[#E2E8F0]">

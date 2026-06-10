@@ -6,6 +6,7 @@ import { getBasicFinancials, getSentiment } from '@/lib/finnhub/client';
 import type { FinnhubBasicFinancials, FinnhubSentiment } from '@/lib/finnhub/client';
 import { computeCorrelationMatrix } from '@/lib/risk/correlation';
 import type { CorrelationMatrix } from '@/lib/risk/correlation';
+import { isFounder } from '@/lib/founder';
 
 export type { CorrelationMatrix };
 
@@ -157,10 +158,26 @@ function buildSectorExposure(
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
+const EMPTY_INTELLIGENCE: IntelligenceResponse = {
+  health_score: 0, risk_score: 0, concentration_risk: 'low',
+  sector_exposure: [], correlation_warning: false,
+  diversification_score: 0, holdings_analysis: [],
+  rebalancing_suggestions: [],
+  portfolio_summary: 'No holdings to analyze.',
+  generated_at: new Date().toISOString(),
+  health_alerts: [],
+  correlationMatrix: null,
+};
+
 export async function POST() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Non-founder accounts use simulated data — no real positions to analyze
+  if (!isFounder(user.id)) {
+    return NextResponse.json({ ...EMPTY_INTELLIGENCE, generated_at: new Date().toISOString() } satisfies IntelligenceResponse);
+  }
 
   try {
   const { data: rawHoldings } = await supabase
@@ -178,15 +195,7 @@ export async function POST() {
   }>;
 
   if (holdings.length === 0) {
-    return NextResponse.json({
-      health_score: 0, risk_score: 0, concentration_risk: 'low',
-      sector_exposure: [], correlation_warning: false,
-      diversification_score: 0, holdings_analysis: [],
-      rebalancing_suggestions: [], portfolio_summary: 'No holdings to analyze.',
-      generated_at: new Date().toISOString(),
-      health_alerts: [],
-      correlationMatrix: null,
-    } satisfies IntelligenceResponse);
+    return NextResponse.json({ ...EMPTY_INTELLIGENCE, generated_at: new Date().toISOString() } satisfies IntelligenceResponse);
   }
 
   const tickers = holdings.map((h) => h.ticker);

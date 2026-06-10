@@ -8,6 +8,7 @@ import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { getMacroContext, buildMacroPromptSection } from '@/lib/macro/client';
 import { getSentimentScores, detectNarrativeShift, buildSentimentPromptSection } from '@/lib/sentiment/engine';
 import { getUpcomingEarnings, buildEarningsPromptSection } from '@/lib/earnings/intelligence';
+import { isFounder } from '@/lib/founder';
 import type {
   AlpacaPosition,
   AutoInvestConfig,
@@ -130,6 +131,114 @@ export async function POST() {
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // ── Non-founder: generate a starter ETF portfolio recommendation ─────────────
+  if (!isFounder(user.id)) {
+    try {
+      const { data: riskProfile } = await supabase
+        .from('risk_profiles')
+        .select('level, investment_goals, time_horizon')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const level   = (riskProfile?.level   as string   | null) ?? 'moderate';
+      const goals   = (riskProfile?.investment_goals as string[] | null)?.join(', ') ?? 'long-term growth';
+      const horizon = (riskProfile?.time_horizon as string | null) ?? '5-10 years';
+
+      const starterResponse = await anthropic.messages.create({
+        model:      'claude-opus-4-8',
+        max_tokens: 2048,
+        system: `You are Tavola AI, building starter ETF portfolios for new investors. Be specific, direct, and institutional in tone. No hedging. No emojis. Use commas, colons, or periods instead of em dashes.`,
+        tools:       [ANALYSIS_TOOL],
+        tool_choice: { type: 'tool', name: 'submit_portfolio_analysis' },
+        messages: [{
+          role:    'user',
+          content: `Build a starter portfolio for a new investor.
+
+Portfolio: $100,000 in cash, zero existing positions.
+Risk profile: ${level}
+Investment goals: ${goals}
+Time horizon: ${horizon}
+
+Recommend exactly 4 to 6 diversified, liquid ETFs appropriate for the risk profile. All actions must be BUY. Keep roughly $20,000 in cash, so total deployed should be around $80,000. No single ETF should exceed $25,000 notional. Use realistic share quantities based on these approximate prices: SPY $550, QQQ $480, VTI $285, BND $72, SCHD $28, GLD $220, IWM $200, VEA $52, AGG $96, VWO $44, ARKK $55, SOXX $220.
+
+For conservative profiles favor: VTI, BND, SCHD, VEA.
+For moderate profiles favor: VTI, QQQ, BND, GLD.
+For aggressive profiles favor: QQQ, SPY, IWM, SOXX.
+
+Provide full catalyst, expected_timeframe, exit_condition, and 2-3 risk_factors for each. market_outlook should describe the current macro context. summary should explain why this allocation fits the investor's profile.`,
+        }],
+      });
+
+      const toolBlock = starterResponse.content.find(
+        (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use',
+      );
+      if (!toolBlock) throw new Error('No tool block from starter analysis');
+
+      const raw = toolBlock.input as {
+        recommendations: Array<{
+          ticker: string; action: 'buy' | 'sell' | 'hold'; qty: number;
+          confidence: number; reasoning: string; risk_level: 'low' | 'medium' | 'high';
+          catalyst?: string; expected_timeframe?: string; exit_condition?: string;
+          risk_factors?: string[]; institutional_context?: string;
+        }>;
+        market_outlook: string;
+        summary: string;
+      };
+
+      const approved: TradeRecommendation[] = raw.recommendations
+        .filter((r) => r.action === 'buy' && r.qty > 0)
+        .map((r) => ({
+          symbol:                r.ticker,
+          action:                r.action,
+          qty:                   r.qty,
+          confidence:            r.confidence,
+          reasoning:             r.reasoning,
+          risk_level:            r.risk_level,
+          catalyst:              r.catalyst,
+          expected_timeframe:    r.expected_timeframe,
+          exit_condition:        r.exit_condition,
+          risk_factors:          r.risk_factors,
+          institutional_context: r.institutional_context,
+        }));
+
+      // Log starter recommendations to ai_insights
+      if (approved.length > 0) {
+        await supabase.from('ai_insights').insert(
+          approved.map((r) => ({
+            user_id:          user.id,
+            type:             'buy' as const,
+            ticker:           r.symbol,
+            message:          r.reasoning,
+            confidence_score: r.confidence,
+            qty:              r.qty,
+            executed:         false,
+          })),
+        );
+      }
+
+      return NextResponse.json({
+        analysis: {
+          recommendations: approved,
+          market_outlook:  raw.market_outlook,
+          summary:         raw.summary,
+          portfolio_health: 'good',
+        },
+        approved,
+        executed: [],
+        rejected: [],
+        warnings: [],
+        errors:   [],
+        portfolio: { value: 100_000, cash: 100_000 },
+      });
+    } catch (err) {
+      console.error('[ai/analyze/starter]', err instanceof Error ? err.message : err);
+      return NextResponse.json(
+        { error: 'AI analysis temporarily unavailable.', code: 'INTERNAL_ERROR' },
+        { status: 500 },
+      );
+    }
   }
 
   try {
