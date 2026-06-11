@@ -539,7 +539,8 @@ export async function GET() {
 // ── POST: cron-triggered checkpoint run ───────────────────────────────────────
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') ?? req.headers.get('x-cron-secret');
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || cronSecret.length === 0 || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

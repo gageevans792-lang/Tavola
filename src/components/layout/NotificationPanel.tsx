@@ -24,6 +24,12 @@ const TYPE_BORDER: Record<string, string> = {
   info:   'border-l-[#4A5568]',
 };
 
+const PRIORITY_OPACITY: Record<string, string> = {
+  high:   'opacity-100',
+  normal: 'opacity-100',
+  low:    'opacity-60',
+};
+
 const TYPE_DOT: Record<string, string> = {
   risk:   'bg-[#991b1b]',
   profit: 'bg-[#166534]',
@@ -172,15 +178,33 @@ export function NotificationPanel() {
               {notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className={`border-l-2 ${TYPE_BORDER[notif.type] ?? 'border-l-[#4A5568]'} px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors ${notif.read ? 'opacity-50' : ''}`}
+                  className={`border-l-2 ${TYPE_BORDER[notif.type] ?? 'border-l-[#4A5568]'} px-6 py-4 cursor-pointer hover:bg-white/5 transition-colors ${notif.read ? 'opacity-50' : (PRIORITY_OPACITY[notif.priority] ?? 'opacity-100')}`}
                   onClick={() => !notif.read && markOneRead(notif.id)}
                 >
                   <div className="flex items-start gap-2 mb-1">
                     <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${TYPE_DOT[notif.type] ?? 'bg-[#4A5568]'} ${notif.read ? 'opacity-0' : ''}`} />
-                    <p className="text-[13px] font-medium text-white leading-snug">{notif.title}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-white leading-snug">
+                        {notif.priority === 'high' && !notif.read && (
+                          <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#991b1b] align-middle" />
+                        )}
+                        {notif.title}
+                      </p>
+                    </div>
                   </div>
                   <p className="text-[12px] text-white/60 leading-relaxed pl-3.5">{notif.message}</p>
-                  <p className="text-[10px] text-white/30 mt-1 pl-3.5">{timeAgo(notif.created_at)}</p>
+                  <div className="flex items-center justify-between pl-3.5 mt-1">
+                    <p className="text-[10px] text-white/30">{timeAgo(notif.created_at)}</p>
+                    {notif.action_url && (
+                      <a
+                        href={notif.action_url}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[10px] tracking-[0.1em] uppercase text-[#B8960C] hover:text-white transition-colors"
+                      >
+                        View →
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

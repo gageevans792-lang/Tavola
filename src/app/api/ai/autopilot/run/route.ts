@@ -430,6 +430,26 @@ export async function POST() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // ── Rate limit: one run per 30 seconds ──────────────────────────────────────
+  try {
+    const { data: lastRun } = await supabase
+      .from('ai_decisions')
+      .select('created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastRun?.created_at) {
+      const elapsed = Date.now() - new Date(lastRun.created_at).getTime();
+      if (elapsed < 30_000) {
+        return NextResponse.json(
+          { error: 'Rate limited. Please wait 30 seconds between runs.', retry_after: Math.ceil((30_000 - elapsed) / 1000) },
+          { status: 429 },
+        );
+      }
+    }
+  } catch { /* non-fatal: rate limit check failure should not block the run */ }
+
   try {
     // ── 1. Load autopilot settings ────────────────────────────────────────────
     let settings = { enabled: true, frequency: 'daily', max_trade_size: 5000 };

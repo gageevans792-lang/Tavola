@@ -26,21 +26,6 @@ import { createClient }    from '@/lib/supabase/client';
 import type { AIInsight, AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
 
-// ── Fallback mock insights (dashboard feed) ───────────────────────────────────
-
-const MOCK_INSIGHTS: AIInsight[] = [
-  {
-    id: '1', user_id: 'mock', type: 'buy', ticker: 'NVDA',
-    message: 'NVDA broke above its 50-day MA on high volume. Consider adding exposure with a 3% position.',
-    confidence_score: 82, qty: 5, executed: false, created_at: new Date().toISOString(),
-  },
-  {
-    id: '2', user_id: 'mock', type: 'outlook', ticker: null,
-    message: 'Portfolio VIX sensitivity is elevated. Consider hedging with puts or reducing tech exposure.',
-    confidence_score: null, qty: null, executed: false, created_at: new Date().toISOString(),
-  },
-];
-
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 function fmtUSD(n: number, decimals = 0): string {
@@ -100,6 +85,9 @@ export default function DashboardPage() {
 
   // Feature 4: AI Status
   const [lastAnalysisAt, setLastAnalysisAt] = useState<string | null>(null);
+
+  // AI Feed insights
+  const [insights, setInsights] = useState<AIInsight[]>([]);
 
   // Feature 5: AI Portfolio Brief
   const [brief, setBrief] = useState<string | null>(null);
@@ -213,6 +201,25 @@ export default function DashboardPage() {
       } catch { /* non-fatal */ }
     }
     fetchLastAnalysis();
+  }, []);
+
+  // ── Fetch AI Feed insights ─────────────────────────────────────────────────
+  useEffect(() => {
+    async function fetchInsights() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('ai_insights')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (data && data.length > 0) setInsights(data as AIInsight[]);
+      } catch { /* non-fatal */ }
+    }
+    fetchInsights();
   }, []);
 
   // ── Feature 5: Fetch AI Portfolio Brief ───────────────────────────────────
@@ -598,7 +605,7 @@ export default function DashboardPage() {
 
           {/* ── AI feed ─────────────────────────────────────────────────────── */}
           <section>
-            <AIFeed insights={MOCK_INSIGHTS} />
+            <AIFeed insights={insights} />
           </section>
 
           {/* ── Upcoming Catalysts ──────────────────────────────────────────── */}
