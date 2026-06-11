@@ -278,7 +278,9 @@ export async function GET() {
 
   // ── Non-founder: compute portfolio from DB (no Alpaca account access) ───────
   if (!isFounder(user.id, user.email)) {
-    return buildSimulatedPortfolio(user.id, supabaseAdmin);
+    const resp = await buildSimulatedPortfolio(user.id, supabaseAdmin);
+    resp.headers.set('X-Tavola-Mode', 'simulated');
+    return resp;
   }
 
   // ── Step 1: Fetch Alpaca account (required) ──────────────────────────────────
@@ -398,20 +400,23 @@ export async function GET() {
 
   const allocation = buildAllocation(positions, portValue);
 
-  return NextResponse.json({
-    equity,
-    last_equity:        lastEquity,
-    cash,
-    buying_power:       buyingPower,
-    long_market_value:  longMarketValue,
-    portfolio_value:    portValue,
-    day_pl:             dayPl,
-    day_pl_pct:         dayPlPct,
-    total_return:       totalReturn,
-    total_return_pct:   totalReturnPct,
-    chart,
-    allocation,
-    holdings,
-    positions_synced:   positions.length,
-  } satisfies PortfolioData);
+  return NextResponse.json(
+    {
+      equity,
+      last_equity:        lastEquity,
+      cash,
+      buying_power:       buyingPower,
+      long_market_value:  longMarketValue,
+      portfolio_value:    portValue,
+      day_pl:             dayPl,
+      day_pl_pct:         dayPlPct,
+      total_return:       totalReturn,
+      total_return_pct:   totalReturnPct,
+      chart,
+      allocation,
+      holdings,
+      positions_synced:   positions.length,
+    } satisfies PortfolioData,
+    { headers: { 'X-Tavola-Mode': 'founder' } },
+  );
 }

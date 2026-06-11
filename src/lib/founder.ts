@@ -1,11 +1,11 @@
 import type { SyncedHolding } from '@/lib/alpaca/sync';
 
-const FOUNDER_USER_ID    = process.env.FOUNDER_USER_ID ?? '';
-const FOUNDER_USER_EMAIL = 'gageevans792@gmail.com';
+const FOUNDER_USER_ID    = (process.env.FOUNDER_USER_ID ?? '').trim();
+const FOUNDER_USER_EMAIL = (process.env.FOUNDER_EMAIL   ?? '').trim().toLowerCase();
 
 export function isFounder(userId: string, email?: string | null): boolean {
   if (FOUNDER_USER_ID && userId === FOUNDER_USER_ID) return true;
-  if (email && email.toLowerCase() === FOUNDER_USER_EMAIL) return true;
+  if (FOUNDER_USER_EMAIL && email && email.trim().toLowerCase() === FOUNDER_USER_EMAIL) return true;
   return false;
 }
 
