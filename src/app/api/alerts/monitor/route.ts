@@ -36,11 +36,11 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = createAdminClient();
 
-    // 2. Fetch all user_ids from risk_profiles where onboarding_done = true
+    // 2. Fetch all user ids from profiles where onboarding_completed = true
     const { data: profiles, error: profilesError } = await supabase
-      .from('risk_profiles')
-      .select('user_id')
-      .eq('onboarding_done', true)
+      .from('profiles')
+      .select('id')
+      .eq('onboarding_completed', true)
       .limit(50);
 
     if (profilesError) {
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch profiles' }, { status: 500 });
     }
 
-    const userIds = (profiles ?? []).map((p: { user_id: string }) => p.user_id);
+    const userIds = (profiles ?? []).map((p: { id: string }) => p.id);
 
     let alertsGenerated = 0;
     const usersProcessed = userIds.length;
