@@ -702,6 +702,7 @@ export async function POST() {
           tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'executed', order_id: result.fill.id });
           decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'executed', order_id: result.fill.id });
         } else {
+          console.error(`[autopilot/run] simulated trade failed: ${rec.symbol} ${rec.action} qty=${rec.qty} — [${result.error.code}] ${result.error.message}`);
           tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: result.error.message });
           decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: result.error.message });
         }
