@@ -502,8 +502,16 @@ async function runCheckpointForUser(userId: string, supabaseAdmin: any, checkpoi
   return { action: 'pending_window', triggers: ctx.triggers.length, trades: filteredRecs.length, cancelToken };
 }
 
-// ── GET: today's checkpoints for the authenticated user ──────────────────────
-export async function GET() {
+// ── GET: Vercel cron (CRON_SECRET header) OR user session ────────────────────
+// Vercel crons always send GET. If the CRON_SECRET header is present we delegate
+// to the POST cron logic so the scheduled checkpoints actually run.
+export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.get('authorization') ?? req.headers.get('x-cron-secret');
+  if (cronSecret && cronSecret.length > 0 && authHeader === `Bearer ${cronSecret}`) {
+    return POST(req);
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

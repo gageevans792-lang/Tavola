@@ -249,6 +249,12 @@ function buildCrises(strategy: StrategyKey, years: number[]): CrisisEvent[] {
 // ── Route ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
+  // Static data only, but auth-gate to prevent abuse and log usage per user
+  const { createClient } = await import('@/lib/supabase/server');
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   let body: { strategy?: string; period?: string; initial_capital?: number };
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }

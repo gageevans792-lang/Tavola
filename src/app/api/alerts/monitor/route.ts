@@ -23,13 +23,10 @@ function fmtPct(val: number): string {
 // ── GET handler (Vercel cron calls GET) ───────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  // 1. Verify cron secret
+  // 1. Verify cron secret — fail closed; never run unprotected
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    console.warn('[alerts/monitor] CRON_SECRET is not set — endpoint is unprotected');
-  }
   const authHeader = req.headers.get('authorization') ?? '';
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || cronSecret.length === 0 || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

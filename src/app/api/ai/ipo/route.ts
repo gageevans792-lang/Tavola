@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { anthropic } from '@/lib/anthropic/client';
+import { createClient } from '@/lib/supabase/server';
 import type { FinnhubIPO } from '@/lib/finnhub/client';
 
 export interface IpoAnalysis {
@@ -10,6 +11,10 @@ export interface IpoAnalysis {
 }
 
 export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   let ipos: FinnhubIPO[];
   try { ipos = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
