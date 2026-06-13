@@ -419,9 +419,9 @@ export default function CryptoPage() {
                     </thead>
                     <tbody className="divide-y divide-[#E2E8F0]">
                       {positions.map((pos) => {
-                        const pl  = parseFloat(pos.unrealized_pl);
-                        const pct = parseFloat(pos.unrealized_plpc) * 100;
-                        const mv  = parseFloat(pos.market_value);
+                        const pl  = parseFloat(pos.unrealized_pl)  || 0;
+                        const pct = (parseFloat(pos.unrealized_plpc) || 0) * 100;
+                        const mv  = parseFloat(pos.market_value)   || 0;
                         return (
                           <tr key={pos.symbol} className="hover:bg-[#F8F9FA] transition-colors">
                             <td className="px-4 sm:px-6 py-3">
@@ -431,14 +431,16 @@ export default function CryptoPage() {
                               <p className="text-[10px] text-[#4A5568]">{pos.qty} units</p>
                             </td>
                             <td className="px-4 sm:px-6 py-3 text-right font-mono tabular-nums text-[#0A1628]">
-                              ${mv.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                              {mv > 0 ? `$${mv.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : '–'}
                             </td>
                             <td className={cn(
                               'px-4 sm:px-6 py-3 text-right font-mono tabular-nums hidden sm:table-cell',
                               pl >= 0 ? 'text-[#166534]' : 'text-[#991b1b]',
                             )}>
-                              {pl >= 0 ? '+' : ''}${Math.abs(pl).toFixed(2)}{' '}
-                              <span className="text-[10px]">({pct >= 0 ? '+' : ''}{pct.toFixed(1)}%)</span>
+                              {mv > 0 ? (
+                                <>{pl >= 0 ? '+' : ''}${Math.abs(pl).toFixed(2)}{' '}
+                                <span className="text-[10px]">({pct >= 0 ? '+' : ''}{pct.toFixed(1)}%)</span></>
+                              ) : '–'}
                             </td>
                           </tr>
                         );
