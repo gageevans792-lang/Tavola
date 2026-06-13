@@ -390,6 +390,13 @@ function CorrelationRiskSection({ matrix }: { matrix: CorrelationMatrix | null }
           </div>
         </div>
       )}
+      {(matrix?.insufficient_history?.length ?? 0) > 0 && (
+        <div className="px-4 sm:px-5 py-3 border-t border-[#E2E8F0]">
+          <p className="text-[10px] text-[#B8960C]">
+            Insufficient history for correlation: {matrix!.insufficient_history.join(', ')} — fewer than 30 trading days of price data.
+          </p>
+        </div>
+      )}
     </section>
   );
 }
@@ -733,9 +740,13 @@ export default function IntelligencePage() {
                         </td>
 
                         <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
-                          <span className={cn('font-serif text-[14px]', vsHighColor(h.current_vs_52w_high))}>
-                            {h.current_vs_52w_high > 0 ? `-${fmtNum(h.current_vs_52w_high, 1)}%` : 'AT HIGH'}
-                          </span>
+                          {h.week52_high === 0 ? (
+                            <span className="font-serif text-[14px] text-[#4A5568]">—</span>
+                          ) : (
+                            <span className={cn('font-serif text-[14px]', vsHighColor(h.current_vs_52w_high))}>
+                              {h.current_vs_52w_high > 0 ? `-${fmtNum(h.current_vs_52w_high, 1)}%` : 'AT HIGH'}
+                            </span>
+                          )}
                         </td>
 
                         <td className="px-3 sm:px-4 py-3 whitespace-nowrap">

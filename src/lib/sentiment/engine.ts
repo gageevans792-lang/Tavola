@@ -339,25 +339,35 @@ function computeEarningsSurprise(results: FinnhubEarningResult[]): {
 function computeMomentumScore(
   bars: DailyBar[],
 ): { score: number; hasData: boolean; signals: string[] } {
-  if (bars.length < 5) return { score: 0, hasData: false, signals: [] };
+  const n = bars.length;
+  if (n < 2) return { score: 0, hasData: false, signals: [] };
 
-  const latest      = bars[bars.length - 1].close;
-  const fiveDaysAgo = bars[Math.max(0, bars.length - 6)].close;
-  const thirtyAgo   = bars[Math.max(0, bars.length - 31)].close;
-  const high52w     = Math.max(...bars.slice(-252).map((b) => b.close));
-
+  const latest = bars[n - 1].close;
   if (!latest) return { score: 0, hasData: false, signals: [] };
 
+  // ── Very new listing (<5 trading days): compute early momentum only ───────
+  if (n < 5) {
+    const firstClose = bars[0].close;
+    const earlyRet   = firstClose > 0 ? ((latest - firstClose) / firstClose) * 100 : 0;
+    return {
+      score:   Math.round(Math.max(-100, Math.min(100, earlyRet * 3))),
+      hasData: true,
+      signals: [`New listing: ${n}d of data, ${earlyRet >= 0 ? '+' : ''}${earlyRet.toFixed(1)}% since first trade`],
+    };
+  }
+
+  // ── Standard path ─────────────────────────────────────────────────────────
+  const fiveDaysAgo = bars[Math.max(0, n - 6)].close;
+  const thirtyAgo   = bars[Math.max(0, n - 31)].close;
   const ret5d  = fiveDaysAgo > 0 ? ((latest - fiveDaysAgo) / fiveDaysAgo) * 100 : 0;
   const ret30d = thirtyAgo   > 0 ? ((latest - thirtyAgo)   / thirtyAgo)   * 100 : 0;
-  const vsHigh = high52w     > 0 ? ((latest - high52w)     / high52w)     * 100 : 0;
 
   let score = 0;
+  const signals: string[] = [];
+
   score += Math.max(-50, Math.min(50, ret5d  * 5));
   score += Math.max(-30, Math.min(30, ret30d * 1.5));
-  score += vsHigh > -5  ? 20 : vsHigh > -15 ? 10 : 0;
 
-  const signals: string[] = [];
   const ann5d  = ret5d  * (252 / 5);
   const ann30d = ret30d * (252 / 30);
   if (ret5d > 0 && ann5d > ann30d) {
@@ -365,8 +375,19 @@ function computeMomentumScore(
   } else if (ret5d < -1) {
     signals.push(`Price under pressure: ${ret5d.toFixed(1)}% (5d), ${ret30d.toFixed(1)}% (30d)`);
   }
-  if (vsHigh > -5) {
-    signals.push(`Trading near 52-week high (${vsHigh.toFixed(1)}% from peak)`);
+
+  // ── 52w high signal: only meaningful with ≥ 240 trading days of data ──────
+  if (n >= 240) {
+    const high52w = Math.max(...bars.slice(-252).map((b) => b.close));
+    if (high52w > 0) {
+      const vsHigh = ((latest - high52w) / high52w) * 100;
+      score += vsHigh > -5  ? 20 : vsHigh > -15 ? 10 : 0;
+      if (vsHigh > -5) {
+        signals.push(`Trading near 52-week high (${vsHigh.toFixed(1)}% from peak)`);
+      }
+    }
+  } else if (n < 90) {
+    signals.push(`Limited price history (${n} trading days — signals provisional)`);
   }
 
   return {
@@ -485,6 +506,16 @@ export async function getSentimentScore(ticker: string): Promise<SentimentScore>
     ...earningsBon.signals,
   ];
   const allFlags = [...newsSig.flags, ...insiderSig.flags];
+
+  // ── New-listing confidence cap ────────────────────────────────────────────
+  const tradingDays = bars.length;
+  if (tradingDays < 90) {
+    const cap = tradingDays < 5 ? 20 : tradingDays < 30 ? 35 : 50;
+    confidence = Math.min(confidence, cap);
+    allFlags.push(
+      `New listing: ${tradingDays} trading day${tradingDays !== 1 ? 's' : ''} of data — all signals provisional`,
+    );
+  }
 
   const result: SentimentScore = {
     ticker,

@@ -269,17 +269,27 @@ export async function POST() {
   );
 
   // Build Claude prompt
-  const holdingsSummary = preliminaryAnalysis.map((h) =>
-    `${h.ticker}: weight=${h.weight_pct}%, beta=${h.beta}, PE=${h.pe_ratio || 'N/A'}, ` +
-    `${h.current_vs_52w_high.toFixed(1)}% below 52w high, sentiment=${h.sentiment_label}`,
-  ).join('\n');
+  const newListings = preliminaryAnalysis.filter((h) => h.week52_high === 0).map((h) => h.ticker);
 
-  const prompt =
+  const holdingsSummary = preliminaryAnalysis.map((h) => {
+    const vsHighStr = h.week52_high === 0
+      ? 'New listing (no 52w data)'
+      : `${h.current_vs_52w_high.toFixed(1)}% below 52w high`;
+    return `${h.ticker}: weight=${h.weight_pct}%, beta=${h.beta}, PE=${h.pe_ratio || 'N/A'}, ${vsHighStr}, sentiment=${h.sentiment_label}`;
+  }).join('\n');
+
+  let prompt =
     `Portfolio equity: ${equity}\n` +
     `Portfolio beta: ${(riskScore / 50).toFixed(2)}\n` +
     `Concentration risk: ${concRisk}\n` +
     `Top sectors: ${sectorExposure.slice(0, 3).map((s) => `${s.sector} ${s.pct}%`).join(', ')}\n\n` +
     `Holdings:\n${holdingsSummary}`;
+
+  if (newListings.length > 0) {
+    prompt +=
+      `\n\nNOTE: ${newListings.join(', ')} ${newListings.length === 1 ? 'is a recent listing' : 'are recent listings'} ` +
+      `with limited trading history. Acknowledge this in your thesis for each; do not invent historical performance metrics.`;
+  }
 
   // Claude tool_use for AI content
   let aiTheses: Map<string, string>     = new Map();
