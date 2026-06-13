@@ -502,6 +502,9 @@ export default function SettingsPage() {
                       <div>
                         <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Checkpoint summaries</p>
                         <p className="text-[12px] text-[#4A5568]">Low-priority digest after each intraday checkpoint, even when no action is taken. Default on.</p>
+                        <p className="mt-1.5 text-[11px] text-[#4A5568]/60 tracking-[0.08em]">
+                          Schedule: 9:35 AM · 1:00 PM · 3:30 PM ET
+                        </p>
                       </div>
                       <Toggle
                         checked={notifs.checkpoint_summaries}

@@ -649,6 +649,13 @@ export async function POST() {
     });
 
     // ── 11. Execute approved trades ───────────────────────────────────────────
+    const { data: notifSettingsRow } = await supabaseAdmin
+      .from('user_notification_settings')
+      .select('execution_confirmations')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const sendExecNotif = notifSettingsRow?.execution_confirmations !== false;
+
     const tradeResults: TradeResult[]      = [];
     const decisions:    AutopilotDecision[] = [];
 
@@ -680,6 +687,14 @@ export async function POST() {
           if (ins.error) console.error('[autopilot/run] trade insert:', ins.error.message);
           tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'executed', order_id: order.id });
           decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'executed', order_id: order.id });
+          if (sendExecNotif) {
+            supabaseAdmin.from('notifications').insert({
+              user_id: user.id, type: 'profit',
+              title:   `Executed: ${rec.action.toUpperCase()} ${rec.qty} ${rec.symbol}`,
+              message: rec.reasoning?.slice(0, 120) ?? 'Autopilot trade executed.',
+              ticker:  rec.symbol, priority: 'normal', action_url: '/trades',
+            }).then(({ error }: { error: unknown }) => { if (error) console.warn('[autopilot] notif insert:', error); });
+          }
         } catch (err: unknown) {
           const errMsg = err instanceof Error ? err.message : 'Order failed';
           tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: errMsg });
@@ -701,6 +716,14 @@ export async function POST() {
         if (result.ok) {
           tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'executed', order_id: result.fill.id });
           decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'executed', order_id: result.fill.id });
+          if (sendExecNotif) {
+            supabaseAdmin.from('notifications').insert({
+              user_id: user.id, type: 'profit',
+              title:   `Executed: ${rec.action.toUpperCase()} ${rec.qty} ${rec.symbol}`,
+              message: rec.reasoning?.slice(0, 120) ?? 'Autopilot trade executed.',
+              ticker:  rec.symbol, priority: 'normal', action_url: '/trades',
+            }).then(({ error }: { error: unknown }) => { if (error) console.warn('[autopilot] notif insert:', error); });
+          }
         } else {
           console.error(`[autopilot/run] simulated trade failed: ${rec.symbol} ${rec.action} qty=${rec.qty} — [${result.error.code}] ${result.error.message}`);
           tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: result.error.message });

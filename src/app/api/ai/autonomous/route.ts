@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { getAccount, getPositions, getTickerPrices, placeMarketOrder } from '@/lib/alpaca/client';
 import type { TickerPrice } from '@/lib/alpaca/client';
@@ -124,6 +125,11 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
   }
+
+  const supabaseAdmin = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 
   try {
     // ── 2. Load user strategy ────────────────────────────────────────────────
@@ -288,6 +294,13 @@ ${baseRules}`;
     const executed: Array<{ symbol: string; action: string; qty: number; order_id: string; status: string }> = [];
 
     if (autoExecute) {
+      const { data: notifRow } = await supabaseAdmin
+        .from('user_notification_settings')
+        .select('execution_confirmations')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      const sendExecNotif = notifRow?.execution_confirmations !== false;
+
       for (const rec of approved) {
         if (rec.action === 'hold') continue;
         try {
@@ -303,6 +316,14 @@ ${baseRules}`;
             order_id: order.id,
             status:   order.status,
           });
+          if (sendExecNotif) {
+            supabaseAdmin.from('notifications').insert({
+              user_id: user.id, type: 'profit',
+              title:   `Executed: ${rec.action.toUpperCase()} ${rec.qty} ${rec.symbol}`,
+              message: rec.reasoning?.slice(0, 120) ?? 'Analysis trade executed.',
+              ticker:  rec.symbol, priority: 'normal', action_url: '/trades',
+            }).then(({ error }: { error: unknown }) => { if (error) console.warn('[autonomous] notif insert:', error); });
+          }
         } catch {
           warnings.push(`Failed to execute ${rec.action} order for ${rec.symbol}`);
         }
