@@ -8,13 +8,14 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const status = req.nextUrl.searchParams.get('status') ?? 'pending';
+  const limit  = Math.min(parseInt(req.nextUrl.searchParams.get('limit') ?? '50', 10) || 50, 500);
 
   let query = supabase
     .from('recommendations')
     .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(50);
+    .limit(limit);
 
   if (status !== 'all') {
     query = query.eq('user_decision', status);
