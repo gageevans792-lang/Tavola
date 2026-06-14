@@ -243,31 +243,16 @@ export function AutoInvestPanel() {
     }
   }, [config]);
 
-  const executeOne = useCallback(async (rec: TradeRecommendation): Promise<number | undefined> => {
+  const acceptOne = useCallback(async (rec: TradeRecommendation): Promise<void> => {
     setExecutingSymbol(rec.symbol);
     try {
-      const res = await fetch('/api/alpaca/orders', {
-        method: 'POST',
+      await fetch('/api/recommendations', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: rec.symbol, qty: rec.qty, side: rec.action }),
+        body:    JSON.stringify({ ticker: rec.symbol, action: rec.action, qty: rec.qty, reasoning: rec.reasoning, confidence: rec.confidence, source: 'analysis', user_decision: 'accepted' }),
       });
-      if (!res.ok) throw new Error('Order failed');
-
-      const body = await res.json().catch(() => ({})) as { filled_avg_price?: string };
-      const fillPrice = body.filled_avg_price ? parseFloat(body.filled_avg_price) : undefined;
-
-      setResult((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          approved: prev.approved.filter((r) => r.symbol !== rec.symbol),
-          executed: [...prev.executed, { ...rec, order_id: 'manual' }],
-        };
-      });
-
-      return fillPrice;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Order failed');
+      setError(err instanceof Error ? err.message : 'Failed to save recommendation');
     } finally {
       setExecutingSymbol(null);
     }
@@ -373,7 +358,7 @@ export function AutoInvestPanel() {
               </div>
               <div className="space-y-2">
                 {result.executed.map((rec) => (
-                  <RecommendationCard key={rec.symbol} rec={rec} variant="executed" />
+                  <RecommendationCard key={rec.symbol} rec={rec} variant="accepted" />
                 ))}
               </div>
             </section>
@@ -394,7 +379,7 @@ export function AutoInvestPanel() {
                     key={rec.symbol}
                     rec={rec}
                     variant="pending"
-                    onExecute={executeOne}
+                    onAccept={acceptOne}
                     executing={executingSymbol === rec.symbol}
                   />
                 ))}

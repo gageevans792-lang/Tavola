@@ -14,8 +14,6 @@ import { AIFeed }                 from '@/components/dashboard/AIFeed';
 import { AnalysisOverlay }        from '@/components/dashboard/AnalysisOverlay';
 import { RecommendationsSection } from '@/components/dashboard/RecommendationsSection';
 import { MarketTabs }             from '@/components/dashboard/MarketTabs';
-import { Toast }                  from '@/components/ui/Toast';
-import type { ToastData }         from '@/components/ui/Toast';
 import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
 import type { ChartApiResponse }  from '@/app/api/portfolio/chart/route';
 import type { PredictiveSignal }  from '@/app/api/ai/predict/route';
@@ -72,7 +70,7 @@ export default function DashboardPage() {
   const [firstName, setFirstName] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [toast, setToast]         = useState<ToastData | null>(null);
+  const [hasBrokerage, setHasBrokerage] = useState<boolean | null>(null);
   const [chartData, setChartData] = useState<ChartApiResponse | null>(null);
   const [chartLoading, setChartLoading] = useState(true);
   const [marketOpen, setMarketOpen] = useState<boolean | null>(null);
@@ -248,6 +246,16 @@ export default function DashboardPage() {
     fetchBrief();
   }, [fetchBrief]);
 
+  // ── Fetch brokerage connection status ─────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/brokerage/connect')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { brokerages?: Array<{ status: string }> } | null) => {
+        setHasBrokerage(d?.brokerages?.some((b) => b.status === 'connected') ?? false);
+      })
+      .catch(() => setHasBrokerage(false));
+  }, []);
+
   // ── Analysis state ─────────────────────────────────────────────────────────
   const [analyzing, setAnalyzing]             = useState(false);
   const [result, setResult]                   = useState<AutoInvestResult | null>(null);
@@ -269,54 +277,31 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // ── Execute a single recommendation ───────────────────────────────────────
-  // Returns fill price on success; re-throws on failure so RecommendationCard
-  // stays in pending state.
-  const executeOne = useCallback(async (rec: TradeRecommendation): Promise<number | undefined> => {
+  // ── Recommendation handlers ────────────────────────────────────────────────
+  const saveRecommendation = useCallback(async (rec: TradeRecommendation, decision: string): Promise<void> => {
     setExecutingSymbol(rec.symbol);
     try {
-      const res = await fetch('/api/alpaca/orders', {
+      await fetch('/api/recommendations', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ symbol: rec.symbol, qty: rec.qty, side: rec.action }),
+        body:    JSON.stringify({
+          ticker:        rec.symbol,
+          action:        rec.action,
+          qty:           rec.qty,
+          reasoning:     rec.reasoning,
+          confidence:    rec.confidence,
+          source:        'analysis',
+          user_decision: decision,
+        }),
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Order failed');
-      }
-      const body = await res.json().catch(() => ({})) as { filled_avg_price?: string };
-      const fillPrice = body.filled_avg_price ? parseFloat(body.filled_avg_price) : undefined;
-
-      // Promote from approved → executed in result state
-      setResult((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          approved: prev.approved.filter((r) => r.symbol !== rec.symbol),
-          executed: [...prev.executed, { ...rec, order_id: 'manual' }],
-        };
-      });
-
-      return fillPrice;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Order failed. Please try again.');
-      throw err; // re-throw so RecommendationCard stays in pending state
-    } finally {
+    } catch { /* non-fatal */ } finally {
       setExecutingSymbol(null);
     }
   }, []);
 
-  // ── Post-execution: refresh portfolio + show toast ────────────────────────
-  const handleExecuted = useCallback((rec: TradeRecommendation, fillPrice?: number) => {
-    setTimeout(refreshPortfolio, 1_000);
-    // Use fill price from API response; fall back to estimated_value / qty
-    const price = fillPrice ?? (
-      rec.estimated_value != null && rec.qty > 0
-        ? rec.estimated_value / rec.qty
-        : undefined
-    );
-    setToast({ ticker: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, price });
-  }, [refreshPortfolio]);
+  const acceptOne = useCallback((rec: TradeRecommendation) => saveRecommendation(rec, 'accepted'), [saveRecommendation]);
+  const rejectOne = useCallback((rec: TradeRecommendation) => saveRecommendation(rec, 'rejected'), [saveRecommendation]);
+  const watchOne  = useCallback((rec: TradeRecommendation) => saveRecommendation(rec, 'watching'),  [saveRecommendation]);
 
   // ── Derived display values ─────────────────────────────────────────────────
   const p = portfolio;
@@ -415,7 +400,7 @@ export default function DashboardPage() {
                   <p className="text-[13px] font-medium text-[#0A1628]">{timeAgo(lastAnalysisAt)}</p>
                 </div>
                 <div className="sm:px-6">
-                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Positions Monitored</p>
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Watchlist Items</p>
                   <p className="text-[13px] font-medium text-[#0A1628]">{holdings.length} position{holdings.length === 1 ? '' : 's'}</p>
                 </div>
                 <div className="sm:px-6">
@@ -439,12 +424,27 @@ export default function DashboardPage() {
                   <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Status</p>
                   <div className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C] animate-pulse" />
-                    <p className="text-[13px] font-medium text-[#0A1628]">Monitoring 24/7</p>
+                    <p className="text-[13px] font-medium text-[#0A1628]">Analyzing markets</p>
                   </div>
                 </div>
               </div>
             </div>
           </section>
+
+          {/* ── Brokerage connection banner ───────────────────────────────────── */}
+          {hasBrokerage === false && (
+            <div className="border border-[#B8960C]/30 bg-[#B8960C]/5 px-4 py-3 flex items-center justify-between">
+              <p className="text-sm text-[#0A1628]">
+                Connect your brokerage to enable one-click trade execution when you accept guidance recommendations.
+              </p>
+              <a
+                href="/settings"
+                className="ml-4 shrink-0 text-[11px] tracking-[0.12em] uppercase text-[#B8960C] hover:text-[#0A1628] transition-colors"
+              >
+                Connect →
+              </a>
+            </div>
+          )}
 
           {/* ── Health Alerts ────────────────────────────────────────────────── */}
           {healthAlerts.filter((a) => !dismissedAlerts.has(`${a.type}-${a.message}`)).map((alert) => {
@@ -487,8 +487,9 @@ export default function DashboardPage() {
                 <RecommendationsSection
                   result={result}
                   onDismiss={() => setResult(null)}
-                  onExecuteOne={executeOne}
-                  onExecuted={handleExecuted}
+                  onAcceptOne={acceptOne}
+                  onRejectOne={rejectOne}
+                  onWatchOne={watchOne}
                   executingSymbol={executingSymbol}
                 />
               </section>
@@ -693,10 +694,6 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* ── Toast notification ───────────────────────────────────────────────── */}
-      {toast && (
-        <Toast data={toast} onDismiss={() => setToast(null)} />
-      )}
     </div>
   );
 }

@@ -76,13 +76,11 @@ function AutopilotToggle({ enabled, loading, onToggle }: ToggleProps) {
 // ── RunResult modal ───────────────────────────────────────────────────────────
 
 interface RunResultData {
-  trades: Array<{
-    symbol:   string;
-    action:   'buy' | 'sell' | 'failed';
-    qty:      number;
-    status:   string;
-    order_id?: string;
-    error?:   string;
+  recommendations: Array<{
+    symbol: string;
+    action: 'buy' | 'sell' | 'hold';
+    qty:    number;
+    status: string;
   }>;
   market_outlook: string;
   summary:        string;
@@ -115,43 +113,36 @@ function RunResultModal({ result, onClose }: RunResultModalProps) {
         {/* Stats */}
         <div className="grid grid-cols-2 divide-x divide-[#E2E8F0] border-b border-[#E2E8F0]">
           <div className="px-6 py-4">
-            <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568]">Trades Executed</p>
+            <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568]">Recommendations</p>
             <p className="font-mono text-2xl text-[#0A1628] mt-1 tabular-nums">
-              {result.trades.filter((t) => t.status === 'executed').length}
+              {result.recommendations.filter((r) => r.action !== 'hold').length}
             </p>
           </div>
           <div className="px-6 py-4">
-            <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568]">Total Orders</p>
+            <p className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568]">Pending Review</p>
             <p className="font-mono text-2xl text-[#0A1628] mt-1 tabular-nums">
-              {result.trades.length}
+              {result.recommendations.filter((r) => r.status === 'pending_review').length}
             </p>
           </div>
         </div>
 
-        {/* Trade list */}
-        {result.trades.length > 0 && (
+        {/* Recommendation list */}
+        {result.recommendations.filter((r) => r.action !== 'hold').length > 0 && (
           <div className="px-6 py-4 border-b border-[#E2E8F0] space-y-2 max-h-48 overflow-y-auto">
-            {result.trades.map((t, i) => (
+            {result.recommendations.filter((r) => r.action !== 'hold').map((r, i) => (
               <div key={i} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      'text-[10px] tracking-[0.15em] uppercase font-medium',
-                      t.status === 'executed'
-                        ? t.action === 'buy' ? 'text-[#166534]' : 'text-[#991b1b]'
-                        : 'text-[#4A5568]',
-                    )}
-                  >
-                    {t.status === 'executed' ? t.action.toUpperCase() : 'SKIP'}
+                  <span className={cn(
+                    'text-[10px] tracking-[0.15em] uppercase font-medium',
+                    r.action === 'buy' ? 'text-[#166534]' : 'text-[#991b1b]',
+                  )}>
+                    {r.action.toUpperCase()}
                   </span>
-                  <span className="font-mono font-bold text-[#0A1628]">{t.symbol}</span>
-                  <span className="text-[#4A5568] font-mono tabular-nums">{t.qty} sh</span>
+                  <span className="font-mono font-bold text-[#0A1628]">{r.symbol}</span>
+                  <span className="text-[#4A5568] font-mono tabular-nums">{r.qty} sh</span>
                 </div>
-                <span className={cn(
-                  'text-[10px] tracking-[0.1em] uppercase',
-                  t.status === 'executed' ? 'text-[#166534]' : 'text-[#991b1b]',
-                )}>
-                  {t.status}
+                <span className="text-[10px] tracking-[0.1em] uppercase text-[#B8960C]">
+                  Pending
                 </span>
               </div>
             ))}
@@ -541,19 +532,17 @@ export default function AutopilotPage() {
     try {
       const res = await fetch('/api/ai/autopilot/run', { method: 'POST' });
       const data = await res.json() as {
-        trades?: RunResultData['trades'];
-        market_outlook?: string;
-        summary?: string;
-        error?: string;
+        recommendations?: RunResultData['recommendations'];
+        market_outlook?:  string;
+        summary?:         string;
+        error?:           string;
       };
       if (!res.ok) throw new Error(data.error ?? 'AutoPilot run failed');
       setRunResult({
-        trades:         data.trades ?? [],
-        market_outlook: data.market_outlook ?? '',
-        summary:        data.summary ?? '',
+        recommendations: data.recommendations ?? [],
+        market_outlook:  data.market_outlook ?? '',
+        summary:         data.summary ?? '',
       });
-      // Sync holdings after run (best-effort)
-      fetch('/api/alpaca/sync', { method: 'POST' }).catch(() => {});
       // Refresh history after run
       await loadHistory();
       await loadSettings();
@@ -598,7 +587,7 @@ export default function AutopilotPage() {
                   AutoPilot
                 </h1>
                 <p className="text-white/60 text-lg mb-8 leading-relaxed">
-                  Institutional-grade AI investing. Fully automated.
+                  Institutional-grade AI market monitoring and guidance.
                 </p>
 
                 {/* Toggle */}
@@ -634,7 +623,7 @@ export default function AutopilotPage() {
                     </div>
                     <p className="text-xs text-white/30 mt-1">
                       {isEnabled
-                        ? 'AI is actively managing your portfolio'
+                        ? 'AI is actively monitoring and analyzing'
                         : 'AutoPilot is paused'}
                     </p>
                   </div>
@@ -652,7 +641,7 @@ export default function AutopilotPage() {
               <div className="grid grid-cols-3 gap-px lg:grid-cols-1 lg:gap-px">
                 {[
                   { label: 'Total Runs',       value: totalRuns.toString(),    mono: true },
-                  { label: 'Trades Executed',  value: totalTrades.toString(),  mono: true },
+                  { label: 'Recommendations',   value: totalTrades.toString(),  mono: true },
                   { label: 'Total Deployed',   value: fmtUSD(totalDeployed),   mono: true },
                 ].map(({ label, value }) => (
                   <div
@@ -996,8 +985,8 @@ export default function AutopilotPage() {
                 },
                 {
                   step: '02',
-                  title: 'Executes Trades',
-                  body: 'Places orders through Alpaca based on your configured risk settings. Every trade is filtered through multi-layer risk guards before execution.',
+                  title: 'Generates Guidance',
+                  body: 'Delivers specific buy, sell, and hold recommendations filtered through multi-layer risk guards. You review and accept or reject each one.',
                 },
                 {
                   step: '03',
@@ -1017,9 +1006,9 @@ export default function AutopilotPage() {
             <div className="mt-8 border border-[#E2E8F0] bg-white px-6 py-4">
               <p className="text-[11px] text-[#4A5568] leading-relaxed">
                 <span className="font-medium text-[#0A1628]">Risk Disclosure.</span>{' '}
-                AutoPilot executes trades on your behalf using AI analysis. All investing involves risk.
-                Past performance does not guarantee future results. Trade limits and risk guards are applied
-                but cannot eliminate loss. Monitor your portfolio regularly.
+                AutoPilot provides AI-generated guidance, not financial advice. All investing involves risk.
+                Past performance does not guarantee future results. Risk guards are applied to recommendations
+                but cannot eliminate loss. Always review guidance before acting.
               </p>
             </div>
           </div>

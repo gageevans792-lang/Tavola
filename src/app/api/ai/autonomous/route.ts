@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { getAccount, getPositions, getTickerPrices, placeMarketOrder } from '@/lib/alpaca/client';
+import { getAccount, getPositions, getTickerPrices } from '@/lib/alpaca/client';
 import type { TickerPrice } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
@@ -290,47 +290,7 @@ ${baseRules}`;
       latestPrices,
     });
 
-    // ── 10. Auto-execute if enabled ───────────────────────────────────────────
-    const executed: Array<{ symbol: string; action: string; qty: number; order_id: string; status: string }> = [];
-
-    if (autoExecute) {
-      const { data: notifRow } = await supabaseAdmin
-        .from('user_notification_settings')
-        .select('execution_confirmations')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      const sendExecNotif = notifRow?.execution_confirmations !== false;
-
-      for (const rec of approved) {
-        if (rec.action === 'hold') continue;
-        try {
-          const order = await placeMarketOrder(
-            rec.symbol,
-            rec.action as 'buy' | 'sell',
-            rec.qty,
-          );
-          executed.push({
-            symbol:   rec.symbol,
-            action:   rec.action,
-            qty:      rec.qty,
-            order_id: order.id,
-            status:   order.status,
-          });
-          if (sendExecNotif) {
-            supabaseAdmin.from('notifications').insert({
-              user_id: user.id, type: 'profit',
-              title:   `Executed: ${rec.action.toUpperCase()} ${rec.qty} ${rec.symbol}`,
-              message: rec.reasoning?.slice(0, 120) ?? 'Analysis trade executed.',
-              ticker:  rec.symbol, priority: 'normal', action_url: '/trades',
-            }).then(({ error }: { error: unknown }) => { if (error) console.warn('[autonomous] notif insert:', error); });
-          }
-        } catch {
-          warnings.push(`Failed to execute ${rec.action} order for ${rec.symbol}`);
-        }
-      }
-    }
-
-    // ── 11. Write approved non-hold recs to ai_insights ──────────────────────
+    // ── 10. Write approved non-hold recs to ai_insights ──────────────────────
     const insightRows = approved
       .filter((r) => r.action !== 'hold')
       .map((r) => ({
@@ -340,17 +300,16 @@ ${baseRules}`;
         message:          r.reasoning,
         confidence_score: r.confidence,
         qty:              r.qty,
-        executed:         autoExecute,
+        executed:         false,
       }));
 
     if (insightRows.length > 0) {
       await supabase.from('ai_insights').insert(insightRows);
     }
 
-    // ── 12. Insert autonomous_sessions row ────────────────────────────────────
-    const tradesApproved    = approved.filter((r) => r.action !== 'hold').length;
-    const tradesExecuted    = executed.length;
-    const totalTradeValue   = approved
+    // ── 11. Insert autonomous_sessions row ────────────────────────────────────
+    const tradesApproved  = approved.filter((r) => r.action !== 'hold').length;
+    const totalTradeValue = approved
       .filter((r) => r.action !== 'hold')
       .reduce((sum, r) => sum + (r.estimated_value ?? 0), 0);
 
@@ -361,9 +320,9 @@ ${baseRules}`;
         strategy_id:       finalStrategy.id,
         strategy_name:     finalStrategy.name,
         status:            'completed',
-        auto_executed:     autoExecute,
+        auto_executed:     false,
         trades_approved:   tradesApproved,
-        trades_executed:   tradesExecuted,
+        trades_executed:   0,
         total_trade_value: totalTradeValue,
         market_outlook:    raw.market_outlook,
         summary:           raw.summary,
@@ -400,7 +359,7 @@ ${baseRules}`;
             id:                null,
             strategy_name:     finalStrategy.name,
             trades_approved:   tradesApproved,
-            trades_executed:   tradesExecuted,
+            trades_executed:   0,
             total_trade_value: totalTradeValue,
             market_outlook:    raw.market_outlook,
             summary:           raw.summary,
@@ -412,7 +371,6 @@ ${baseRules}`;
         ...toOutput(r),
         rejection_reason: r.rejection_reason,
       })),
-      executed,
       warnings,
       portfolio: { value: equity, cash },
     });

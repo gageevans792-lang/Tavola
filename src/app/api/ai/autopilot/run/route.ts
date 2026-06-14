@@ -7,14 +7,12 @@ import {
   getPositions,
   getTickerPrices,
   getDailyBars,
-  placeMarketOrder,
 } from '@/lib/alpaca/client';
 import type { TickerPrice, DailyBar } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { getMacroContext, buildMacroPromptSection } from '@/lib/macro/client';
 import { isFounder } from '@/lib/founder';
-import { executeSimulatedTrade } from '@/lib/simulated/execute';
 import type { AlpacaPosition, AutoInvestConfig, TradeRecommendation, TradeSide } from '@/types';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
 import type { AutopilotDecision, AutopilotRun } from '../history/route';
@@ -23,13 +21,11 @@ import { getUpcomingEarnings, buildEarningsPromptSection } from '@/lib/earnings/
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-interface TradeResult {
-  symbol:    string;
-  action:    'buy' | 'sell';
-  qty:       number;
-  status:    'executed' | 'failed';
-  order_id?: string;
-  error?:    string;
+interface RecommendationResult {
+  symbol: string;
+  action: 'buy' | 'sell' | 'hold';
+  qty:    number;
+  status: string;
 }
 
 interface SectorMoment {
@@ -648,88 +644,32 @@ export async function POST() {
       latestPrices,
     });
 
-    // ── 11. Execute approved trades ───────────────────────────────────────────
-    const { data: notifSettingsRow } = await supabaseAdmin
-      .from('user_notification_settings')
-      .select('execution_confirmations')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    const sendExecNotif = notifSettingsRow?.execution_confirmations !== false;
-
-    const tradeResults: TradeResult[]      = [];
-    const decisions:    AutopilotDecision[] = [];
+    // ── 11. Create recommendation rows for approved non-hold trades ───────────
+    const recommendations: RecommendationResult[] = [];
+    const decisions: AutopilotDecision[] = [];
 
     for (const rec of approved) {
       if (rec.action === 'hold') {
-        decisions.push({
-          symbol: rec.symbol, action: 'hold', qty: 0,
-          confidence: rec.confidence, reasoning: rec.reasoning, status: 'skipped',
-        });
+        recommendations.push({ symbol: rec.symbol, action: 'hold', qty: 0, status: 'hold' });
+        decisions.push({ symbol: rec.symbol, action: 'hold', qty: 0, confidence: rec.confidence, reasoning: rec.reasoning, status: 'skipped' });
         continue;
       }
 
-      if (founderUser) {
-        // ── Real Alpaca order ───────────────────────────────────────────────────
-        try {
-          const order = await placeMarketOrder(rec.symbol, rec.action as 'buy' | 'sell', rec.qty);
-          const price = latestPrices[rec.symbol] ?? null;
-          const ins   = await supabase.from('trades').insert({
-            user_id:          user.id,
-            ticker:           rec.symbol,
-            side:             rec.action,
-            qty:              rec.qty,
-            price:            price || null,
-            alpaca_order_id:  order.id,
-            ai_reasoning:     rec.reasoning,
-            confidence_score: rec.confidence,
-            status:           'pending',
-          });
-          if (ins.error) console.error('[autopilot/run] trade insert:', ins.error.message);
-          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'executed', order_id: order.id });
-          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'executed', order_id: order.id });
-          if (sendExecNotif) {
-            supabaseAdmin.from('notifications').insert({
-              user_id: user.id, type: 'profit',
-              title:   `Executed: ${rec.action.toUpperCase()} ${rec.qty} ${rec.symbol}`,
-              message: rec.reasoning?.slice(0, 120) ?? 'Autopilot trade executed.',
-              ticker:  rec.symbol, priority: 'normal', action_url: '/trades',
-            }).then(({ error }: { error: unknown }) => { if (error) console.warn('[autopilot] notif insert:', error); });
-          }
-        } catch (err: unknown) {
-          const errMsg = err instanceof Error ? err.message : 'Order failed';
-          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: errMsg });
-          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: errMsg });
-        }
-      } else {
-        // ── Simulated execution ─────────────────────────────────────────────────
-        const price = latestPrices[rec.symbol];
-        if (!price || price <= 0) {
-          const errMsg = `Price unavailable for ${rec.symbol}`;
-          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: errMsg });
-          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: errMsg });
-          continue;
-        }
-        const result = await executeSimulatedTrade(
-          user.id, rec.symbol, rec.action as 'buy' | 'sell', rec.qty, price,
-          { ai_reasoning: rec.reasoning, confidence_score: rec.confidence },
-        );
-        if (result.ok) {
-          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'executed', order_id: result.fill.id });
-          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'executed', order_id: result.fill.id });
-          if (sendExecNotif) {
-            supabaseAdmin.from('notifications').insert({
-              user_id: user.id, type: 'profit',
-              title:   `Executed: ${rec.action.toUpperCase()} ${rec.qty} ${rec.symbol}`,
-              message: rec.reasoning?.slice(0, 120) ?? 'Autopilot trade executed.',
-              ticker:  rec.symbol, priority: 'normal', action_url: '/trades',
-            }).then(({ error }: { error: unknown }) => { if (error) console.warn('[autopilot] notif insert:', error); });
-          }
-        } else {
-          console.error(`[autopilot/run] simulated trade failed: ${rec.symbol} ${rec.action} qty=${rec.qty} — [${result.error.code}] ${result.error.message}`);
-          tradeResults.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'failed', error: result.error.message });
-          decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: result.error.message });
-        }
-      }
+      try {
+        await supabase.from('recommendations').insert({
+          user_id:       user.id,
+          ticker:        rec.symbol,
+          action:        rec.action,
+          qty:           rec.qty,
+          reasoning:     rec.reasoning,
+          confidence:    rec.confidence,
+          source:        'autopilot',
+          user_decision: 'pending',
+        });
+      } catch { /* non-fatal */ }
+
+      recommendations.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'pending_review' });
+      decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'skipped' });
     }
 
     for (const rec of rejected) {
@@ -741,9 +681,6 @@ export async function POST() {
 
     // ── 12. Non-fatal: log decisions for attribution tracking ────────────────
     try {
-      const executedSymbols = new Set(
-        tradeResults.filter((t) => t.status === 'executed').map((t) => t.symbol),
-      );
       const decisionRows = approved
         .filter((r) => r.action !== 'hold')
         .map((r) => ({
@@ -757,25 +694,22 @@ export async function POST() {
           price_at_decision: latestPrices[r.symbol] ?? null,
           estimated_value:   null,
           risk_level:        r.risk_level ?? null,
-          executed:          executedSymbols.has(r.symbol),
+          executed:          false,
         }));
       if (decisionRows.length > 0) {
         await supabase.from('ai_decisions').insert(decisionRows);
       }
     } catch { /* non-fatal */ }
 
-    // ── 13. Totals + DB log ───────────────────────────────────────────────────
-    const executedCount = tradeResults.filter((t) => t.status === 'executed').length;
-    const totalValue    = tradeResults
-      .filter((t) => t.status === 'executed')
-      .reduce((sum, t) => sum + (latestPrices[t.symbol] ?? 0) * t.qty, 0);
+    // ── 13. DB log ────────────────────────────────────────────────────────────
+    const recommendedCount = recommendations.filter((r) => r.action !== 'hold').length;
 
     const { data: runRow, error: runErr } = await supabase
       .from('autopilot_runs')
       .insert({
         user_id:         user.id,
-        trades_executed: executedCount,
-        total_value:     totalValue,
+        trades_executed: recommendedCount,
+        total_value:     0,
         market_outlook:  raw.market_outlook,
         summary:         raw.summary,
         decisions,
@@ -796,10 +730,10 @@ export async function POST() {
       .eq('user_id', user.id);
 
     return NextResponse.json({
-      run:            runRow as AutopilotRun | null,
-      trades:         tradeResults,
-      market_outlook: raw.market_outlook,
-      summary:        raw.summary,
+      run:             runRow as AutopilotRun | null,
+      recommendations,
+      market_outlook:  raw.market_outlook,
+      summary:         raw.summary,
       macro_context: {
         vix:           vixLabel,
         market_regime: marketRegime,
