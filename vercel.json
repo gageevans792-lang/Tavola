@@ -6,6 +6,8 @@
     { "path": "/api/ai/intraday/checkpoint",  "schedule": "35 14 * * 1-5"  },
     { "path": "/api/ai/intraday/checkpoint",  "schedule": "0 18 * * 1-5"   },
     { "path": "/api/ai/intraday/checkpoint",  "schedule": "30 20 * * 1-5"  },
-    { "path": "/api/ai/intelligence/geopolitical-pulse", "schedule": "30 13-20 * * 1-5" }
+    { "path": "/api/ai/intelligence/geopolitical-pulse", "schedule": "30 13-20 * * 1-5" },
+    { "path": "/api/ai/intelligence/daily-briefing",    "schedule": "30 11 * * 1-5"     },
+    { "path": "/api/email/send-daily-briefing",         "schedule": "45 11 * * 1-5"     }
   ]
 }
