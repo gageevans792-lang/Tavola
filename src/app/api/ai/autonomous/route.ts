@@ -7,6 +7,8 @@ import type { TickerPrice } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy } from '@/lib/ai/strategies';
+import { buildGeopoliticalPromptSection } from '@/lib/geopolitical/client';
+import type { GeopoliticalEvent } from '@/lib/geopolitical/client';
 import type {
   AlpacaPosition,
   AutoInvestConfig,
@@ -178,10 +180,22 @@ export async function POST(req: NextRequest) {
       // table may not exist yet — continue with empty watchlist
     }
 
-    // ── 5. Fetch prices for all tickers ──────────────────────────────────────
+    // ── 5. Fetch prices + geopolitical context in parallel ───────────────────
     const heldTickers = positions.map((p) => p.symbol);
     const allTickers  = [...new Set([...heldTickers, ...watchlistTickers])];
-    const prices      = await getTickerPrices(allTickers);
+
+    const [prices, geoRows] = await Promise.all([
+      getTickerPrices(allTickers),
+      supabaseAdmin
+        .from('geopolitical_events')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(3)
+        .then(
+          (r) => (r.data ?? []) as GeopoliticalEvent[],
+          ()  => [] as GeopoliticalEvent[],
+        ),
+    ]);
 
     // ── 6. Build portfolio text ───────────────────────────────────────────────
     const totalTickers     = allTickers.length;
@@ -213,11 +227,13 @@ FORMATTING: Never use em dashes (—) in your responses. Use commas, colons, or 
 
 You MUST call submit_portfolio_analysis. Do not reply in plain text.`;
 
+    const geoSection = buildGeopoliticalPromptSection(geoRows);
+
     const systemPrompt = `You are a senior AI portfolio manager operating under the "${finalStrategy.name}" strategy.
 
 Strategy directive: ${finalStrategy.system_prompt}
 
-${baseRules}`;
+${baseRules}${geoSection}`;
 
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',

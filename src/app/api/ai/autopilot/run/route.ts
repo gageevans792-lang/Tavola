@@ -18,6 +18,8 @@ import type { SyncedHolding } from '@/lib/alpaca/sync';
 import type { AutopilotDecision, AutopilotRun } from '../history/route';
 import { getSentimentScores, buildSentimentPromptSection } from '@/lib/sentiment/engine';
 import { getUpcomingEarnings, buildEarningsPromptSection } from '@/lib/earnings/intelligence';
+import { buildGeopoliticalPromptSection } from '@/lib/geopolitical/client';
+import type { GeopoliticalEvent } from '@/lib/geopolitical/client';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -531,10 +533,19 @@ export async function POST() {
     const heldTickers = positions.map((p) => p.symbol);
     const allTickers  = [...new Set([...heldTickers, ...universeKeys])];
 
-    const [prices, sentimentScores, earningsData] = await Promise.all([
+    const [prices, sentimentScores, earningsData, geoRows] = await Promise.all([
       getTickerPrices(allTickers),
       getSentimentScores(heldTickers).catch(() => ({})),
       getUpcomingEarnings(heldTickers).catch(() => []),
+      supabaseAdmin
+        .from('geopolitical_events')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(3)
+        .then(
+          (r) => (r.data ?? []) as GeopoliticalEvent[],
+          ()  => [] as GeopoliticalEvent[],
+        ),
     ]);
 
     // ── 5. Derive macro signals ───────────────────────────────────────────────
@@ -552,10 +563,11 @@ export async function POST() {
     const rebalAlerts = detectRebalancingNeeds(positions, equity, cash);
 
     // ── 7. Build prompt content ───────────────────────────────────────────────
-    const macroSection     = macroCtx ? buildMacroPromptSection(macroCtx) : '';
-    const sentimentSection = buildSentimentPromptSection(sentimentScores);
-    const earningsSection  = buildEarningsPromptSection(earningsData);
-    const portfolioText    = buildPortfolioText(
+    const macroSection      = macroCtx ? buildMacroPromptSection(macroCtx) : '';
+    const sentimentSection  = buildSentimentPromptSection(sentimentScores);
+    const earningsSection   = buildEarningsPromptSection(earningsData);
+    const geoSection        = buildGeopoliticalPromptSection(geoRows);
+    const portfolioText     = buildPortfolioText(
       equity, buyingPower, cash, positions, prices, universeKeys,
     );
 
@@ -572,7 +584,7 @@ export async function POST() {
     });
 
     // ── 8. Call Claude ────────────────────────────────────────────────────────
-    const fullSystemPrompt = systemPrompt + sentimentSection + earningsSection;
+    const fullSystemPrompt = systemPrompt + sentimentSection + earningsSection + geoSection;
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,

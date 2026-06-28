@@ -18,6 +18,7 @@ import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
 import type { ChartApiResponse }  from '@/app/api/portfolio/chart/route';
 import type { PredictiveSignal }  from '@/app/api/ai/predict/route';
 import type { HealthAlert }       from '@/app/api/portfolio/intelligence/route';
+import type { GeopoliticalEvent } from '@/lib/geopolitical/client';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient }    from '@/lib/supabase/client';
@@ -168,6 +169,10 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
+  // ── Geopolitical events ───────────────────────────────────────────────────
+  const [geoEvents,        setGeoEvents]        = useState<GeopoliticalEvent[]>([]);
+  const [geoLoading,       setGeoLoading]       = useState(true);
+
   // ── Intraday checkpoints ──────────────────────────────────────────────────
   const [checkpoints, setCheckpoints] = useState<Array<{
     id: string; checkpoint_time: string; action_taken: string; trades_count: number; summary: string | null;
@@ -245,6 +250,15 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchBrief();
   }, [fetchBrief]);
+
+  // ── Fetch geopolitical events ─────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/ai/intelligence/geopolitical-pulse?limit=3')
+      .then((r) => r.ok ? r.json() : { events: [] })
+      .then((d: { events?: GeopoliticalEvent[] }) => setGeoEvents(d.events ?? []))
+      .catch(() => {})
+      .finally(() => setGeoLoading(false));
+  }, []);
 
   // ── Fetch brokerage connection status ─────────────────────────────────────
   useEffect(() => {
@@ -546,6 +560,73 @@ export default function DashboardPage() {
                 </>
               ) : (
                 <p className="text-sm text-[#4A5568] italic">Click refresh to generate your AI portfolio brief.</p>
+              )}
+            </div>
+          </section>
+
+          {/* ── Market Context card ─────────────────────────────────────────── */}
+          <section>
+            <div className="bg-white border border-[#E2E8F0]">
+              <div className="px-6 py-4 border-b border-[#E2E8F0]">
+                <p className="text-[10px] tracking-[0.2em] uppercase text-[#B8960C]">Market Context</p>
+                <h3 className="font-serif text-lg font-light text-[#0A1628] mt-0.5">Live Geopolitical Drivers</h3>
+              </div>
+              {geoLoading ? (
+                <div className="px-6 py-6 space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-14 animate-pulse bg-[#F8F9FA]" />
+                  ))}
+                </div>
+              ) : geoEvents.length === 0 ? (
+                <div className="px-6 py-8 text-center">
+                  <p className="text-sm text-[#4A5568]">No market events available. Analysis updates hourly during market hours.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E2E8F0]">
+                  {geoEvents.slice(0, 3).map((e) => {
+                    const confColor =
+                      e.confidence >= 75 ? 'text-[#166534]' :
+                      e.confidence >= 50 ? 'text-[#B8960C]' : 'text-[#4A5568]';
+                    const sectors = e.affected_sectors.slice(0, 3).join(' · ');
+                    const hedges  = e.rotation_hedges.slice(0, 2).join(', ');
+                    return (
+                      <div key={e.id} className="px-6 py-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-medium text-[#0A1628] leading-snug mb-1">
+                              {e.headline}
+                            </p>
+                            <p className="text-[12px] text-[#4A5568] leading-relaxed">
+                              {e.ai_analysis}
+                            </p>
+                            {(sectors || hedges) && (
+                              <div className="mt-2 flex flex-wrap gap-3 text-[10px] tracking-[0.05em] uppercase">
+                                {sectors && (
+                                  <span className="text-[#0A1628]/60">
+                                    Sectors: <span className="font-mono text-[#0A1628]">{sectors}</span>
+                                  </span>
+                                )}
+                                {hedges && (
+                                  <span className="text-[#0A1628]/60">
+                                    Hedges: <span className="font-mono text-[#B8960C]">{hedges}</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <span className={`text-[11px] font-mono font-medium tabular-nums ${confColor}`}>
+                              {e.confidence}%
+                            </span>
+                            <p className="text-[9px] tracking-[0.1em] uppercase text-[#4A5568]/50 mt-0.5">
+                              confidence
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </section>
