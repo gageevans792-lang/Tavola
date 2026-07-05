@@ -85,11 +85,18 @@ async function sendDailyBriefingEmail(date: string) {
 
 // ── GET: cron trigger OR manual send ─────────────────────────────────────────
 
-export async function GET(req: NextRequest) {
-  const isCron = req.headers.get('x-vercel-cron') === '1';
-  const date   = req.nextUrl.searchParams.get('date') ?? todayET();
+function isVercelCron(req: NextRequest): boolean {
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    return req.headers.get('authorization') === `Bearer ${cronSecret}`;
+  }
+  return req.headers.get('x-vercel-cron') === '1';
+}
 
-  if (isCron) {
+export async function GET(req: NextRequest) {
+  const date = req.nextUrl.searchParams.get('date') ?? todayET();
+
+  if (isVercelCron(req)) {
     try {
       const result = await sendDailyBriefingEmail(date);
       return NextResponse.json(result);

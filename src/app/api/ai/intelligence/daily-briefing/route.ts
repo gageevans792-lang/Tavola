@@ -181,10 +181,18 @@ You MUST call submit_daily_briefing.`,
 
 // ── GET: cron trigger OR user read ────────────────────────────────────────────
 
-export async function GET(req: NextRequest) {
-  const isCron = req.headers.get('x-vercel-cron') === '1';
+function isVercelCron(req: NextRequest): boolean {
+  // Vercel sends Authorization: Bearer {CRON_SECRET} on cron invocations.
+  // Fall back to x-vercel-cron header for local/manual simulation.
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    return req.headers.get('authorization') === `Bearer ${cronSecret}`;
+  }
+  return req.headers.get('x-vercel-cron') === '1';
+}
 
-  if (isCron) {
+export async function GET(req: NextRequest) {
+  if (isVercelCron(req)) {
     try {
       const briefing = await generateBriefing();
       return NextResponse.json({ briefing, source: 'generated' });
