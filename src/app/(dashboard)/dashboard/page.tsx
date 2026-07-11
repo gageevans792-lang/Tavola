@@ -14,8 +14,6 @@ import { AIFeed }                 from '@/components/dashboard/AIFeed';
 import { AnalysisOverlay }        from '@/components/dashboard/AnalysisOverlay';
 import { RecommendationsSection } from '@/components/dashboard/RecommendationsSection';
 import { MarketTabs }             from '@/components/dashboard/MarketTabs';
-import { Toast }                  from '@/components/ui/Toast';
-import type { ToastData }         from '@/components/ui/Toast';
 import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
 import type { ChartApiResponse }  from '@/app/api/portfolio/chart/route';
 import type { PredictiveSignal }  from '@/app/api/ai/predict/route';
@@ -23,7 +21,7 @@ import type { HealthAlert }       from '@/app/api/portfolio/intelligence/route';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient }    from '@/lib/supabase/client';
-import type { AIInsight, AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
+import type { AIInsight, AutoInvestResult, InvestMode } from '@/types';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
 
 // ── Fallback mock insights (dashboard feed) ───────────────────────────────────
@@ -87,7 +85,6 @@ export default function DashboardPage() {
   const [firstName, setFirstName] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [toast, setToast]         = useState<ToastData | null>(null);
   const [chartData, setChartData] = useState<ChartApiResponse | null>(null);
   const [chartLoading, setChartLoading] = useState(true);
   const [marketOpen, setMarketOpen] = useState<boolean | null>(null);
@@ -245,8 +242,6 @@ export default function DashboardPage() {
   const [analyzing, setAnalyzing]             = useState(false);
   const [result, setResult]                   = useState<AutoInvestResult | null>(null);
   const [error, setError]                     = useState<string | null>(null);
-  const [executingSymbol, setExecutingSymbol] = useState<string | null>(null);
-
   const runAnalysis = useCallback(async () => {
     setAnalyzing(true);
     setError(null);
@@ -261,55 +256,6 @@ export default function DashboardPage() {
       setAnalyzing(false);
     }
   }, []);
-
-  // ── Execute a single recommendation ───────────────────────────────────────
-  // Returns fill price on success; re-throws on failure so RecommendationCard
-  // stays in pending state.
-  const executeOne = useCallback(async (rec: TradeRecommendation): Promise<number | undefined> => {
-    setExecutingSymbol(rec.symbol);
-    try {
-      const res = await fetch('/api/alpaca/orders', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ symbol: rec.symbol, qty: rec.qty, side: rec.action }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Order failed');
-      }
-      const body = await res.json().catch(() => ({})) as { filled_avg_price?: string };
-      const fillPrice = body.filled_avg_price ? parseFloat(body.filled_avg_price) : undefined;
-
-      // Promote from approved → executed in result state
-      setResult((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          approved: prev.approved.filter((r) => r.symbol !== rec.symbol),
-          executed: [...prev.executed, { ...rec, order_id: 'manual' }],
-        };
-      });
-
-      return fillPrice;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Order failed. Please try again.');
-      throw err; // re-throw so RecommendationCard stays in pending state
-    } finally {
-      setExecutingSymbol(null);
-    }
-  }, []);
-
-  // ── Post-execution: refresh portfolio + show toast ────────────────────────
-  const handleExecuted = useCallback((rec: TradeRecommendation, fillPrice?: number) => {
-    setTimeout(refreshPortfolio, 1_000);
-    // Use fill price from API response; fall back to estimated_value / qty
-    const price = fillPrice ?? (
-      rec.estimated_value != null && rec.qty > 0
-        ? rec.estimated_value / rec.qty
-        : undefined
-    );
-    setToast({ ticker: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, price });
-  }, [refreshPortfolio]);
 
   // ── Derived display values ─────────────────────────────────────────────────
   const p = portfolio;
@@ -480,9 +426,6 @@ export default function DashboardPage() {
                 <RecommendationsSection
                   result={result}
                   onDismiss={() => setResult(null)}
-                  onExecuteOne={executeOne}
-                  onExecuted={handleExecuted}
-                  executingSymbol={executingSymbol}
                 />
               </section>
             )}
@@ -686,10 +629,6 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* ── Toast notification ───────────────────────────────────────────────── */}
-      {toast && (
-        <Toast data={toast} onDismiss={() => setToast(null)} />
-      )}
     </div>
   );
 }

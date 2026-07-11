@@ -4,16 +4,15 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { TradeRecommendation, RejectedRecommendation, ExecutedRecommendation } from '@/types';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
 
-type CardVariant = 'pending' | 'executed' | 'rejected';
+type CardVariant = 'pending' | 'accepted' | 'rejected' | 'watching';
 
 interface RecommendationCardProps {
-  rec:          TradeRecommendation | RejectedRecommendation | ExecutedRecommendation;
-  variant:      CardVariant;
-  onExecute?:   (rec: TradeRecommendation) => Promise<number | undefined>;
-  onExecuted?:  (rec: TradeRecommendation, fillPrice?: number) => void;
-  executing?:   boolean;
+  rec:       TradeRecommendation | RejectedRecommendation | ExecutedRecommendation;
+  variant:   CardVariant;
+  onAccept?: (rec: TradeRecommendation) => void;
+  onReject?: (rec: TradeRecommendation) => void;
+  onWatch?:  (rec: TradeRecommendation) => void;
 }
 
 // Badge background per action
@@ -40,29 +39,31 @@ function ConfidenceBar({ value }: { value: number }) {
   );
 }
 
-export function RecommendationCard({ rec, variant, onExecute, onExecuted, executing }: RecommendationCardProps) {
-  const [selfExecuted, setSelfExecuted] = useState(variant === 'executed');
-  const [fillPrice, setFillPrice]       = useState<number | undefined>(undefined);
+export function RecommendationCard({ rec, variant, onAccept, onReject, onWatch }: RecommendationCardProps) {
+  const [localVariant, setLocalVariant] = useState<CardVariant>(variant);
   const [expanded, setExpanded]         = useState(false);
 
-  const isRejected = variant === 'rejected';
-  const isExecuted = selfExecuted;
-  const isPending  = !selfExecuted && variant === 'pending';
+  const isRejected = localVariant === 'rejected';
+  const isAccepted = localVariant === 'accepted';
+  const isWatching = localVariant === 'watching';
+  const isPending  = localVariant === 'pending';
 
   // Check if extended fields are present
   const hasExtended = !!(rec.catalyst || rec.expected_timeframe || rec.exit_condition || rec.risk_factors?.length || rec.institutional_context);
 
-  async function handleExecute() {
-    if (!onExecute) return;
-    try {
-      const price = await onExecute(rec as TradeRecommendation);
-      setSelfExecuted(true);
-      setFillPrice(price);
-      onExecuted?.(rec as TradeRecommendation, price);
-      setTimeout(() => fetch('/api/alpaca/sync').catch(() => {}), 2_000);
-    } catch {
-      // error is handled upstream (dashboard page sets error state)
-    }
+  function handleAccept() {
+    setLocalVariant('accepted');
+    onAccept?.(rec as TradeRecommendation);
+  }
+
+  function handleReject() {
+    setLocalVariant('rejected');
+    onReject?.(rec as TradeRecommendation);
+  }
+
+  function handleWatch() {
+    setLocalVariant('watching');
+    onWatch?.(rec as TradeRecommendation);
   }
 
   return (
@@ -70,8 +71,9 @@ export function RecommendationCard({ rec, variant, onExecute, onExecuted, execut
       className={cn(
         'border bg-white transition-all',
         isRejected ? 'border-l-2 border-l-[#C41E3A] border-t-[#E2E8F0] border-r-[#E2E8F0] border-b-[#E2E8F0] opacity-70' : 'border-[#E2E8F0]',
-        isExecuted && !isRejected ? 'opacity-60' : '',
-        expanded && !isRejected ? 'border-l-2 border-l-[#B8960C] border-t-[#E2E8F0] border-r-[#E2E8F0] border-b-[#E2E8F0]' : '',
+        isAccepted ? 'border-l-2 border-l-[#166534] border-t-[#E2E8F0] border-r-[#E2E8F0] border-b-[#E2E8F0] opacity-70' : '',
+        isWatching ? 'border-l-2 border-l-[#B8960C] border-t-[#E2E8F0] border-r-[#E2E8F0] border-b-[#E2E8F0] opacity-80' : '',
+        expanded && isPending ? 'border-l-2 border-l-[#B8960C] border-t-[#E2E8F0] border-r-[#E2E8F0] border-b-[#E2E8F0]' : '',
       )}
     >
       {/* Collapsed view — always visible */}
@@ -92,18 +94,17 @@ export function RecommendationCard({ rec, variant, onExecute, onExecuted, execut
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {isExecuted && (
-              <span className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">
-                {fillPrice != null
-                  ? `Filled @ $${fillPrice.toFixed(2)}`
-                  : 'Executed'}
-              </span>
+            {isAccepted && (
+              <span className="text-[10px] tracking-[0.15em] uppercase text-[#166534]">Accepted</span>
+            )}
+            {isWatching && (
+              <span className="text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Watching</span>
             )}
             {isRejected && (
-              <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]/50">Blocked</span>
+              <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]/50">Dismissed</span>
             )}
             {isPending && rec.action !== 'hold' && (
-              <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]/50">Pending</span>
+              <span className="text-[10px] tracking-[0.1em] uppercase text-[#4A5568]/50">Pending Review</span>
             )}
             {hasExtended && (
               <button
@@ -190,17 +191,33 @@ export function RecommendationCard({ rec, variant, onExecute, onExecuted, execut
         </div>
       )}
 
-      {/* Execute button — hidden once self-executed */}
-      {isPending && rec.action !== 'hold' && onExecute && (
-        <div className="px-4 pb-4 flex justify-end">
-          <Button
-            size="sm"
-            variant={rec.action === 'sell' ? 'danger' : 'primary'}
-            loading={executing}
-            onClick={handleExecute}
-          >
-            Execute {rec.action.toUpperCase()}
-          </Button>
+      {/* Action buttons — only for pending buy/sell when callbacks are provided */}
+      {isPending && rec.action !== 'hold' && (onAccept || onReject || onWatch) && (
+        <div className="border-t border-[#E2E8F0] px-4 py-3 flex items-center justify-end gap-2">
+          {onWatch && (
+            <button
+              onClick={handleWatch}
+              className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors px-3 py-1.5 border border-[#E2E8F0] hover:border-[#0A1628]"
+            >
+              Watch
+            </button>
+          )}
+          {onReject && (
+            <button
+              onClick={handleReject}
+              className="text-[10px] tracking-[0.12em] uppercase text-[#4A5568] hover:text-[#C41E3A] transition-colors px-3 py-1.5 border border-[#E2E8F0] hover:border-[#C41E3A]"
+            >
+              Dismiss
+            </button>
+          )}
+          {onAccept && (
+            <button
+              onClick={handleAccept}
+              className="text-[10px] tracking-[0.12em] uppercase text-white bg-[#0A1628] hover:bg-[#162035] transition-colors px-3 py-1.5"
+            >
+              Accept
+            </button>
+          )}
         </div>
       )}
     </div>

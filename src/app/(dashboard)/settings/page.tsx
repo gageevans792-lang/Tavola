@@ -457,7 +457,7 @@ export default function SettingsPage() {
                           <p className="text-[12px] text-[#4A5568]">Add an extra layer of security to your account.</p>
                         </div>
                         <span className="shrink-0 text-[10px] tracking-[0.15em] uppercase text-[#4A5568]/50 border border-[#E2E8F0] px-2 py-1">
-                          Coming soon
+                          Planned Q3 2026
                         </span>
                       </div>
                     </div>

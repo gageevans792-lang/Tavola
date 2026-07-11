@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RecommendationCard } from './RecommendationCard';
-import { AutoInvestResult, ExecutedRecommendation, TradeRecommendation, PortfolioHealth } from '@/types';
+import { AutoInvestResult, RejectedRecommendation, TradeRecommendation, PortfolioHealth } from '@/types';
 import { cn } from '@/lib/utils';
 
 const HEALTH_CONFIG: Record<PortfolioHealth, { label: string; color: string }> = {
@@ -24,14 +24,14 @@ const cardVariant = {
 };
 
 interface Props {
-  result: AutoInvestResult;
-  onDismiss: () => void;
-  onExecuteOne: (rec: TradeRecommendation) => Promise<number | undefined>;
-  onExecuted: (rec: TradeRecommendation, fillPrice?: number) => void;
-  executingSymbol: string | null;
+  result:       AutoInvestResult;
+  onDismiss:    () => void;
+  onAcceptOne?: (rec: TradeRecommendation) => void;
+  onRejectOne?: (rec: TradeRecommendation) => void;
+  onWatchOne?:  (rec: TradeRecommendation) => void;
 }
 
-export function RecommendationsSection({ result, onDismiss, onExecuteOne, onExecuted, executingSymbol }: Props) {
+export function RecommendationsSection({ result, onDismiss, onAcceptOne, onRejectOne, onWatchOne }: Props) {
   const [showRejected, setShowRejected] = useState(false);
 
   const buys  = result.approved.filter((r) => r.action === 'buy');
@@ -39,6 +39,8 @@ export function RecommendationsSection({ result, onDismiss, onExecuteOne, onExec
   const holds = result.approved.filter((r) => r.action === 'hold');
   const health = result.analysis.portfolio_health;
   const hCfg   = HEALTH_CONFIG[health];
+
+  const actionCount = buys.length + sells.length;
 
   return (
     <motion.div
@@ -53,9 +55,9 @@ export function RecommendationsSection({ result, onDismiss, onExecuteOne, onExec
         <div className="flex-1">
           <h2 className="text-[11px] tracking-[0.15em] uppercase text-[#4A5568]">AI Analysis Complete</h2>
           <p className="mt-0.5 font-serif text-base font-light text-[#0A1628]">
-            {result.executed.length > 0
-              ? `${result.executed.length} trade${result.executed.length > 1 ? 's' : ''} auto-executed`
-              : `${buys.length + sells.length} recommendation${buys.length + sells.length !== 1 ? 's' : ''} ready for review`}
+            {actionCount > 0
+              ? `${actionCount} recommendation${actionCount !== 1 ? 's' : ''} ready for review`
+              : 'Portfolio analysis complete'}
           </p>
         </div>
 
@@ -105,22 +107,6 @@ export function RecommendationsSection({ result, onDismiss, onExecuteOne, onExec
         </div>
       </div>
 
-      {/* Auto-executed */}
-      {result.executed.length > 0 && (
-        <div className="border-t border-[#E2E8F0] px-6 py-5">
-          <h3 className="text-[11px] tracking-[0.15em] uppercase text-[#4A5568] mb-3">
-            Auto-executed ({result.executed.length})
-          </h3>
-          <motion.div variants={container} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
-            {result.executed.map((rec: ExecutedRecommendation) => (
-              <motion.div key={rec.symbol} variants={cardVariant}>
-                <RecommendationCard rec={rec} variant="executed" />
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      )}
-
       {/* Buys */}
       {buys.length > 0 && (
         <div className="border-t border-[#E2E8F0] px-6 py-5">
@@ -130,7 +116,13 @@ export function RecommendationsSection({ result, onDismiss, onExecuteOne, onExec
           <motion.div variants={container} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
             {buys.map((rec) => (
               <motion.div key={rec.symbol} variants={cardVariant}>
-                <RecommendationCard rec={rec} variant="pending" onExecute={onExecuteOne} onExecuted={onExecuted} executing={executingSymbol === rec.symbol} />
+                <RecommendationCard
+                  rec={rec}
+                  variant="pending"
+                  onAccept={onAcceptOne}
+                  onReject={onRejectOne}
+                  onWatch={onWatchOne}
+                />
               </motion.div>
             ))}
           </motion.div>
@@ -146,7 +138,13 @@ export function RecommendationsSection({ result, onDismiss, onExecuteOne, onExec
           <motion.div variants={container} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-2">
             {sells.map((rec) => (
               <motion.div key={rec.symbol} variants={cardVariant}>
-                <RecommendationCard rec={rec} variant="pending" onExecute={onExecuteOne} onExecuted={onExecuted} executing={executingSymbol === rec.symbol} />
+                <RecommendationCard
+                  rec={rec}
+                  variant="pending"
+                  onAccept={onAcceptOne}
+                  onReject={onRejectOne}
+                  onWatch={onWatchOne}
+                />
               </motion.div>
             ))}
           </motion.div>
@@ -189,7 +187,7 @@ export function RecommendationsSection({ result, onDismiss, onExecuteOne, onExec
                 className="overflow-hidden"
               >
                 <div className="grid gap-3 pt-3 sm:grid-cols-2">
-                  {result.rejected.map((rec) => (
+                  {result.rejected.map((rec: RejectedRecommendation) => (
                     <RecommendationCard key={rec.symbol} rec={rec} variant="rejected" />
                   ))}
                 </div>
@@ -199,15 +197,12 @@ export function RecommendationsSection({ result, onDismiss, onExecuteOne, onExec
         </div>
       )}
 
-      {/* Execution errors */}
-      {result.errors.length > 0 && (
-        <div className="border-t border-[#E2E8F0] bg-red-50 px-6 py-3">
-          <p className="text-[11px] tracking-[0.1em] uppercase text-[#C41E3A] mb-1">Execution errors</p>
-          {result.errors.map((e, i) => (
-            <p key={i} className="text-xs text-[#C41E3A]">Trade could not be placed. Please try again.</p>
-          ))}
-        </div>
-      )}
+      {/* Disclaimer */}
+      <div className="border-t border-[#E2E8F0] bg-[#F8F9FA] px-6 py-3">
+        <p className="text-[11px] text-[#4A5568]/60 leading-relaxed">
+          AI analysis is for informational purposes only and does not constitute investment advice. Past performance is not indicative of future results. Always conduct your own research before making investment decisions.
+        </p>
+      </div>
     </motion.div>
   );
 }

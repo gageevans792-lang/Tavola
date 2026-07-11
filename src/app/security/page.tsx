@@ -33,11 +33,11 @@ const sections = [
   },
   {
     title: 'Audit Logging',
-    content: 'All significant account actions — trades, deposits, withdrawals, strategy changes — are written to an immutable audit log. This provides a complete, tamper-resistant record of account activity.',
+    content: 'All significant account actions (analysis runs, strategy changes, session events) are written to an immutable audit log. This provides a complete, tamper-resistant record of account activity.',
   },
   {
     title: 'Responsible Disclosure',
-    content: 'Found a security vulnerability? Please report it to security@tavola.app. We take all reports seriously and will respond within 48 hours. We ask that you do not publicly disclose vulnerabilities until we have had time to address them.',
+    content: 'Found a security vulnerability? Please report it to security@tavola.finance. We take all reports seriously and will respond within 48 hours. We ask that you do not publicly disclose vulnerabilities until we have had time to address them.',
   },
 ];
 
@@ -72,6 +72,13 @@ export default function SecurityPage() {
             Enterprise-grade security for every account, from day one.
           </p>
         </section>
+
+        {/* NOT investment advice banner */}
+        <div className="border-b border-[#C41E3A]/30 bg-[#C41E3A]/5 px-6 py-4">
+          <p className="max-w-4xl mx-auto text-center text-[13px] font-medium text-[#C41E3A]">
+            NOT INVESTMENT ADVICE. Tavola provides AI-generated portfolio analysis for informational and educational purposes only. Nothing on this platform constitutes financial, investment, legal, or tax advice.
+          </p>
+        </div>
 
         {/* Beta notice */}
         <div className="bg-[#991b1b]/5 border-b border-[#991b1b]/20 px-6 py-4">
@@ -122,8 +129,8 @@ export default function SecurityPage() {
           </h2>
           <p className="text-[14px] text-[#4A5568] mb-6">
             Contact our security team at{' '}
-            <a href="mailto:security@tavola.app" className="text-[#B8960C] hover:underline">
-              security@tavola.app
+            <a href="mailto:security@tavola.finance" className="text-[#B8960C] hover:underline">
+              security@tavola.finance
             </a>
           </p>
           <Link

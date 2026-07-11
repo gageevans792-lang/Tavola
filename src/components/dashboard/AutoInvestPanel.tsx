@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import {
   AutoInvestConfig,
   AutoInvestResult,
-  TradeRecommendation,
   PortfolioHealth,
 } from '@/types';
 import {
@@ -220,7 +219,6 @@ export function AutoInvestPanel() {
   const [showConfig, setShowConfig] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AutoInvestResult | null>(null);
-  const [executingSymbol, setExecutingSymbol] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const runAnalysis = useCallback(async () => {
@@ -242,36 +240,6 @@ export function AutoInvestPanel() {
       setLoading(false);
     }
   }, [config]);
-
-  const executeOne = useCallback(async (rec: TradeRecommendation): Promise<number | undefined> => {
-    setExecutingSymbol(rec.symbol);
-    try {
-      const res = await fetch('/api/alpaca/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: rec.symbol, qty: rec.qty, side: rec.action }),
-      });
-      if (!res.ok) throw new Error('Order failed');
-
-      const body = await res.json().catch(() => ({})) as { filled_avg_price?: string };
-      const fillPrice = body.filled_avg_price ? parseFloat(body.filled_avg_price) : undefined;
-
-      setResult((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          approved: prev.approved.filter((r) => r.symbol !== rec.symbol),
-          executed: [...prev.executed, { ...rec, order_id: 'manual' }],
-        };
-      });
-
-      return fillPrice;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Order failed');
-    } finally {
-      setExecutingSymbol(null);
-    }
-  }, []);
 
   const actionablePending = result?.approved.filter((r) => r.action !== 'hold') ?? [];
   const holds = result?.approved.filter((r) => r.action === 'hold') ?? [];
@@ -373,7 +341,7 @@ export function AutoInvestPanel() {
               </div>
               <div className="space-y-2">
                 {result.executed.map((rec) => (
-                  <RecommendationCard key={rec.symbol} rec={rec} variant="executed" />
+                  <RecommendationCard key={rec.symbol} rec={rec} variant="accepted" />
                 ))}
               </div>
             </section>
@@ -385,7 +353,7 @@ export function AutoInvestPanel() {
               <div className="mb-2 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-[#B8960C]" />
                 <h4 className="text-sm font-medium text-[#0A1628]">
-                  Recommendations: approve to execute ({actionablePending.length})
+                  Recommendations ({actionablePending.length})
                 </h4>
               </div>
               <div className="space-y-2">
@@ -394,8 +362,6 @@ export function AutoInvestPanel() {
                     key={rec.symbol}
                     rec={rec}
                     variant="pending"
-                    onExecute={executeOne}
-                    executing={executingSymbol === rec.symbol}
                   />
                 ))}
               </div>
@@ -432,10 +398,10 @@ export function AutoInvestPanel() {
 
           {/* Execution errors */}
           {result.errors.length > 0 && (
-            <div className="border border-red-200 bg-red-50 p-3">
-              <p className="text-xs font-medium text-red-600 mb-1">Execution errors</p>
+            <div className="border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-medium text-amber-700 mb-1">Analysis notes</p>
               {result.errors.map((e, i) => (
-                <p key={i} className="text-xs text-red-500">{e}</p>
+                <p key={i} className="text-xs text-amber-600">{e}</p>
               ))}
             </div>
           )}

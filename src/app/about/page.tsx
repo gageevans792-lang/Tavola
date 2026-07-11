@@ -54,8 +54,8 @@ export default function AboutPage() {
             all locked behind minimum investments of $1 million or more.
           </p>
           <p className="text-[16px] leading-[1.9] text-[#0A1628]/60 max-w-[560px]">
-            Tavola changes that. We built an AI that thinks, adapts, and executes like a Goldman
-            Sachs portfolio manager. We put it in everyone&apos;s pocket. Free.
+            Tavola changes that. We built an AI that thinks and adapts like a seasoned portfolio
+            manager, delivering institutional-quality analysis to everyone. Free.
           </p>
           <div className="mt-14 w-full h-px bg-[#B8960C]/35" />
         </div>
@@ -64,7 +64,7 @@ export default function AboutPage() {
       {/* ── SECTION 2: THE PROBLEM ── */}
       <section className="py-24 px-12 lg:px-20 border-t border-[#E2E8F0]">
         <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-16 mb-16">
+          <div className="grid md:grid-cols-2 gap-16 mb-4">
             <div>
               <div className="font-serif text-[56px] lg:text-[72px] font-light text-[#B8960C] leading-none mb-3">
                 47 million
@@ -82,6 +82,7 @@ export default function AboutPage() {
               </div>
             </div>
           </div>
+          <p className="text-[11px] text-[#4A5568]/50 mb-12">Source: Federal Reserve Survey of Consumer Finances. Statistics are approximate and for illustrative purposes.</p>
 
           <div className="max-w-3xl border-t border-[#E2E8F0] pt-12 space-y-5">
             <p className="text-[15px] leading-[1.85] text-[#4A5568]">
@@ -219,7 +220,7 @@ export default function AboutPage() {
             Ready to take your seat?
           </h2>
           <p className="text-[15px] leading-[1.75] text-[#4A5568] mb-12 max-w-sm mx-auto">
-            Join thousands of investors who are letting AI work for them.
+            Join our early beta and experience AI-powered portfolio monitoring free.
           </p>
           <div className="flex items-center justify-center gap-6">
             <Link
@@ -260,8 +261,8 @@ export default function AboutPage() {
               </Link>
             </div>
           </div>
-          <p className="mt-4 text-[11px] text-white/15">
-            Paper trading platform for demonstration purposes only. Not investment advice.
+          <p className="mt-4 text-[12px] text-white/60 leading-relaxed max-w-2xl">
+            NOT INVESTMENT ADVICE. Tavola provides AI-generated portfolio analysis for informational and educational purposes only. Nothing on this platform constitutes financial, investment, legal, or tax advice. Paper trading beta only — no real money is connected.
           </p>
         </div>
       </footer>
