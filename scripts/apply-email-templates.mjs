@@ -219,7 +219,7 @@ const payload = {
   // ── SMTP via Resend ──────────────────────────────────────────────────
   smtp_admin_email:  'noreply@tavola.finance',
   smtp_host:         'smtp.resend.com',
-  smtp_port:         465,
+  smtp_port:         '465',
   smtp_user:         'resend',
   smtp_pass:         RESEND_API_KEY,
   smtp_sender_name:  'Tavola',
