@@ -215,6 +215,15 @@ export default function OnboardingPage() {
         { onConflict: 'user_id' },
       );
 
+      // Mark onboarding complete — must succeed before proceeding.
+      // Written here so users who go to /deposit (not /welcome) still clear the gate.
+      const { error: profErr } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, onboarding_completed: true }, { onConflict: 'id' });
+      if (profErr) {
+        console.error('[onboarding] FAILED to set onboarding_completed:', profErr.message, profErr.code, profErr.details);
+      }
+
       setShowReady(true);
     } catch {
       router.push('/welcome');

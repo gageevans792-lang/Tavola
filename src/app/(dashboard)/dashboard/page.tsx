@@ -18,26 +18,12 @@ import type { PortfolioData }     from '@/app/api/alpaca/portfolio/route';
 import type { ChartApiResponse }  from '@/app/api/portfolio/chart/route';
 import type { PredictiveSignal }  from '@/app/api/ai/predict/route';
 import type { HealthAlert }       from '@/app/api/portfolio/intelligence/route';
+import type { GeopoliticalEvent } from '@/lib/geopolitical/client';
 
 import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
 import { createClient }    from '@/lib/supabase/client';
-import type { AIInsight, AutoInvestResult, InvestMode } from '@/types';
+import type { AIInsight, AutoInvestResult, InvestMode, TradeRecommendation } from '@/types';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
-
-// ── Fallback mock insights (dashboard feed) ───────────────────────────────────
-
-const MOCK_INSIGHTS: AIInsight[] = [
-  {
-    id: '1', user_id: 'mock', type: 'buy', ticker: 'NVDA',
-    message: 'NVDA broke above its 50-day MA on high volume. Consider adding exposure with a 3% position.',
-    confidence_score: 82, qty: 5, executed: false, created_at: new Date().toISOString(),
-  },
-  {
-    id: '2', user_id: 'mock', type: 'outlook', ticker: null,
-    message: 'Portfolio VIX sensitivity is elevated. Consider hedging with puts or reducing tech exposure.',
-    confidence_score: null, qty: null, executed: false, created_at: new Date().toISOString(),
-  },
-];
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
@@ -85,6 +71,7 @@ export default function DashboardPage() {
   const [firstName, setFirstName] = useState<string | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [hasBrokerage, setHasBrokerage] = useState<boolean | null>(null);
   const [chartData, setChartData] = useState<ChartApiResponse | null>(null);
   const [chartLoading, setChartLoading] = useState(true);
   const [marketOpen, setMarketOpen] = useState<boolean | null>(null);
@@ -100,6 +87,9 @@ export default function DashboardPage() {
 
   // Conviction Mode
   const [convictionMode, setConvictionMode] = useState(false);
+
+  // AI Feed insights
+  const [insights, setInsights] = useState<AIInsight[]>([]);
 
   // Feature 5: AI Portfolio Brief
   const [brief, setBrief] = useState<string | null>(null);
@@ -188,6 +178,10 @@ export default function DashboardPage() {
       .catch(() => {});
   }, []);
 
+  // ── Geopolitical events ───────────────────────────────────────────────────
+  const [geoEvents,        setGeoEvents]        = useState<GeopoliticalEvent[]>([]);
+  const [geoLoading,       setGeoLoading]       = useState(true);
+
   // ── Intraday checkpoints ──────────────────────────────────────────────────
   const [checkpoints, setCheckpoints] = useState<Array<{
     id: string; checkpoint_time: string; action_taken: string; trades_count: number; summary: string | null;
@@ -221,6 +215,25 @@ export default function DashboardPage() {
     fetchLastAnalysis();
   }, []);
 
+  // ── Fetch AI Feed insights ─────────────────────────────────────────────────
+  useEffect(() => {
+    async function fetchInsights() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('ai_insights')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (data && data.length > 0) setInsights(data as AIInsight[]);
+      } catch { /* non-fatal */ }
+    }
+    fetchInsights();
+  }, []);
+
   // ── Feature 5: Fetch AI Portfolio Brief ───────────────────────────────────
   const fetchBrief = useCallback(async () => {
     setBriefLoading(true);
@@ -247,10 +260,30 @@ export default function DashboardPage() {
     fetchBrief();
   }, [fetchBrief]);
 
+  // ── Fetch geopolitical events ─────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/ai/intelligence/geopolitical-pulse?limit=3')
+      .then((r) => r.ok ? r.json() : { events: [] })
+      .then((d: { events?: GeopoliticalEvent[] }) => setGeoEvents(d.events ?? []))
+      .catch(() => {})
+      .finally(() => setGeoLoading(false));
+  }, []);
+
+  // ── Fetch brokerage connection status ─────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/brokerage/connect')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { brokerages?: Array<{ status: string }> } | null) => {
+        setHasBrokerage(d?.brokerages?.some((b) => b.status === 'connected') ?? false);
+      })
+      .catch(() => setHasBrokerage(false));
+  }, []);
+
   // ── Analysis state ─────────────────────────────────────────────────────────
   const [analyzing, setAnalyzing]             = useState(false);
   const [result, setResult]                   = useState<AutoInvestResult | null>(null);
   const [error, setError]                     = useState<string | null>(null);
+  const [executingSymbol, setExecutingSymbol] = useState<string | null>(null);
   const runAnalysis = useCallback(async () => {
     setAnalyzing(true);
     setError(null);
@@ -266,6 +299,31 @@ export default function DashboardPage() {
     }
   }, []);
 
+  // ── Recommendation handlers ────────────────────────────────────────────────
+  const saveRecommendation = useCallback(async (rec: TradeRecommendation, decision: string): Promise<void> => {
+    setExecutingSymbol(rec.symbol);
+    try {
+      await fetch('/api/recommendations', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          ticker:        rec.symbol,
+          action:        rec.action,
+          qty:           rec.qty,
+          reasoning:     rec.reasoning,
+          confidence:    rec.confidence,
+          source:        'analysis',
+          user_decision: decision,
+        }),
+      });
+    } catch { /* non-fatal */ } finally {
+      setExecutingSymbol(null);
+    }
+  }, []);
+
+  const acceptOne = useCallback((rec: TradeRecommendation) => saveRecommendation(rec, 'accepted'), [saveRecommendation]);
+  const rejectOne = useCallback((rec: TradeRecommendation) => saveRecommendation(rec, 'rejected'), [saveRecommendation]);
+  const watchOne  = useCallback((rec: TradeRecommendation) => saveRecommendation(rec, 'watching'),  [saveRecommendation]);
   // ── Derived display values ─────────────────────────────────────────────────
   const p = portfolio;
   const loading = statsLoading && !p;
@@ -371,7 +429,7 @@ export default function DashboardPage() {
                   <p className="text-[13px] font-medium text-[#0A1628]">{timeAgo(lastAnalysisAt)}</p>
                 </div>
                 <div className="sm:px-6">
-                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Positions Monitored</p>
+                  <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Watchlist Items</p>
                   <p className="text-[13px] font-medium text-[#0A1628]">{holdings.length} position{holdings.length === 1 ? '' : 's'}</p>
                 </div>
                 <div className="sm:px-6">
@@ -395,12 +453,27 @@ export default function DashboardPage() {
                   <p className="text-[9px] tracking-[0.2em] uppercase text-[#4A5568] mb-1">Status</p>
                   <div className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C] animate-pulse" />
-                    <p className="text-[13px] font-medium text-[#0A1628]">Monitoring 24/7</p>
+                    <p className="text-[13px] font-medium text-[#0A1628]">Analyzing markets</p>
                   </div>
                 </div>
               </div>
             </div>
           </section>
+
+          {/* ── Brokerage connection banner ───────────────────────────────────── */}
+          {hasBrokerage === false && (
+            <div className="border border-[#B8960C]/30 bg-[#B8960C]/5 px-4 py-3 flex items-center justify-between">
+              <p className="text-sm text-[#0A1628]">
+                Connect your brokerage to enable one-click trade execution when you accept guidance recommendations.
+              </p>
+              <a
+                href="/settings"
+                className="ml-4 shrink-0 text-[11px] tracking-[0.12em] uppercase text-[#B8960C] hover:text-[#0A1628] transition-colors"
+              >
+                Connect →
+              </a>
+            </div>
+          )}
 
           {/* ── Health Alerts ────────────────────────────────────────────────── */}
           {healthAlerts.filter((a) => !dismissedAlerts.has(`${a.type}-${a.message}`)).map((alert) => {
@@ -443,6 +516,10 @@ export default function DashboardPage() {
                 <RecommendationsSection
                   result={result}
                   onDismiss={() => setResult(null)}
+                  onAcceptOne={acceptOne}
+                  onRejectOne={rejectOne}
+                  onWatchOne={watchOne}
+                  executingSymbol={executingSymbol}
                 />
               </section>
             )}
@@ -498,6 +575,73 @@ export default function DashboardPage() {
                 </>
               ) : (
                 <p className="text-sm text-[#4A5568] italic">Click refresh to generate your AI portfolio brief.</p>
+              )}
+            </div>
+          </section>
+
+          {/* ── Market Context card ─────────────────────────────────────────── */}
+          <section>
+            <div className="bg-white border border-[#E2E8F0]">
+              <div className="px-6 py-4 border-b border-[#E2E8F0]">
+                <p className="text-[10px] tracking-[0.2em] uppercase text-[#B8960C]">Market Context</p>
+                <h3 className="font-serif text-lg font-light text-[#0A1628] mt-0.5">Live Geopolitical Drivers</h3>
+              </div>
+              {geoLoading ? (
+                <div className="px-6 py-6 space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-14 animate-pulse bg-[#F8F9FA]" />
+                  ))}
+                </div>
+              ) : geoEvents.length === 0 ? (
+                <div className="px-6 py-8 text-center">
+                  <p className="text-sm text-[#4A5568]">No market events available. Analysis updates hourly during market hours.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E2E8F0]">
+                  {geoEvents.slice(0, 3).map((e) => {
+                    const confColor =
+                      e.confidence >= 75 ? 'text-[#166534]' :
+                      e.confidence >= 50 ? 'text-[#B8960C]' : 'text-[#4A5568]';
+                    const sectors = e.affected_sectors.slice(0, 3).join(' · ');
+                    const hedges  = e.rotation_hedges.slice(0, 2).join(', ');
+                    return (
+                      <div key={e.id} className="px-6 py-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-medium text-[#0A1628] leading-snug mb-1">
+                              {e.headline}
+                            </p>
+                            <p className="text-[12px] text-[#4A5568] leading-relaxed">
+                              {e.ai_analysis}
+                            </p>
+                            {(sectors || hedges) && (
+                              <div className="mt-2 flex flex-wrap gap-3 text-[10px] tracking-[0.05em] uppercase">
+                                {sectors && (
+                                  <span className="text-[#0A1628]/60">
+                                    Sectors: <span className="font-mono text-[#0A1628]">{sectors}</span>
+                                  </span>
+                                )}
+                                {hedges && (
+                                  <span className="text-[#0A1628]/60">
+                                    Hedges: <span className="font-mono text-[#B8960C]">{hedges}</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <span className={`text-[11px] font-mono font-medium tabular-nums ${confColor}`}>
+                              {e.confidence}%
+                            </span>
+                            <p className="text-[9px] tracking-[0.1em] uppercase text-[#4A5568]/50 mt-0.5">
+                              confidence
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </section>
@@ -558,7 +702,7 @@ export default function DashboardPage() {
 
           {/* ── AI feed ─────────────────────────────────────────────────────── */}
           <section>
-            <AIFeed insights={MOCK_INSIGHTS} />
+            <AIFeed insights={insights} />
           </section>
 
           {/* ── Upcoming Catalysts ──────────────────────────────────────────── */}

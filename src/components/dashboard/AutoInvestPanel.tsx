@@ -10,6 +10,7 @@ import {
   AutoInvestConfig,
   AutoInvestResult,
   PortfolioHealth,
+  TradeRecommendation,
 } from '@/types';
 import {
   Bot,
@@ -220,6 +221,7 @@ export function AutoInvestPanel() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AutoInvestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [executingSymbol, setExecutingSymbol] = useState<string | null>(null);
 
   const runAnalysis = useCallback(async () => {
     setLoading(true);
@@ -240,6 +242,21 @@ export function AutoInvestPanel() {
       setLoading(false);
     }
   }, [config]);
+
+  const acceptOne = useCallback(async (rec: TradeRecommendation): Promise<void> => {
+    setExecutingSymbol(rec.symbol);
+    try {
+      await fetch('/api/recommendations', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ ticker: rec.symbol, action: rec.action, qty: rec.qty, reasoning: rec.reasoning, confidence: rec.confidence, source: 'analysis', user_decision: 'accepted' }),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save recommendation');
+    } finally {
+      setExecutingSymbol(null);
+    }
+  }, []);
 
   const actionablePending = result?.approved.filter((r) => r.action !== 'hold') ?? [];
   const holds = result?.approved.filter((r) => r.action === 'hold') ?? [];
@@ -362,6 +379,8 @@ export function AutoInvestPanel() {
                     key={rec.symbol}
                     rec={rec}
                     variant="pending"
+                    onAccept={acceptOne}
+                    executing={executingSymbol === rec.symbol}
                   />
                 ))}
               </div>

@@ -34,27 +34,29 @@ export async function executeSimulatedTrade(
 ): Promise<SimulatedResult> {
   const supabase = adminClient();
 
-  // ── 1. Get current cash ────────────────────────────────────────────────────
-  // SAFETY: require user_accounts to exist. It is created on first dashboard load
-  // for non-founders. If it doesn't exist the caller is likely a founder whose
-  // FOUNDER_USER_ID env var is missing — refuse rather than corrupt real holdings.
+  // ── 1. Get or lazy-create simulated account ───────────────────────────────
   const { data: acct } = await supabase
     .from('user_accounts')
     .select('cash')
     .eq('user_id', userId)
     .maybeSingle();
 
+  let cash: number;
   if (!acct) {
-    return {
-      ok: false,
-      error: {
-        code:    'NO_SIMULATED_ACCOUNT',
-        message: 'Simulated account not initialised. Please visit the dashboard first.',
-      },
-    };
+    const { error: createErr } = await supabase
+      .from('user_accounts')
+      .upsert(
+        { user_id: userId, cash: BASELINE_CASH, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' },
+      );
+    if (createErr) {
+      console.error('[simulated/execute] failed to create user_accounts:', createErr.message);
+      return { ok: false, error: { code: 'DB_ERROR', message: 'Failed to initialise simulated account.' } };
+    }
+    cash = BASELINE_CASH;
+  } else {
+    cash = Number(acct.cash);
   }
-
-  const cash = Number(acct.cash);
 
   const notional = qty * pricePerShare;
 

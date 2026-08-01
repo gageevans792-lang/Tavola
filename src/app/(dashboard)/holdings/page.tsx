@@ -3,80 +3,43 @@
 import { useState, useEffect, useCallback } from 'react';
 import { TopBar } from '@/components/layout/TopBar';
 import { HoldingsTable } from '@/components/dashboard/HoldingsTable';
-import { createClient } from '@/lib/supabase/client';
+import { Watchlist } from '@/components/dashboard/Watchlist';
 import type { SyncedHolding } from '@/lib/alpaca/sync';
 import type { SentimentScore } from '@/lib/sentiment/engine';
 
-interface WatchlistItem {
-  id: string;
-  ticker: string;
-}
-
-async function fetchHoldingsFromSupabase(userId: string): Promise<SyncedHolding[]> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from('holdings')
-    .select('*')
-    .eq('user_id', userId)
-    .order('market_value', { ascending: false });
-  return (data ?? []) as SyncedHolding[];
-}
-
 export default function HoldingsPage() {
-  const [holdings, setHoldings]               = useState<SyncedHolding[]>([]);
-  const [syncing, setSyncing]                 = useState(true);
-  const [syncWarning, setSyncWarning]         = useState<string | null>(null);
-  const [lastSynced, setLastSynced]           = useState<string | null>(null);
-  const [watchlist, setWatchlist]             = useState<WatchlistItem[]>([]);
-  const [loadingWatchlist, setLoadingWatchlist] = useState(true);
-  const [tickerInput, setTickerInput]         = useState('');
-  const [adding, setAdding]                   = useState(false);
-  const [error, setError]                     = useState<string | null>(null);
+  const [holdings, setHoldings]             = useState<SyncedHolding[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [refreshing, setRefreshing]         = useState(false);
+  const [error, setError]                   = useState<string | null>(null);
+  const [lastSynced, setLastSynced]         = useState<string | null>(null);
+  const [source, setSource]                 = useState<'live' | 'simulated' | null>(null);
 
-  // Sentiment state
-  const [sentimentScores,   setSentimentScores]   = useState<Record<string, SentimentScore> | undefined>(undefined);
-  const [sentimentLoading,  setSentimentLoading]  = useState(false);
+  const [sentimentScores,  setSentimentScores]  = useState<Record<string, SentimentScore> | undefined>(undefined);
+  const [sentimentLoading, setSentimentLoading] = useState(false);
 
-  // ── Sync via /api/alpaca/sync, then read holdings from Supabase ───────────
-  const syncAndLoad = useCallback(async () => {
-    setSyncing(true);
-    setSyncWarning(null);
+  // ── Fetch positions from the positions API ────────────────────────────────
+  const loadPositions = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else           setLoading(true);
+    setError(null);
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSyncing(false); return; }
-
-    // Step 1: trigger sync
     try {
-      const controller = new AbortController();
-      const timeoutId  = setTimeout(() => controller.abort(), 20_000);
-      const res = await fetch('/api/alpaca/sync', { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const { count } = await res.json();
-        console.log('[holdings] sync OK — positions:', count);
-        setLastSynced(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }));
-      } else {
-        console.warn('[holdings] sync returned', res.status);
-        setSyncWarning('Unable to sync with Alpaca. Showing cached data.');
+      const res = await fetch('/api/alpaca/positions');
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
       }
+      const data = await res.json();
+      setHoldings(data.holdings ?? []);
+      setSource(data.source ?? null);
+      setLastSynced(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }));
     } catch (err) {
-      const isTimeout = err instanceof Error && err.name === 'AbortError';
-      console.warn('[holdings] sync failed:', isTimeout ? 'timeout' : err);
-      setSyncWarning('Unable to sync positions. Showing cached data.');
+      setError(err instanceof Error ? err.message : 'Failed to load holdings. Please try again.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    // Step 2: read fresh holdings from Supabase
-    try {
-      const fresh = await fetchHoldingsFromSupabase(user.id);
-      setHoldings(fresh);
-    } catch (err) {
-      console.error('[holdings] Supabase read failed:', err);
-      setError('Unable to load holdings. Please refresh the page.');
-    }
-
-    setSyncing(false);
   }, []);
 
   const fetchSentiment = useCallback(async (tickers: string[]) => {
@@ -95,75 +58,14 @@ export default function HoldingsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    syncAndLoad();
-    loadWatchlist();
-  }, [syncAndLoad]);
+  useEffect(() => { loadPositions(); }, [loadPositions]);
 
-  // Auto-load sentiment after holdings sync
+  // Auto-load sentiment after positions load
   useEffect(() => {
-    if (!syncing && holdings.length > 0) {
+    if (!loading && holdings.length > 0) {
       fetchSentiment(holdings.map((h) => h.ticker));
     }
-  }, [syncing, holdings, fetchSentiment]);
-
-  async function loadWatchlist() {
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase
-        .from('user_watchlist')
-        .select('id, ticker')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      setWatchlist(data ?? []);
-    } catch (err) {
-      console.error('[holdings] failed to load watchlist', err);
-    } finally {
-      setLoadingWatchlist(false);
-    }
-  }
-
-  async function handleAdd() {
-    const ticker = tickerInput.trim().toUpperCase();
-    if (!ticker) return;
-    if (watchlist.some((w) => w.ticker === ticker)) {
-      setError(`${ticker} is already in your watchlist.`);
-      return;
-    }
-    setAdding(true);
-    setError(null);
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-      const { data, error } = await supabase
-        .from('user_watchlist')
-        .insert({ user_id: user.id, ticker })
-        .select('id, ticker')
-        .single();
-      if (error) throw error;
-      setWatchlist((prev) => [...prev, data]);
-      setTickerInput('');
-    } catch {
-      setError('Unable to add ticker. Please try again.');
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  async function handleRemove(id: string, ticker: string) {
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.from('user_watchlist').delete().eq('id', id);
-      if (error) throw error;
-      setWatchlist((prev) => prev.filter((w) => w.id !== id));
-    } catch {
-      setError(`Unable to remove ${ticker}. Please try again.`);
-    }
-  }
+  }, [loading, holdings, fetchSentiment]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -182,20 +84,20 @@ export default function HoldingsPage() {
             <div className="px-6 py-4 border-b border-[#E2E8F0] flex items-center justify-between">
               <div>
                 <h2 className="font-serif text-lg font-light text-[#0A1628]">Positions</h2>
-                {syncing && (
+                {loading && (
                   <p className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] mt-0.5">
-                    Syncing positions...
+                    Loading positions...
                   </p>
                 )}
-                {!syncing && lastSynced && (
+                {!loading && lastSynced && (
                   <p className="text-[11px] text-[#4A5568]/60 mt-0.5">
-                    Synced at {lastSynced}
+                    {source === 'live' ? 'Live · ' : ''}Updated {lastSynced}
                     {sentimentLoading && ' · Loading sentiment...'}
                   </p>
                 )}
               </div>
               <div className="flex items-center gap-3">
-                {!syncing && holdings.length > 0 && (
+                {!loading && holdings.length > 0 && (
                   <button
                     onClick={() => fetchSentiment(holdings.map((h) => h.ticker))}
                     disabled={sentimentLoading}
@@ -205,28 +107,22 @@ export default function HoldingsPage() {
                   </button>
                 )}
                 <button
-                  onClick={syncAndLoad}
-                  disabled={syncing}
+                  onClick={() => loadPositions(true)}
+                  disabled={loading || refreshing}
                   className="text-[11px] tracking-[0.1em] uppercase text-[#4A5568] hover:text-[#0A1628] transition-colors disabled:opacity-40"
                 >
-                  {syncing ? 'Syncing...' : 'Sync Positions'}
+                  {refreshing ? 'Refreshing...' : 'Refresh Positions'}
                 </button>
               </div>
             </div>
 
-            {syncWarning && (
-              <div className="px-6 py-2 border-b border-[#E2E8F0] bg-[#FEF3C7]">
-                <p className="text-xs text-[#92400E]">{syncWarning}</p>
-              </div>
-            )}
-
-            {error && !syncWarning && (
+            {error && (
               <div className="px-6 py-2 border-b border-[#E2E8F0] bg-red-50 border-l-2 border-l-[#991b1b]">
                 <p className="text-xs text-[#991b1b]">{error}</p>
               </div>
             )}
 
-            {syncing ? (
+            {loading ? (
               <div className="px-6 py-8 space-y-3">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="h-10 animate-pulse bg-[#E2E8F0]" />
@@ -257,66 +153,11 @@ export default function HoldingsPage() {
             )}
           </div>
 
-          {/* ── Watchlist ─────────────────────────────────────────────────── */}
+          {/* ── Watchlist (with typeahead) ────────────────────────────────── */}
           <section>
             <p className="mb-3 text-[10px] tracking-[0.15em] uppercase text-[#B8960C]">Watchlist</p>
-            <div className="bg-white border border-[#E2E8F0]">
-              <div className="px-6 py-4 border-b border-[#E2E8F0]">
-                <p className="text-xs text-[#4A5568]">Tickers in your watchlist are included in AI analysis.</p>
-              </div>
-
-              <div className="px-6 py-5 border-b border-[#E2E8F0]">
-                <div className="flex gap-4 items-end">
-                  <div className="flex-1">
-                    <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-2">
-                      Ticker symbol
-                    </label>
-                    <input
-                      type="text"
-                      value={tickerInput}
-                      onChange={(e) => { setError(null); setTickerInput(e.target.value.toUpperCase()); }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-                      placeholder="AAPL"
-                      maxLength={10}
-                      className="w-full border-b border-[#E2E8F0] py-2 font-mono text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent placeholder:text-[#0A1628]/25 transition-colors tracking-wide"
-                    />
-                  </div>
-                  <button
-                    onClick={handleAdd}
-                    disabled={adding || !tickerInput.trim()}
-                    className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase px-6 h-9 hover:bg-[#1a2f4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  >
-                    {adding ? 'Adding' : 'Add'}
-                  </button>
-                </div>
-                {error && <p className="mt-2 text-[11px] text-[#C41E3A]">{error}</p>}
-              </div>
-
-              {loadingWatchlist ? (
-                <div className="px-6 py-8 space-y-2">
-                  <div className="h-8 w-1/3 animate-pulse bg-[#E2E8F0]" />
-                  <div className="h-8 w-1/4 animate-pulse bg-[#E2E8F0]" />
-                </div>
-              ) : watchlist.length === 0 ? (
-                <div className="px-6 py-8 text-center">
-                  <p className="text-sm text-[#4A5568]">Add tickers to your watchlist to enable AI analysis.</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-[#E2E8F0]">
-                  {watchlist.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between px-6 py-3">
-                      <span className="font-mono text-xs font-bold text-[#0A1628] tracking-wide">{item.ticker}</span>
-                      <button
-                        onClick={() => handleRemove(item.id, item.ticker)}
-                        className="text-[11px] tracking-[0.12em] uppercase text-[#4A5568]/50 hover:text-[#C41E3A] transition-colors"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <p className="mb-3 text-xs text-[#4A5568]">Tickers in your watchlist are included in AI analysis.</p>
+            <Watchlist />
           </section>
 
         </div>

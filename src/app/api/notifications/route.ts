@@ -10,6 +10,8 @@ export interface Notification {
   ticker: string | null;
   read: boolean;
   created_at: string;
+  priority: 'high' | 'normal' | 'low';
+  action_url: string | null;
 }
 
 // GET — last 20 notifications for current user

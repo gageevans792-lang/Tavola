@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { getAccount, getPositions, getTickerPrices, placeMarketOrder } from '@/lib/alpaca/client';
+import { getAccount, getPositions, getTickerPrices } from '@/lib/alpaca/client';
 import type { TickerPrice } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy } from '@/lib/ai/strategies';
+import { buildGeopoliticalPromptSection } from '@/lib/geopolitical/client';
+import type { GeopoliticalEvent } from '@/lib/geopolitical/client';
 import type {
   AlpacaPosition,
   AutoInvestConfig,
@@ -125,6 +128,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
   }
 
+  const supabaseAdmin = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
   try {
     // ── 2. Load user strategy ────────────────────────────────────────────────
     const { data: stratRow } = await supabase
@@ -172,10 +180,22 @@ export async function POST(req: NextRequest) {
       // table may not exist yet — continue with empty watchlist
     }
 
-    // ── 5. Fetch prices for all tickers ──────────────────────────────────────
+    // ── 5. Fetch prices + geopolitical context in parallel ───────────────────
     const heldTickers = positions.map((p) => p.symbol);
     const allTickers  = [...new Set([...heldTickers, ...watchlistTickers])];
-    const prices      = await getTickerPrices(allTickers);
+
+    const [prices, geoRows] = await Promise.all([
+      getTickerPrices(allTickers),
+      supabaseAdmin
+        .from('geopolitical_events')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(3)
+        .then(
+          (r) => (r.data ?? []) as GeopoliticalEvent[],
+          ()  => [] as GeopoliticalEvent[],
+        ),
+    ]);
 
     // ── 6. Build portfolio text ───────────────────────────────────────────────
     const totalTickers     = allTickers.length;
@@ -207,11 +227,13 @@ FORMATTING: Never use em dashes (—) in your responses. Use commas, colons, or 
 
 You MUST call submit_portfolio_analysis. Do not reply in plain text.`;
 
+    const geoSection = buildGeopoliticalPromptSection(geoRows);
+
     const systemPrompt = `You are a senior AI portfolio manager operating under the "${finalStrategy.name}" strategy.
 
 Strategy directive: ${finalStrategy.system_prompt}
 
-${baseRules}`;
+${baseRules}${geoSection}`;
 
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
@@ -284,32 +306,7 @@ ${baseRules}`;
       latestPrices,
     });
 
-    // ── 10. Auto-execute if enabled ───────────────────────────────────────────
-    const executed: Array<{ symbol: string; action: string; qty: number; order_id: string; status: string }> = [];
-
-    if (autoExecute) {
-      for (const rec of approved) {
-        if (rec.action === 'hold') continue;
-        try {
-          const order = await placeMarketOrder(
-            rec.symbol,
-            rec.action as 'buy' | 'sell',
-            rec.qty,
-          );
-          executed.push({
-            symbol:   rec.symbol,
-            action:   rec.action,
-            qty:      rec.qty,
-            order_id: order.id,
-            status:   order.status,
-          });
-        } catch {
-          warnings.push(`Failed to execute ${rec.action} order for ${rec.symbol}`);
-        }
-      }
-    }
-
-    // ── 11. Write approved non-hold recs to ai_insights ──────────────────────
+    // ── 10. Write approved non-hold recs to ai_insights ──────────────────────
     const insightRows = approved
       .filter((r) => r.action !== 'hold')
       .map((r) => ({
@@ -319,17 +316,16 @@ ${baseRules}`;
         message:          r.reasoning,
         confidence_score: r.confidence,
         qty:              r.qty,
-        executed:         autoExecute,
+        executed:         false,
       }));
 
     if (insightRows.length > 0) {
       await supabase.from('ai_insights').insert(insightRows);
     }
 
-    // ── 12. Insert autonomous_sessions row ────────────────────────────────────
-    const tradesApproved    = approved.filter((r) => r.action !== 'hold').length;
-    const tradesExecuted    = executed.length;
-    const totalTradeValue   = approved
+    // ── 11. Insert autonomous_sessions row ────────────────────────────────────
+    const tradesApproved  = approved.filter((r) => r.action !== 'hold').length;
+    const totalTradeValue = approved
       .filter((r) => r.action !== 'hold')
       .reduce((sum, r) => sum + (r.estimated_value ?? 0), 0);
 
@@ -340,9 +336,9 @@ ${baseRules}`;
         strategy_id:       finalStrategy.id,
         strategy_name:     finalStrategy.name,
         status:            'completed',
-        auto_executed:     autoExecute,
+        auto_executed:     false,
         trades_approved:   tradesApproved,
-        trades_executed:   tradesExecuted,
+        trades_executed:   0,
         total_trade_value: totalTradeValue,
         market_outlook:    raw.market_outlook,
         summary:           raw.summary,
@@ -379,7 +375,7 @@ ${baseRules}`;
             id:                null,
             strategy_name:     finalStrategy.name,
             trades_approved:   tradesApproved,
-            trades_executed:   tradesExecuted,
+            trades_executed:   0,
             total_trade_value: totalTradeValue,
             market_outlook:    raw.market_outlook,
             summary:           raw.summary,
@@ -391,7 +387,6 @@ ${baseRules}`;
         ...toOutput(r),
         rejection_reason: r.rejection_reason,
       })),
-      executed,
       warnings,
       portfolio: { value: equity, cash },
     });

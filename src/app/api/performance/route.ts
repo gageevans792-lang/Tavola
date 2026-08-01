@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getAccount } from '@/lib/alpaca/client';
+import { getAccount, getPositions } from '@/lib/alpaca/client';
 import { isFounder } from '@/lib/founder';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -264,21 +264,26 @@ export async function GET(req: NextRequest) {
         benchmark: (slicedBenchmark.filter((_, j) => j % step === 0 || j === slicedBenchmark.length - 1)[i]?.value ?? pt.value),
       }));
 
-    // ── Trades from DB ────────────────────────────────────────────────────────
-    const { data: trades } = await supabase
-      .from('trades')
-      .select('ticker, side, qty, price, ai_reasoning, created_at')
-      .eq('user_id', user.id)
-      .eq('status', 'filled')
-      .order('created_at', { ascending: true });
-
-    const { data: holdings } = await supabase
-      .from('holdings')
-      .select('ticker, unrealized_pl, unrealized_plpc, avg_entry_price, market_value, updated_at')
-      .eq('user_id', user.id);
+    // ── Trades from DB + live positions from Alpaca ───────────────────────────
+    const [{ data: trades }, rawPositions] = await Promise.all([
+      supabase
+        .from('trades')
+        .select('ticker, side, qty, price, ai_reasoning, created_at')
+        .eq('user_id', user.id)
+        .eq('status', 'filled')
+        .order('created_at', { ascending: true }),
+      getPositions().catch(() => []),
+    ]);
 
     const tradeList: TradeRow[]   = (trades ?? []) as TradeRow[];
-    const holdingList: HoldingRow[] = (holdings ?? []) as unknown as HoldingRow[];
+    const holdingList: HoldingRow[] = rawPositions.map((p) => ({
+      ticker:          p.symbol,
+      unrealized_pl:   parseFloat(p.unrealized_pl || '0'),
+      unrealized_plpc: parseFloat(p.unrealized_plpc || '0') * 100,
+      avg_entry_price: parseFloat(p.avg_entry_price),
+      market_value:    parseFloat(p.market_value),
+      created_at:      new Date().toISOString(),
+    }));
 
     const totalTrades = tradeList.length;
 

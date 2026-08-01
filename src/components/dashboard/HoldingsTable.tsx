@@ -201,15 +201,15 @@ export function HoldingsTable({ holdings, sentimentScores, sentimentLoading }: H
                     <span className="font-medium font-mono text-[11px] sm:text-[12px] text-[#0A1628] tracking-wide">{h.ticker}</span>
                   </td>
                   <td className="hidden sm:table-cell px-3 sm:px-6 py-2.5 text-[#4A5568]">{h.qty}</td>
-                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2.5 text-[#4A5568]">{fmt(h.avg_entry_price)}</td>
-                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2.5 text-[#4A5568]">{fmt(h.current_price)}</td>
-                  <td className="px-3 sm:px-6 py-2.5 text-[#0A1628] font-medium">{fmt(h.market_value, 0)}</td>
+                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2.5 text-[#4A5568]">{h.avg_entry_price > 0 ? fmt(h.avg_entry_price) : '–'}</td>
+                  <td className="hidden sm:table-cell px-3 sm:px-6 py-2.5 text-[#4A5568]">{h.current_price > 0 ? fmt(h.current_price) : '–'}</td>
+                  <td className="px-3 sm:px-6 py-2.5 text-[#0A1628] font-medium">{h.market_value > 0 ? fmt(h.market_value, 0) : '–'}</td>
                   <td className={cn('px-3 sm:px-6 py-2.5 font-medium', positive ? 'text-[#166534]' : 'text-[#991b1b]')}>
-                    {fmtPL(h.unrealized_pl)}
+                    {h.current_price > 0 ? fmtPL(h.unrealized_pl) : '–'}
                   </td>
                   <td className={cn('hidden sm:table-cell px-3 sm:px-6 py-2.5 font-medium', positive ? 'text-[#166534]' : 'text-[#991b1b]')}>
                     <div className="flex items-center gap-2">
-                      <span>{fmtPct(h.unrealized_plpc)}</span>
+                      <span>{h.current_price > 0 ? fmtPct(h.unrealized_plpc) : '–'}</span>
                       <div className="w-12 h-1 bg-[#E2E8F0] hidden sm:block">
                         <div
                           className={cn('h-full', positive ? 'bg-[#166534]' : 'bg-[#991b1b]')}

@@ -41,12 +41,18 @@ export default function WelcomePage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from('risk_profiles').upsert(
-          { user_id: user.id, onboarding_done: true },
-          { onConflict: 'user_id' },
-        );
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({ id: user.id, onboarding_completed: true }, { onConflict: 'id' });
+        if (error) {
+          console.error('[welcome] FAILED to set onboarding_completed:', error.message, error.code, error.details);
+        }
+      } else {
+        console.error('[welcome] handleStart: no authenticated user');
       }
-    } catch { /* non-fatal */ }
+    } catch (err) {
+      console.error('[welcome] handleStart exception:', err instanceof Error ? err.message : err);
+    }
     router.push('/dashboard');
   }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { anthropic } from '@/lib/anthropic/client';
-import { getAccount } from '@/lib/alpaca/client';
+import { getAccount, getPositions } from '@/lib/alpaca/client';
 import { getBasicFinancials, getSentiment } from '@/lib/finnhub/client';
 import type { FinnhubBasicFinancials, FinnhubSentiment } from '@/lib/finnhub/client';
 import { computeCorrelationMatrix } from '@/lib/risk/correlation';
@@ -180,19 +180,32 @@ export async function POST() {
   }
 
   try {
-  const { data: rawHoldings } = await supabase
-    .from('holdings')
-    .select('ticker, current_price, market_value, weight_pct, unrealized_plpc')
-    .eq('user_id', user.id)
-    .order('market_value', { ascending: false });
+  function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([p, new Promise<T>((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
+  }
 
-  const holdings = (rawHoldings ?? []) as Array<{
-    ticker: string;
-    current_price: number | string;
-    market_value:  number | string;
-    weight_pct:    number | string;
-    unrealized_plpc: number | string;
-  }>;
+  // ── Live positions + account (no holdings table reads for founder) ─────────
+  const [rawPositions, accountResult] = await Promise.all([
+    getPositions().catch(() => []),
+    withTimeout(getAccount(), 8000).catch(() => null),
+  ]);
+
+  const portValue = accountResult
+    ? (parseFloat(accountResult.portfolio_value) || parseFloat(accountResult.equity))
+    : rawPositions.reduce((s, p) => s + parseFloat(p.market_value), 0);
+
+  const holdings = [...rawPositions]
+    .sort((a, b) => parseFloat(b.market_value) - parseFloat(a.market_value))
+    .map((p) => {
+      const mv = parseFloat(p.market_value);
+      return {
+        ticker:          p.symbol,
+        current_price:   parseFloat(p.current_price || p.avg_entry_price),
+        market_value:    mv,
+        weight_pct:      portValue > 0 ? (mv / portValue) * 100 : 0,
+        unrealized_plpc: parseFloat(p.unrealized_plpc || '0') * 100,
+      };
+    });
 
   if (holdings.length === 0) {
     return NextResponse.json({ ...EMPTY_INTELLIGENCE, generated_at: new Date().toISOString() } satisfies IntelligenceResponse);
@@ -200,15 +213,10 @@ export async function POST() {
 
   const tickers = holdings.map((h) => h.ticker);
 
-  function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
-    return Promise.race([p, new Promise<T>((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
-  }
-
-  // Parallel: Finnhub data per ticker + Alpaca account
-  const [financialsResults, sentimentResults, accountResult] = await Promise.all([
+  // Parallel: Finnhub data per ticker (account already fetched above)
+  const [financialsResults, sentimentResults] = await Promise.all([
     Promise.allSettled(tickers.map((t) => withTimeout(getBasicFinancials(t), 8000))),
     Promise.allSettled(tickers.map((t) => withTimeout(getSentiment(t), 8000))),
-    withTimeout(getAccount(), 8000).catch(() => null),
   ]);
 
   const financialsMap = new Map<string, FinnhubBasicFinancials | null>(
@@ -269,17 +277,27 @@ export async function POST() {
   );
 
   // Build Claude prompt
-  const holdingsSummary = preliminaryAnalysis.map((h) =>
-    `${h.ticker}: weight=${h.weight_pct}%, beta=${h.beta}, PE=${h.pe_ratio || 'N/A'}, ` +
-    `${h.current_vs_52w_high.toFixed(1)}% below 52w high, sentiment=${h.sentiment_label}`,
-  ).join('\n');
+  const newListings = preliminaryAnalysis.filter((h) => h.week52_high === 0).map((h) => h.ticker);
 
-  const prompt =
+  const holdingsSummary = preliminaryAnalysis.map((h) => {
+    const vsHighStr = h.week52_high === 0
+      ? 'New listing (no 52w data)'
+      : `${h.current_vs_52w_high.toFixed(1)}% below 52w high`;
+    return `${h.ticker}: weight=${h.weight_pct}%, beta=${h.beta}, PE=${h.pe_ratio || 'N/A'}, ${vsHighStr}, sentiment=${h.sentiment_label}`;
+  }).join('\n');
+
+  let prompt =
     `Portfolio equity: ${equity}\n` +
     `Portfolio beta: ${(riskScore / 50).toFixed(2)}\n` +
     `Concentration risk: ${concRisk}\n` +
     `Top sectors: ${sectorExposure.slice(0, 3).map((s) => `${s.sector} ${s.pct}%`).join(', ')}\n\n` +
     `Holdings:\n${holdingsSummary}`;
+
+  if (newListings.length > 0) {
+    prompt +=
+      `\n\nNOTE: ${newListings.join(', ')} ${newListings.length === 1 ? 'is a recent listing' : 'are recent listings'} ` +
+      `with limited trading history. Acknowledge this in your thesis for each; do not invent historical performance metrics.`;
+  }
 
   // Claude tool_use for AI content
   let aiTheses: Map<string, string>     = new Map();

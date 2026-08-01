@@ -11,6 +11,7 @@ export interface CorrelationMatrix {
   symbols: string[];
   pairs: CorrelationPair[];
   high_correlation_pairs: CorrelationPair[];
+  insufficient_history: string[];  // tickers excluded due to < 30 trading days
   generated_at: string;
 }
 
@@ -57,22 +58,27 @@ function dailyReturns(closes: number[]): number[] {
  * We request 90 days (calendar) → ~65 trading days.
  */
 export async function computeCorrelationMatrix(symbols: string[]): Promise<CorrelationMatrix> {
-  if (symbols.length < 2) {
-    return { symbols, pairs: [], high_correlation_pairs: [], generated_at: new Date().toISOString() };
-  }
+  const empty: CorrelationMatrix = {
+    symbols, pairs: [], high_correlation_pairs: [], insufficient_history: [], generated_at: new Date().toISOString(),
+  };
+  if (symbols.length < 2) return empty;
 
   // Fetch ~90 calendar days (~65 trading days) of daily bars for all symbols in parallel
   const barResults = await Promise.allSettled(
     symbols.map(sym => getDailyBars(sym, 90)),
   );
 
-  // Build returns map
+  // Build returns map; require at least 30 trading days for meaningful correlation
   const returnsMap: Record<string, number[]> = {};
+  const insufficientHistory: string[] = [];
+
   symbols.forEach((sym, i) => {
     const res = barResults[i];
-    if (res.status === 'fulfilled' && res.value.length >= 10) {
+    if (res.status === 'fulfilled' && res.value.length >= 30) {
       const closes = res.value.map((b: { close: number }) => b.close);
       returnsMap[sym] = dailyReturns(closes);
+    } else {
+      insufficientHistory.push(sym);
     }
   });
 
@@ -98,6 +104,7 @@ export async function computeCorrelationMatrix(symbols: string[]): Promise<Corre
     symbols: validSymbols,
     pairs,
     high_correlation_pairs: pairs.filter(p => p.risk_level === 'high'),
+    insufficient_history: insufficientHistory,
     generated_at: new Date().toISOString(),
   };
 }

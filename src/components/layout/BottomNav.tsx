@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const MOBILE_NAV = [
-  { href: '/dashboard', label: 'Home'      },
-  { href: '/markets',   label: 'Markets'   },
-  { href: '/crypto',    label: 'Crypto'    },
-  { href: '/holdings',  label: 'Portfolio' },
-  { href: '/settings',  label: 'Settings'  },
+  { href: '/dashboard',       label: 'Home'    },
+  { href: '/markets',         label: 'Markets' },
+  { href: '/crypto',          label: 'Crypto'  },
+  { href: '/recommendations', label: 'Recs'    },
+  { href: '/settings',        label: 'Settings'},
 ];
 
 export function BottomNav() {

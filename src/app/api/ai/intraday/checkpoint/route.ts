@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { getTickerPrices, placeMarketOrder } from '@/lib/alpaca/client';
+import { getTickerPrices } from '@/lib/alpaca/client';
 import { anthropic } from '@/lib/anthropic/client';
 import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { isFounder } from '@/lib/founder';
-import { executeSimulatedTrade } from '@/lib/simulated/execute';
 import { evaluateTriggers } from '@/lib/intraday/triggers';
 import { checkAndSendIntervention } from '@/lib/ai/intervention';
 import type { TradeRecommendation, AutoInvestConfig } from '@/types';
@@ -135,7 +134,7 @@ async function getNotifSettings(userId: string, supabaseAdmin: any) {
   }
 }
 
-// ── Execute pending_window trades whose delay has elapsed ─────────────────────
+// ── Convert elapsed pending_window trades into recommendation rows ─────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executePendingWindowTrades(userId: string, supabaseAdmin: any) {
   const now = new Date().toISOString();
@@ -149,45 +148,21 @@ async function executePendingWindowTrades(userId: string, supabaseAdmin: any) {
 
   if (!pending || pending.length === 0) return;
 
-  // Determine founder status via profiles table
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('email')
-    .eq('id', userId)
-    .maybeSingle();
-  const founderUser = isFounder(userId, profile?.email);
-
-  const notifSettings = await getNotifSettings(userId, supabaseAdmin);
-
   for (const trade of pending) {
     try {
-      if (founderUser) {
-        await placeMarketOrder(trade.ticker, trade.side as 'buy' | 'sell', Number(trade.qty));
-        await supabaseAdmin.from('trades').update({ status: 'filled' }).eq('id', trade.id);
-      } else {
-        const priceMap = await getTickerPrices([trade.ticker]);
-        const price    = priceMap[trade.ticker]?.price;
-        if (!price || price <= 0) throw new Error(`Price unavailable for ${trade.ticker}`);
-        const result = await executeSimulatedTrade(
-          userId, trade.ticker, trade.side as 'buy' | 'sell', Number(trade.qty), price,
-          { ai_reasoning: trade.ai_reasoning, confidence_score: trade.confidence_score },
-        );
-        if (!result.ok) throw new Error(result.error.message);
-        await supabaseAdmin.from('trades').update({ status: 'filled' }).eq('id', trade.id);
-      }
-
-      if (notifSettings.execution_confirmations) {
-        await sendNotification(userId, {
-          type:       'profit',
-          title:      `Executed: ${trade.side.toUpperCase()} ${trade.qty} ${trade.ticker}`,
-          message:    trade.ai_reasoning?.slice(0, 120) ?? 'Intraday checkpoint trade executed.',
-          ticker:     trade.ticker,
-          priority:   'normal',
-          action_url: '/trades',
-        }, supabaseAdmin);
-      }
+      await supabaseAdmin.from('recommendations').insert({
+        user_id:       userId,
+        ticker:        trade.ticker,
+        action:        trade.side,
+        qty:           Number(trade.qty),
+        reasoning:     trade.ai_reasoning ?? '',
+        confidence:    trade.confidence_score ?? 75,
+        source:        'intraday',
+        user_decision: 'pending',
+      });
+      await supabaseAdmin.from('trades').update({ status: 'cancelled' }).eq('id', trade.id);
     } catch (err) {
-      console.error(`[checkpoint] execute pending trade ${trade.id}:`, err instanceof Error ? err.message : err);
+      console.error(`[checkpoint] create recommendation ${trade.id}:`, err instanceof Error ? err.message : err);
       await supabaseAdmin.from('trades').update({ status: 'cancelled' }).eq('id', trade.id);
     }
   }
@@ -514,8 +489,16 @@ async function runCheckpointForUser(userId: string, supabaseAdmin: any, checkpoi
   return { action: 'pending_window', triggers: ctx.triggers.length, trades: filteredRecs.length, cancelToken };
 }
 
-// ── GET: today's checkpoints for the authenticated user ──────────────────────
-export async function GET() {
+// ── GET: Vercel cron (CRON_SECRET header) OR user session ────────────────────
+// Vercel crons always send GET. If the CRON_SECRET header is present we delegate
+// to the POST cron logic so the scheduled checkpoints actually run.
+export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.get('authorization') ?? req.headers.get('x-cron-secret');
+  if (cronSecret && cronSecret.length > 0 && authHeader === `Bearer ${cronSecret}`) {
+    return POST(req);
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -551,7 +534,8 @@ export async function GET() {
 // ── POST: cron-triggered checkpoint run ───────────────────────────────────────
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') ?? req.headers.get('x-cron-secret');
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || cronSecret.length === 0 || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

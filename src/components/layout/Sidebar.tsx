@@ -7,9 +7,9 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 const PRIMARY_LINKS = [
-  { href: '/dashboard',    label: 'Home'      },
-  { href: '/autopilot',    label: 'AutoPilot' },
-  { href: '/holdings',     label: 'Holdings'  },
+  { href: '/dashboard',       label: 'Home'            },
+  { href: '/autopilot',       label: 'AutoPilot'       },
+  { href: '/recommendations', label: 'Recommendations' },
 ];
 
 const EXPLORE_LINKS = [
