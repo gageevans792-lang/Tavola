@@ -15,6 +15,7 @@ const PRIMARY_LINKS = [
 const EXPLORE_LINKS = [
   { href: '/performance',  label: 'Performance'  },
   { href: '/intelligence', label: 'Intelligence' },
+  { href: '/tax',          label: 'Tax'          },
   { href: '/markets',      label: 'Markets'      },
   { href: '/backtest',     label: 'Backtest'     },
   { href: '/chat',         label: 'AI Chat'      },

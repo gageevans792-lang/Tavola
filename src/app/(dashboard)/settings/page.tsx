@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Section = 'profile' | 'security' | 'notifications' | 'danger';
+type Section = 'profile' | 'strategy' | 'security' | 'notifications' | 'danger';
 
 type Msg = { type: 'success' | 'error'; text: string };
 
@@ -72,6 +72,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 const SECTIONS: { id: Section; label: string }[] = [
   { id: 'profile',       label: 'Profile'       },
+  { id: 'strategy',      label: 'Strategy'      },
   { id: 'security',      label: 'Security'      },
   { id: 'notifications', label: 'Notifications' },
   { id: 'danger',        label: 'Danger Zone'   },
@@ -103,6 +104,19 @@ export default function SettingsPage() {
   // Notifications
   const [notifs, setNotifs]           = useState<NotificationPrefs>(DEFAULT_NOTIF_PREFS);
   const [notifSaving, setNotifSaving] = useState(false);
+
+  // Strategy — conviction mode
+  const [convictionMode,         setConvictionMode]         = useState(false);
+  const [convictionAcknowledged, setConvictionAcknowledged] = useState(false);
+  const [showConvictionWarning,  setShowConvictionWarning]  = useState(false);
+  const [savingConviction,       setSavingConviction]       = useState(false);
+
+  // Strategy — tax settings
+  const [marginalRate,    setMarginalRate]    = useState(24);    // percentage (0–60)
+  const [stateTaxEnabled, setStateTaxEnabled] = useState(false);
+  const [stateTaxRate,    setStateTaxRate]    = useState(0);     // percentage (0–25)
+  const [savingTax,       setSavingTax]       = useState(false);
+  const [taxMsg,          setTaxMsg]          = useState<Msg | null>(null);
 
   // Danger zone
   const [deleteInput, setDeleteInput]         = useState('');
@@ -146,14 +160,32 @@ export default function SettingsPage() {
       .catch(() => {});
   }, []);
 
-  // ── Load autopilot ─────────────────────────────────────────────────────────
+  // ── Load autopilot + conviction mode ──────────────────────────────────────
 
   useEffect(() => {
     fetch('/api/ai/autopilot/status')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { settings?: { enabled?: boolean }; enabled?: boolean } | null) => {
-        const enabled = d?.settings?.enabled ?? (typeof d?.enabled === 'boolean' ? d.enabled : null);
-        if (typeof enabled === 'boolean') setAutopilotEnabled(enabled);
+      .then((d: { settings?: { enabled?: boolean; conviction_mode?: boolean; conviction_acknowledged?: boolean } } | null) => {
+        const s = d?.settings;
+        if (typeof s?.enabled === 'boolean') setAutopilotEnabled(s.enabled);
+        if (typeof s?.conviction_mode === 'boolean') setConvictionMode(s.conviction_mode);
+        if (typeof s?.conviction_acknowledged === 'boolean') setConvictionAcknowledged(s.conviction_acknowledged);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Load tax settings ──────────────────────────────────────────────────────
+
+  useEffect(() => {
+    fetch('/api/tax/settings')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { settings?: { marginal_rate?: number; state_tax_enabled?: boolean; state_tax_rate?: number } } | null) => {
+        const s = d?.settings;
+        if (s) {
+          setMarginalRate(Math.round((s.marginal_rate ?? 0.24) * 100));
+          setStateTaxEnabled(s.state_tax_enabled ?? false);
+          setStateTaxRate(Math.round((s.state_tax_rate ?? 0) * 100));
+        }
       })
       .catch(() => {});
   }, []);
@@ -208,6 +240,57 @@ export default function SettingsPage() {
       });
     } catch { /* non-fatal */ } finally {
       setNotifSaving(false);
+    }
+  }
+
+  async function handleToggleConviction(enable: boolean) {
+    if (enable && !convictionAcknowledged) {
+      setShowConvictionWarning(true);
+      return;
+    }
+    setSavingConviction(true);
+    try {
+      await fetch('/api/ai/autopilot/status', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          conviction_mode:         enable,
+          conviction_acknowledged: convictionAcknowledged || enable,
+        }),
+      });
+      setConvictionMode(enable);
+      if (enable) setConvictionAcknowledged(true);
+    } catch { /* non-fatal */ } finally {
+      setSavingConviction(false);
+    }
+  }
+
+  async function handleAcknowledgeConviction() {
+    setConvictionAcknowledged(true);
+    setShowConvictionWarning(false);
+    await handleToggleConviction(true);
+  }
+
+  async function handleSaveTaxSettings() {
+    setSavingTax(true);
+    setTaxMsg(null);
+    try {
+      const res = await fetch('/api/tax/settings', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          marginal_rate:     marginalRate / 100,
+          state_tax_enabled: stateTaxEnabled,
+          state_tax_rate:    stateTaxRate / 100,
+        }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      setTaxMsg({ type: 'success', text: 'Tax settings saved.' });
+    } catch {
+      setTaxMsg({ type: 'error', text: 'Could not save. Please try again.' });
+    } finally {
+      setSavingTax(false);
+      setTimeout(() => setTaxMsg(null), 4000);
     }
   }
 
@@ -421,6 +504,134 @@ export default function SettingsPage() {
                     </Link>
                   </section>
                 </>
+              )}
+
+              {/* ── Strategy ── */}
+              {activeSection === 'strategy' && (
+                <div className="space-y-6">
+                  {/* Conviction Mode */}
+                  <section className="bg-white border border-[#E2E8F0] p-4 sm:p-8">
+                    <h3 className="font-serif text-xl font-light text-[#0A1628] mb-2">Conviction Mode</h3>
+                    <p className="text-[13px] text-[#4A5568] mb-6 leading-relaxed">
+                      Standard robo-advisors optimize for broad diversification, which structurally underperforms in growth markets
+                      for investors with long horizons. Conviction Mode allows higher concentration in your highest-conviction ideas.
+                      Higher potential return, higher volatility, larger drawdowns.
+                      <span className="text-[#991b1b] font-medium"> Not appropriate for money you need within 5 years.</span>
+                    </p>
+
+                    <div className="flex items-center justify-between gap-4 border border-[#E2E8F0] px-4 py-3 mb-4">
+                      <div>
+                        <p className="text-[13px] font-medium text-[#0A1628] mb-0.5">Enable Conviction Mode</p>
+                        <p className="text-[12px] text-[#4A5568]">Position limit: 35% · Sector limit: 50% · Small/mid-cap included</p>
+                      </div>
+                      <Toggle
+                        checked={convictionMode}
+                        onChange={handleToggleConviction}
+                      />
+                    </div>
+
+                    {savingConviction && (
+                      <p className="text-[12px] text-[#4A5568]">Saving...</p>
+                    )}
+
+                    {convictionMode && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C]" />
+                        <span className="text-[12px] font-medium text-[#B8960C]">Conviction Mode active</span>
+                      </div>
+                    )}
+
+                    {/* Acknowledgment modal (inline) */}
+                    {showConvictionWarning && (
+                      <div className="mt-4 border border-[#C41E3A]/30 bg-red-50 p-5 space-y-4">
+                        <p className="text-[12px] font-medium text-[#0A1628]">Before enabling Conviction Mode, confirm you understand:</p>
+                        <ul className="space-y-1.5 text-[12px] text-[#4A5568]">
+                          <li className="flex items-start gap-2"><span className="mt-1 h-1 w-1 rounded-full bg-[#991b1b] shrink-0" />Single positions may be up to 35% of your portfolio</li>
+                          <li className="flex items-start gap-2"><span className="mt-1 h-1 w-1 rounded-full bg-[#991b1b] shrink-0" />Drawdowns can be significantly larger than diversified portfolios</li>
+                          <li className="flex items-start gap-2"><span className="mt-1 h-1 w-1 rounded-full bg-[#991b1b] shrink-0" />Past performance of concentrated strategies does not predict future results</li>
+                          <li className="flex items-start gap-2"><span className="mt-1 h-1 w-1 rounded-full bg-[#991b1b] shrink-0" />This is not appropriate for any money you may need within 5 years</li>
+                        </ul>
+                        <div className="flex items-center gap-3 pt-1">
+                          <button
+                            onClick={handleAcknowledgeConviction}
+                            className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase h-9 px-5 hover:bg-[#1a2f4a] transition-colors"
+                          >
+                            I understand — Enable
+                          </button>
+                          <button
+                            onClick={() => setShowConvictionWarning(false)}
+                            className="text-[12px] text-[#4A5568] hover:text-[#0A1628]"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Tax Settings */}
+                  <section className="bg-white border border-[#E2E8F0] p-4 sm:p-8">
+                    <h3 className="font-serif text-xl font-light text-[#0A1628] mb-2">Tax Settings</h3>
+                    <p className="text-[13px] text-[#4A5568] mb-6">Used to estimate potential tax savings from loss harvesting. Consult a tax professional.</p>
+
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40 mb-2">Federal marginal rate</label>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            min={0}
+                            max={60}
+                            step={1}
+                            value={marginalRate}
+                            onChange={(e) => setMarginalRate(Number(e.target.value))}
+                            className="w-24 border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent transition-colors text-center"
+                          />
+                          <span className="text-sm text-[#4A5568]">%</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-4 mb-3">
+                          <label className="text-[11px] tracking-[0.12em] uppercase text-[#0A1628]/40">State income tax</label>
+                          <Toggle
+                            checked={stateTaxEnabled}
+                            onChange={(v) => setStateTaxEnabled(v)}
+                          />
+                        </div>
+                        {stateTaxEnabled && (
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="number"
+                              min={0}
+                              max={25}
+                              step={0.5}
+                              value={stateTaxRate}
+                              onChange={(e) => setStateTaxRate(Number(e.target.value))}
+                              className="w-24 border-b border-[#E2E8F0] py-3 text-sm text-[#0A1628] outline-none focus:border-[#0A1628] bg-transparent transition-colors text-center"
+                            />
+                            <span className="text-sm text-[#4A5568]">% state rate</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4 pt-2">
+                        <button
+                          onClick={handleSaveTaxSettings}
+                          disabled={savingTax}
+                          className="bg-[#0A1628] text-white text-[11px] tracking-[0.2em] uppercase h-10 px-6 hover:bg-[#1a2f4a] transition-colors disabled:opacity-50"
+                        >
+                          {savingTax ? 'Saving…' : 'Save tax settings'}
+                        </button>
+                        {taxMsg && (
+                          <p className={cn('text-xs', taxMsg.type === 'success' ? 'text-[#166534]' : 'text-[#C41E3A]')}>
+                            {taxMsg.text}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                </div>
               )}
 
               {/* ── Security ── */}

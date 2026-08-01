@@ -395,6 +395,78 @@ function CorrelationRiskSection({ matrix }: { matrix: CorrelationMatrix | null }
   );
 }
 
+// ── Behavioral Intervention Stats ────────────────────────────────────────────
+
+interface InterventionRow {
+  id: string;
+  trigger_type: string;
+  message: string;
+  sent_at: string;
+  portfolio_value_at_intervention: number | null;
+  outcome_30d: number | null;
+}
+
+function InterventionStatsSection() {
+  const [rows, setRows]     = useState<InterventionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/ai/intervention/history')
+      .then((r) => r.ok ? r.json() : { interventions: [] })
+      .then((d: { interventions?: InterventionRow[] }) => setRows(d.interventions ?? []))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const positiveOutcomes = rows.filter((r) => r.outcome_30d !== null && r.outcome_30d > 0);
+  const estimatedSaved   = positiveOutcomes.reduce((sum, r) => {
+    const val = r.portfolio_value_at_intervention ?? 0;
+    return sum + val * (r.outcome_30d! / 100);
+  }, 0);
+
+  if (!loading && rows.length === 0) return null;
+
+  return (
+    <section className="bg-white">
+      <div className="px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
+        <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Behavioral Coaching</p>
+        <p className="text-[9px] text-[#4A5568]/60 mt-0.5">AI interventions during market stress — proprietary effectiveness tracking</p>
+      </div>
+
+      {loading ? (
+        <div className="px-4 sm:px-6 py-6">
+          <div className="h-16 animate-pulse bg-[#F0F2F5]" />
+        </div>
+      ) : (
+        <div className="px-4 sm:px-6 py-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-5">
+            <div>
+              <p className="text-[10px] text-[#4A5568]">Interventions sent</p>
+              <p className="font-serif text-xl font-light text-[#0A1628]">{rows.length}</p>
+            </div>
+            {estimatedSaved > 0 && (
+              <div>
+                <p className="text-[10px] text-[#4A5568]">Est. value preserved</p>
+                <p className="font-serif text-xl font-light text-[#166534]">
+                  +${estimatedSaved.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                </p>
+              </div>
+            )}
+          </div>
+          {rows.length > 0 && (
+            <p className="text-[12px] text-[#4A5568] italic">
+              Tavola sent {rows.length} behavioral {rows.length === 1 ? 'message' : 'messages'} during market stress events.
+              {estimatedSaved > 0
+                ? ` Estimated value of holding decisions: +$${estimatedSaved.toLocaleString('en-US', { maximumFractionDigits: 0 })}.`
+                : ''}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ── Institutional Positioning Section ────────────────────────────────────────
 
 function InstitutionalPositioningSection() {
@@ -1216,7 +1288,10 @@ export default function IntelligencePage() {
             )}
           </section>
 
-          {/* ── S8: Institutional Positioning ──────────────────────────────── */}
+          {/* ── S8: Behavioral Interventions ───────────────────────────────── */}
+          <InterventionStatsSection />
+
+          {/* ── S9: Institutional Positioning ──────────────────────────────── */}
           <InstitutionalPositioningSection />
 
         </div>

@@ -8,6 +8,8 @@ export interface AutopilotSettings {
   enabled: boolean;
   frequency: 'daily' | 'weekly' | 'monthly';
   max_trade_size: number;
+  conviction_mode: boolean;
+  conviction_acknowledged: boolean;
   last_run_at: string | null;
   next_run_at: string | null;
   created_at: string;
@@ -38,11 +40,13 @@ function computeNextRunAt(frequency: Frequency): string {
 // ── GET: fetch current autopilot settings ─────────────────────────────────────
 
 const DEFAULT_SETTINGS_BASE = {
-  enabled:        false,
-  frequency:      'daily' as const,
-  max_trade_size: 5000,
-  last_run_at:    null,
-  next_run_at:    null,
+  enabled:                 false,
+  frequency:               'daily' as const,
+  max_trade_size:          5000,
+  conviction_mode:         false,
+  conviction_acknowledged: false,
+  last_run_at:             null,
+  next_run_at:             null,
 };
 
 export async function GET() {
@@ -124,6 +128,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (b.conviction_mode !== undefined && typeof b.conviction_mode !== 'boolean') {
+      return NextResponse.json({ error: 'conviction_mode must be a boolean' }, { status: 400 });
+    }
+    if (b.conviction_acknowledged !== undefined && typeof b.conviction_acknowledged !== 'boolean') {
+      return NextResponse.json({ error: 'conviction_acknowledged must be a boolean' }, { status: 400 });
+    }
+
     // Fetch existing settings to determine frequency for next_run_at computation
     const { data: existing } = await supabase
       .from('autopilot_settings')
@@ -141,9 +152,11 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    if (b.enabled !== undefined)        upsertPayload.enabled        = Boolean(b.enabled);
-    if (b.frequency !== undefined)      upsertPayload.frequency      = b.frequency;
-    if (b.max_trade_size !== undefined) upsertPayload.max_trade_size = Number(b.max_trade_size);
+    if (b.enabled !== undefined)                 upsertPayload.enabled                 = Boolean(b.enabled);
+    if (b.frequency !== undefined)               upsertPayload.frequency               = b.frequency;
+    if (b.max_trade_size !== undefined)          upsertPayload.max_trade_size          = Number(b.max_trade_size);
+    if (b.conviction_mode !== undefined)         upsertPayload.conviction_mode         = Boolean(b.conviction_mode);
+    if (b.conviction_acknowledged !== undefined) upsertPayload.conviction_acknowledged = Boolean(b.conviction_acknowledged);
 
     // When enabling for the first time (or re-enabling), set next_run_at
     if (becomingEnabled || (b.enabled === true)) {

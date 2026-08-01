@@ -287,6 +287,25 @@ export interface AutoInvestConfig {
   confidence_threshold: number;  // min score to approve
   max_trade_value: number;       // max USD per single trade
   watchlist: string[];
+  conviction_mode?: boolean;     // raise position cap to 35%
+}
+
+export interface HarvestOpportunity {
+  id:                    string;
+  user_id:               string;
+  ticker:                string;
+  unrealized_loss:       number;
+  potential_tax_savings: number;
+  replacement_ticker:    string | null;
+  wash_sale_safe_date:   string;
+  status:                'open' | 'harvested' | 'expired';
+  created_at:            string;
+}
+
+export interface TaxSettings {
+  marginal_rate:     number;
+  state_tax_enabled: boolean;
+  state_tax_rate:    number;
 }
 
 export interface RiskGuardResult {

@@ -118,9 +118,14 @@ export function applyRiskGuard(
         const projectedValue = currentValue + tradeValue;
         const projectedPct   = projectedValue / ctx.portfolioValue;
 
-        if (projectedPct > config.max_position_pct) {
+        // Conviction mode raises the cap to 35%; otherwise use config value
+        const effectiveCap = config.conviction_mode
+          ? Math.max(config.max_position_pct, 0.35)
+          : config.max_position_pct;
+
+        if (projectedPct > effectiveCap) {
           reject(
-            `Would create ${(projectedPct * 100).toFixed(1)}% concentration. Max is ${(config.max_position_pct * 100).toFixed(0)}%.`,
+            `Would create ${(projectedPct * 100).toFixed(1)}% concentration. Max is ${(effectiveCap * 100).toFixed(0)}%${config.conviction_mode ? ' (conviction mode)' : ''}.`,
           );
           continue;
         }

@@ -304,8 +304,9 @@ function buildSystemPrompt(opts: {
   maxTradeSize:    number;
   equity:          number;
   buyingPower:     number;
+  convictionMode?: boolean;
 }): string {
-  const { vixLabel, marketRegime, topSectors, bottomSectors, rebalAlerts, macroSection, maxTradeSize, equity } = opts;
+  const { vixLabel, marketRegime, topSectors, bottomSectors, rebalAlerts, macroSection, maxTradeSize, equity, convictionMode } = opts;
 
   const topStr = topSectors.length
     ? topSectors.slice(0, 3).map((s, i) =>
@@ -323,8 +324,21 @@ function buildSystemPrompt(opts: {
     ? rebalAlerts.map((a) => `  ⚠ ${a}`).join('\n')
     : '  (no critical rebalancing alerts)';
 
-  const maxPosPct = 20;
+  const maxPosPct = convictionMode ? 35 : 20;
   const maxPosVal = (maxPosPct / 100 * equity).toFixed(0);
+
+  const convictionSection = convictionMode ? `
+
+CONVICTION MODE ACTIVE
+======================
+This user has explicitly opted into Conviction Mode. Standard robo-advisor diversification constraints are relaxed.
+- Single position cap: 35% (raised from 20%)
+- Sector cap: 50% maximum in any single sector
+- This user has a long investment horizon and accepts higher volatility for higher potential returns
+- You have NO tracking-error constraint. Where does your highest conviction justify concentration?
+- Flag small and mid-cap candidates (<$2B market cap) that large funds CANNOT buy due to size constraints. Label these explicitly as "structurally off-limits to institutions."
+- For every concentrated position (>15% of portfolio), you MUST state the downside case clearly.
+- Reason about benchmark-free investing: what would you own if you had no index to track?` : '';
 
   return `${macroSection}
 
@@ -380,7 +394,7 @@ EXECUTION RULES
 • If buying power is available, ALWAYS deploy at least some capital. Idle cash is a cost.
 • Do not recommend cumulative buys exceeding available buying power
 • Provide 2-3 sentence reasoning per recommendation referencing specific macro data above
-• You MUST call submit_portfolio_analysis. Do not reply in plain text.`;
+• You MUST call submit_portfolio_analysis. Do not reply in plain text.${convictionSection}`;
 }
 
 // ── Simulated account helpers ─────────────────────────────────────────────────
@@ -433,7 +447,7 @@ export async function POST() {
 
   try {
     // ── 1. Load autopilot settings ────────────────────────────────────────────
-    let settings = { enabled: true, frequency: 'daily', max_trade_size: 5000 };
+    let settings = { enabled: true, frequency: 'daily', max_trade_size: 5000, conviction_mode: false };
     try {
       const { data: settingsRow } = await supabase
         .from('autopilot_settings')
@@ -442,9 +456,10 @@ export async function POST() {
         .maybeSingle();
       if (settingsRow) {
         settings = {
-          enabled:        settingsRow.enabled ?? true,
-          frequency:      settingsRow.frequency ?? 'daily',
-          max_trade_size: settingsRow.max_trade_size ?? 5000,
+          enabled:         settingsRow.enabled ?? true,
+          frequency:       settingsRow.frequency ?? 'daily',
+          max_trade_size:  settingsRow.max_trade_size ?? 5000,
+          conviction_mode: settingsRow.conviction_mode ?? false,
         };
       }
     } catch {
@@ -553,9 +568,10 @@ export async function POST() {
       bottomSectors,
       rebalAlerts,
       macroSection,
-      maxTradeSize: Number(settings.max_trade_size),
+      maxTradeSize:    Number(settings.max_trade_size),
       equity,
       buyingPower,
+      convictionMode:  settings.conviction_mode,
     });
 
     // ── 8. Call Claude ────────────────────────────────────────────────────────
@@ -623,6 +639,7 @@ export async function POST() {
       max_trade_value:      Number(settings.max_trade_size),
       max_position_pct:     0.20,
       watchlist:            universeKeys,
+      conviction_mode:      settings.conviction_mode,
     };
 
     const { approved, rejected } = applyRiskGuard(recs, guardConfig, {

@@ -6,6 +6,7 @@
     { "path": "/api/ai/intraday/checkpoint",  "schedule": "35 14 * * 1-5"  },
     { "path": "/api/ai/intraday/checkpoint",  "schedule": "0 18 * * 1-5"   },
     { "path": "/api/ai/intraday/checkpoint",  "schedule": "30 20 * * 1-5"  },
-    { "path": "/api/data/13f/sync",           "schedule": "0 2 * * 0"       }
+    { "path": "/api/data/13f/sync",           "schedule": "0 2 * * 0"       },
+    { "path": "/api/tax/harvest-scan",        "schedule": "0 3 * * 0"       }
   ]
 }

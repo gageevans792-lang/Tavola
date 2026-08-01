@@ -350,14 +350,16 @@ function writeLocal(patch: LocalSettings) {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_SETTINGS: AutopilotSettings = {
-  user_id:        '',
-  enabled:        false,
-  frequency:      'daily',
-  max_trade_size: 5000,
-  last_run_at:    null,
-  next_run_at:    null,
-  created_at:     new Date().toISOString(),
-  updated_at:     new Date().toISOString(),
+  user_id:                '',
+  enabled:                false,
+  frequency:              'daily',
+  max_trade_size:         5000,
+  last_run_at:            null,
+  next_run_at:            null,
+  created_at:             new Date().toISOString(),
+  updated_at:             new Date().toISOString(),
+  conviction_mode:        false,
+  conviction_acknowledged: false,
 };
 
 const FREQUENCY_OPTIONS = [

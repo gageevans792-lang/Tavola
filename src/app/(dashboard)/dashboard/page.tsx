@@ -98,12 +98,15 @@ export default function DashboardPage() {
   // Feature 4: AI Status
   const [lastAnalysisAt, setLastAnalysisAt] = useState<string | null>(null);
 
+  // Conviction Mode
+  const [convictionMode, setConvictionMode] = useState(false);
+
   // Feature 5: AI Portfolio Brief
   const [brief, setBrief] = useState<string | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefUpdatedAt, setBriefUpdatedAt] = useState<string | null>(null);
 
-  // ── Load user name ─────────────────────────────────────────────────────────
+  // ── Load user name + conviction mode ──────────────────────────────────────
   useEffect(() => {
     async function loadUser() {
       try {
@@ -116,6 +119,12 @@ export default function DashboardPage() {
       }
     }
     loadUser();
+    fetch('/api/ai/autopilot/status')
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { settings?: { conviction_mode?: boolean } } | null) => {
+        if (d?.settings?.conviction_mode) setConvictionMode(true);
+      })
+      .catch(() => {});
   }, []);
 
   // ── Fetch / refresh live portfolio data ────────────────────────────────────
@@ -281,6 +290,14 @@ export default function DashboardPage() {
         mode={mode}
         onModeChange={setMode}
       />
+
+      {convictionMode && (
+        <div className="bg-[#0A1628] px-4 py-2 flex items-center gap-2 shrink-0">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C]" />
+          <span className="text-[11px] tracking-[0.15em] uppercase text-[#B8960C]">Conviction Mode</span>
+          <span className="text-[11px] text-white/50">· higher volatility expected</span>
+        </div>
+      )}
 
       <main className="relative flex-1 overflow-y-auto bg-[#F8F9FA]">
         <AnimatePresence>{analyzing && <AnalysisOverlay />}</AnimatePresence>

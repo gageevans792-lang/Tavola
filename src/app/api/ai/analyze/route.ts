@@ -243,12 +243,15 @@ Provide full catalyst, expected_timeframe, exit_condition, and 2-3 risk_factors 
   }
 
   try {
-    // ── 2. Fetch Alpaca account + positions ──────────────────────────────────
-    const [account, positions, macroCtx] = await Promise.all([
+    // ── 2. Fetch Alpaca account + positions + autopilot settings ────────────
+    const [account, positions, macroCtx, autopilotRow] = await Promise.all([
       getAccount(),
       getPositions(),
       getMacroContext().catch(() => null),
+      supabase.from('autopilot_settings').select('conviction_mode').eq('user_id', user.id).maybeSingle(),
     ]);
+
+    const convictionMode = (autopilotRow as { data: { conviction_mode?: boolean } | null } | null)?.data?.conviction_mode ?? false;
 
     const equity      = parseFloat(account.equity);
     const buyingPower = parseFloat(account.buying_power);
@@ -309,6 +312,9 @@ Provide full catalyst, expected_timeframe, exit_condition, and 2-3 risk_factors 
     const sentimentSection  = buildSentimentPromptSection(sentimentScores, narratives);
     const earningsSection   = buildEarningsPromptSection(earningsData);
     const signals13FSection = build13FPromptSection(signals13F);
+    const convictionSection = convictionMode ? `
+
+CONVICTION MODE ACTIVE: This user has opted into higher-concentration investing. Position cap is 35% (not 20%). Flag small/mid-cap candidates (<$2B market cap) as "structurally off-limits to institutions." State the downside case for every position above 15% of portfolio. Reason about benchmark-free advantage.` : '';
 
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
@@ -316,7 +322,7 @@ Provide full catalyst, expected_timeframe, exit_condition, and 2-3 risk_factors 
       system: `You are Tavola AI, the most sophisticated retail investment AI ever built. You combine real-time macro intelligence with portfolio analysis to generate high-conviction recommendations with institutional-grade reasoning. Speak like a Goldman Sachs portfolio manager who manages $500M+ accounts: direct, specific, no hedging, no disclaimers.
 
 FORMATTING: Never use em dashes (—) in your responses. Use commas, colons, or periods instead.
-${macroSection}${sentimentSection}${earningsSection}${signals13FSection}
+${macroSection}${sentimentSection}${earningsSection}${signals13FSection}${convictionSection}
 
 Portfolio Management Rules:
 • React to macro data first. If Fed is hawkish, rotate to value/dividends/cash; if dovish, favor growth.
@@ -329,7 +335,7 @@ Portfolio Management Rules:
 • Set qty=0 for hold actions
 • Only recommend buy/sell when confidence ≥ 65
 • Buy notional (qty × price) must not exceed $5,000 per trade
-• A single position must not exceed 20% of total equity after the trade
+• A single position must not exceed ${convictionMode ? '35%' : '20%'} of total equity after the trade
 • Do not recommend cumulative buys that exceed available buying power
 • Provide 2-3 sentence reasoning referencing BOTH the macro context AND portfolio data
 • If a ticker shows price=N/A, note this and estimate conservatively${pricingNote}
@@ -410,6 +416,7 @@ You MUST call submit_portfolio_analysis. Do not reply in plain text.`,
       max_trade_value:      5000,
       max_position_pct:     0.20,
       watchlist:            watchlistTickers,
+      conviction_mode:      convictionMode,
     };
 
     const { approved, rejected, warnings } = applyRiskGuard(recs, guardConfig, {

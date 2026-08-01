@@ -8,6 +8,7 @@ import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { isFounder } from '@/lib/founder';
 import { executeSimulatedTrade } from '@/lib/simulated/execute';
 import { evaluateTriggers } from '@/lib/intraday/triggers';
+import { checkAndSendIntervention } from '@/lib/ai/intervention';
 import type { TradeRecommendation, AutoInvestConfig } from '@/types';
 
 // ── Scheduled checkpoint times (ET, expressed in UTC) ────────────────────────
@@ -308,6 +309,17 @@ async function runCheckpointForUser(userId: string, supabaseAdmin: any, checkpoi
 
   // Step 3: Evaluate market triggers
   const ctx = await evaluateTriggers(heldTickers);
+
+  // Step 3b: Behavioral intervention check (fire-and-forget, never blocks main flow)
+  checkAndSendIntervention({
+    userId,
+    equity:           holdings.reduce((s, h) => s + Number(h.market_value), 0),
+    dayChangePct:     ctx.spyChangePct,
+    vix:              0, // triggers lib doesn't expose VIX; intervention uses SPY proxy
+    positionChanges:  ctx.positionChanges,
+    holdings,
+    supabaseAdmin,
+  }).catch(() => {});
 
   if (ctx.triggers.length === 0) {
     const spyStr   = `${ctx.spyChangePct >= 0 ? '+' : ''}${ctx.spyChangePct.toFixed(2)}%`;
