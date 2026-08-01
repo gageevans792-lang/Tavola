@@ -20,6 +20,7 @@ import type { SyncedHolding } from '@/lib/alpaca/sync';
 import type { AutopilotDecision, AutopilotRun } from '../history/route';
 import { getSentimentScores, buildSentimentPromptSection } from '@/lib/sentiment/engine';
 import { getUpcomingEarnings, buildEarningsPromptSection } from '@/lib/earnings/intelligence';
+import { get13FSignals, build13FPromptSection } from '@/lib/13f/signals';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -515,10 +516,11 @@ export async function POST() {
     const heldTickers = positions.map((p) => p.symbol);
     const allTickers  = [...new Set([...heldTickers, ...universeKeys])];
 
-    const [prices, sentimentScores, earningsData] = await Promise.all([
+    const [prices, sentimentScores, earningsData, signals13F] = await Promise.all([
       getTickerPrices(allTickers),
       getSentimentScores(heldTickers).catch(() => ({})),
       getUpcomingEarnings(heldTickers).catch(() => []),
+      get13FSignals(heldTickers).catch(() => ({} as Record<string, import('@/lib/13f/signals').InstitutionalSignal>)),
     ]);
 
     // ── 5. Derive macro signals ───────────────────────────────────────────────
@@ -536,9 +538,10 @@ export async function POST() {
     const rebalAlerts = detectRebalancingNeeds(positions, equity, cash);
 
     // ── 7. Build prompt content ───────────────────────────────────────────────
-    const macroSection     = macroCtx ? buildMacroPromptSection(macroCtx) : '';
-    const sentimentSection = buildSentimentPromptSection(sentimentScores);
-    const earningsSection  = buildEarningsPromptSection(earningsData);
+    const macroSection      = macroCtx ? buildMacroPromptSection(macroCtx) : '';
+    const sentimentSection  = buildSentimentPromptSection(sentimentScores);
+    const earningsSection   = buildEarningsPromptSection(earningsData);
+    const signals13FSection = build13FPromptSection(signals13F);
     const portfolioText    = buildPortfolioText(
       equity, buyingPower, cash, positions, prices, universeKeys,
     );
@@ -556,7 +559,7 @@ export async function POST() {
     });
 
     // ── 8. Call Claude ────────────────────────────────────────────────────────
-    const fullSystemPrompt = systemPrompt + sentimentSection + earningsSection;
+    const fullSystemPrompt = systemPrompt + sentimentSection + earningsSection + signals13FSection;
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
       max_tokens: 2048,
@@ -595,12 +598,13 @@ export async function POST() {
 
     // ── 10. Apply risk guard ──────────────────────────────────────────────────
     const recs: TradeRecommendation[] = raw.recommendations.map((r) => ({
-      symbol:     r.ticker,
-      action:     r.action,
-      qty:        r.qty,
-      confidence: r.confidence,
-      reasoning:  r.reasoning,
-      risk_level: r.risk_level,
+      symbol:               r.ticker,
+      action:               r.action,
+      qty:                  r.qty,
+      confidence:           r.confidence,
+      reasoning:            r.reasoning,
+      risk_level:           r.risk_level,
+      institutional_signal: signals13F[r.ticker],
     }));
 
     const currentPositionValues: Record<string, number> = {};

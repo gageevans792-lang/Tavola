@@ -258,6 +258,7 @@ export interface TradeRecommendation {
   exit_condition?: string;
   risk_factors?: string[];
   institutional_context?: string;
+  institutional_signal?: InstitutionalSignal;
 }
 
 export interface PortfolioAnalysis {
@@ -268,6 +269,16 @@ export interface PortfolioAnalysis {
 }
 
 export type PortfolioHealth = 'poor' | 'fair' | 'good' | 'excellent';
+
+export interface InstitutionalSignal {
+  ticker:        string;
+  funds_buying:  number;
+  funds_selling: number;
+  net_flow:      'bullish' | 'bearish' | 'neutral';
+  quarter:       string;
+  summary:       string;
+  top_funds:     Array<{ fund_name: string; change_type: string; pct_change: number | null; value_usd: number }>;
+}
 export type InvestMode      = 'review' | 'auto';
 
 export interface AutoInvestConfig {

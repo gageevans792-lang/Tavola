@@ -8,6 +8,7 @@ import { applyRiskGuard } from '@/lib/ai/risk-guard';
 import { getMacroContext, buildMacroPromptSection } from '@/lib/macro/client';
 import { getSentimentScores, detectNarrativeShift, buildSentimentPromptSection } from '@/lib/sentiment/engine';
 import { getUpcomingEarnings, buildEarningsPromptSection } from '@/lib/earnings/intelligence';
+import { get13FSignals, build13FPromptSection } from '@/lib/13f/signals';
 import { isFounder } from '@/lib/founder';
 import type {
   AlpacaPosition,
@@ -271,10 +272,11 @@ Provide full catalyst, expected_timeframe, exit_condition, and 2-3 risk_factors 
     const heldTickers = positions.map((p) => p.symbol);
     const allTickers  = [...new Set([...heldTickers, ...watchlistTickers])];
 
-    const [prices, sentimentScores, earningsData] = await Promise.all([
+    const [prices, sentimentScores, earningsData, signals13F] = await Promise.all([
       getTickerPrices(allTickers),
       getSentimentScores(allTickers).catch(() => ({})),
       getUpcomingEarnings(heldTickers).catch(() => []),
+      get13FSignals(allTickers).catch(() => ({} as Record<string, import('@/lib/13f/signals').InstitutionalSignal>)),
     ]);
 
     // Narrative shifts for tickers with existing sentiment data
@@ -306,6 +308,7 @@ Provide full catalyst, expected_timeframe, exit_condition, and 2-3 risk_factors 
     const macroSection      = macroCtx ? buildMacroPromptSection(macroCtx) : '';
     const sentimentSection  = buildSentimentPromptSection(sentimentScores, narratives);
     const earningsSection   = buildEarningsPromptSection(earningsData);
+    const signals13FSection = build13FPromptSection(signals13F);
 
     const response = await anthropic.messages.create({
       model:      'claude-opus-4-8',
@@ -313,7 +316,7 @@ Provide full catalyst, expected_timeframe, exit_condition, and 2-3 risk_factors 
       system: `You are Tavola AI, the most sophisticated retail investment AI ever built. You combine real-time macro intelligence with portfolio analysis to generate high-conviction recommendations with institutional-grade reasoning. Speak like a Goldman Sachs portfolio manager who manages $500M+ accounts: direct, specific, no hedging, no disclaimers.
 
 FORMATTING: Never use em dashes (—) in your responses. Use commas, colons, or periods instead.
-${macroSection}${sentimentSection}${earningsSection}
+${macroSection}${sentimentSection}${earningsSection}${signals13FSection}
 
 Portfolio Management Rules:
 • React to macro data first. If Fed is hawkish, rotate to value/dividends/cash; if dovish, favor growth.
@@ -447,6 +450,7 @@ You MUST call submit_portfolio_analysis. Do not reply in plain text.`,
       exit_condition:        r.exit_condition,
       risk_factors:          r.risk_factors,
       institutional_context: r.institutional_context,
+      institutional_signal:  signals13F[r.symbol],
     });
 
     const totalPl = positions.reduce((sum, p) => sum + parseFloat(p.unrealized_pl), 0);

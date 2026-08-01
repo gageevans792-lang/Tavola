@@ -6,6 +6,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { cn } from '@/lib/utils';
 import type { IntelligenceResponse, HoldingAnalysis, RebalancingSuggestion, CorrelationMatrix } from '@/app/api/portfolio/intelligence/route';
 import type { SentimentScore } from '@/lib/sentiment/engine';
+import type { InstitutionalSignal } from '@/types';
 
 // ── Weekly Letter types ───────────────────────────────────────────────────────
 
@@ -386,6 +387,85 @@ function CorrelationRiskSection({ matrix }: { matrix: CorrelationMatrix | null }
           <div className="px-4 sm:px-5 py-3 text-right">
             <p className="text-[9px] text-[#4A5568]/50 tracking-[0.1em]">
               Pairs with |correlation| ≥ 85% over 90 trading days. Consider reducing one position in each pair to improve diversification.
+            </p>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ── Institutional Positioning Section ────────────────────────────────────────
+
+function InstitutionalPositioningSection() {
+  const [signals, setSignals] = useState<InstitutionalSignal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/data/13f/signals?top=5')
+      .then((r) => r.json())
+      .then((d) => setSignals(Array.isArray(d) ? d : []))
+      .catch(() => setSignals([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <section className="bg-white">
+      <div className="px-4 sm:px-5 py-3 border-b border-[#E2E8F0]">
+        <p className="text-[10px] tracking-[0.18em] uppercase text-[#4A5568]">Institutional Positioning</p>
+        <p className="text-[9px] text-[#4A5568]/60 mt-0.5">13F filings — 45-day reporting lag. Thesis confirmation only.</p>
+      </div>
+
+      {loading ? (
+        <div className="px-4 sm:px-6 py-6 space-y-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-12 w-full animate-pulse bg-[#F0F2F5]" />
+          ))}
+        </div>
+      ) : signals.length === 0 ? (
+        <div className="px-4 sm:px-8 py-12 text-center">
+          <p className="text-[10px] tracking-[0.25em] uppercase text-[#B8960C] mb-3">No Data Yet</p>
+          <p className="font-serif text-[18px] font-light text-[#0A1628] mb-2">Institutional data syncs Sundays 2am.</p>
+          <p className="text-sm text-[#4A5568]">13F holdings will appear here after the first sync run.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-[#E2E8F0]">
+          {signals.map((s) => (
+            <div key={s.ticker} className="px-4 sm:px-6 py-4">
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-[#0A1628] tracking-wide">{s.ticker}</span>
+                  <span className={cn(
+                    'text-[10px] tracking-[0.12em] uppercase px-2 py-0.5 font-medium',
+                    s.net_flow === 'bullish' ? 'bg-green-50 text-green-700 border border-green-200' :
+                    s.net_flow === 'bearish' ? 'bg-red-50 text-red-700 border border-red-200' :
+                    'bg-[#F8F9FA] text-[#4A5568] border border-[#E2E8F0]',
+                  )}>
+                    {s.net_flow}
+                  </span>
+                </div>
+                <span className="text-[10px] text-[#4A5568]/60 shrink-0">{s.quarter}</span>
+              </div>
+              <p className="text-xs text-[#4A5568] mb-2">{s.summary}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {s.top_funds.map((f, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 bg-[#F8F9FA] border border-[#E2E8F0] px-2 py-0.5 text-[10px] text-[#0A1628]">
+                    {f.fund_name}
+                    <span className={cn(
+                      'font-medium',
+                      f.change_type === 'new' || f.change_type === 'increased' ? 'text-green-700' : 'text-red-600',
+                    )}>
+                      {f.change_type}
+                      {f.pct_change != null ? ` ${f.pct_change > 0 ? '+' : ''}${f.pct_change.toFixed(0)}%` : ''}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+          <div className="px-4 sm:px-6 py-3 bg-[#F8F9FA]">
+            <p className="text-[10px] text-[#4A5568]/60 italic">
+              13F filings are disclosed 45 days after quarter-end. Data reflects quarter-end positions, not current holdings. Do not use as a timing signal.
             </p>
           </div>
         </div>
@@ -1135,6 +1215,9 @@ export default function IntelligencePage() {
               </>
             )}
           </section>
+
+          {/* ── S8: Institutional Positioning ──────────────────────────────── */}
+          <InstitutionalPositioningSection />
 
         </div>
         )}

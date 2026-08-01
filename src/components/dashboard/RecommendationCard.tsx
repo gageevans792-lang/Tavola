@@ -118,6 +118,16 @@ export function RecommendationCard({ rec, variant, onAccept, onReject, onWatch }
           </div>
         </div>
 
+        {/* 13F institutional badge */}
+        {'institutional_signal' in rec && rec.institutional_signal && rec.institutional_signal.funds_buying >= 2 && (
+          <div className="mt-2">
+            <span className="inline-flex items-center gap-1 bg-[#F8F9FA] border border-[#E2E8F0] px-2 py-0.5 text-[10px] font-medium text-[#0A1628] tracking-wide">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#B8960C] shrink-0" />
+              {rec.institutional_signal.funds_buying} tracked fund{rec.institutional_signal.funds_buying !== 1 ? 's' : ''} increased position {rec.institutional_signal.quarter}
+            </span>
+          </div>
+        )}
+
         {/* Confidence */}
         {rec.action !== 'hold' && (
           <div className="mt-3">

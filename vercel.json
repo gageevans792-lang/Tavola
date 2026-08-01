@@ -5,6 +5,7 @@
     { "path": "/api/ai/autopilot/run",        "schedule": "0 9 * * 1-5"    },
     { "path": "/api/ai/intraday/checkpoint",  "schedule": "35 14 * * 1-5"  },
     { "path": "/api/ai/intraday/checkpoint",  "schedule": "0 18 * * 1-5"   },
-    { "path": "/api/ai/intraday/checkpoint",  "schedule": "30 20 * * 1-5"  }
+    { "path": "/api/ai/intraday/checkpoint",  "schedule": "30 20 * * 1-5"  },
+    { "path": "/api/data/13f/sync",           "schedule": "0 2 * * 0"       }
   ]
 }
