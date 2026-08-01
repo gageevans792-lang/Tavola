@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
@@ -431,6 +431,234 @@ function computeNextRunAt(frequency: string): string {
     default:        now.setDate(now.getDate() + 7);
   }
   return now.toISOString();
+}
+
+// ── GET: cron-triggered autopilot run (CRON_SECRET + service role) ────────────
+// Runs the full autopilot analysis for the founder user without a browser session.
+
+export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  const auth = req.headers.get('authorization');
+  const isVercelCron = req.headers.get('x-vercel-cron') === '1';
+  const hasBearerSecret = cronSecret ? auth === `Bearer ${cronSecret}` : false;
+
+  if (!isVercelCron && !hasBearerSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const founderId    = process.env.FOUNDER_USER_ID?.trim() ?? '';
+  const founderEmail = process.env.FOUNDER_EMAIL?.trim() ?? '';
+
+  if (!founderId) {
+    console.error('[autopilot/run GET] FOUNDER_USER_ID not configured');
+    return NextResponse.json({ error: 'Not configured' }, { status: 500 });
+  }
+
+  const admin = createSupabaseAdmin(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  // Load settings
+  let settings = { enabled: true, frequency: 'daily', max_trade_size: 5000, conviction_mode: false };
+  try {
+    const { data: s } = await admin.from('autopilot_settings').select('*').eq('user_id', founderId).maybeSingle();
+    if (s) settings = { enabled: s.enabled ?? true, frequency: s.frequency ?? 'daily', max_trade_size: s.max_trade_size ?? 5000, conviction_mode: s.conviction_mode ?? false };
+  } catch { /* use defaults */ }
+
+  if (!settings.enabled) {
+    console.log('[autopilot/run GET] autopilot disabled for founder');
+    return NextResponse.json({ skipped: true, reason: 'autopilot disabled' });
+  }
+
+  console.log('[autopilot/run GET] starting cron run for founder', founderId);
+
+  try {
+    const [account, alpacaPositions, macroCtx, sectorData] = await Promise.all([
+      getAccount(),
+      getPositions(),
+      getMacroContext().catch(() => null),
+      fetchSectorMomentum().catch(() => ({ sectors: [] as SectorMoment[], spyRet30d: 0, shyRet30d: 0, vixyPrice: 0 })),
+    ]);
+
+    const equity      = parseFloat(account.equity);
+    const buyingPower = parseFloat(account.buying_power);
+    const cash        = parseFloat(account.cash);
+    const positions   = alpacaPositions;
+
+    // Watchlist + full universe
+    let watchlistTickers: string[] = [];
+    try {
+      const { data: wl } = await admin.from('user_watchlist').select('ticker').eq('user_id', founderId);
+      if (wl?.length) watchlistTickers = wl.map((r: { ticker: string }) => r.ticker);
+    } catch { /* non-fatal */ }
+    const universeKeys = [...new Set([...watchlistTickers, ...Object.keys(FULL_UNIVERSE)])];
+
+    const heldTickers = positions.map((p) => p.symbol);
+    const allTickers  = [...new Set([...heldTickers, ...universeKeys])];
+
+    const [prices, sentimentScores, earningsData, signals13F, geoRows] = await Promise.all([
+      getTickerPrices(allTickers),
+      getSentimentScores(heldTickers).catch(() => ({})),
+      getUpcomingEarnings(heldTickers).catch(() => []),
+      get13FSignals(heldTickers).catch(() => ({} as Record<string, import('@/lib/13f/signals').InstitutionalSignal>)),
+      admin.from('geopolitical_events').select('*').order('created_at', { ascending: false }).limit(3)
+        .then((r) => (r.data ?? []) as GeopoliticalEvent[], () => [] as GeopoliticalEvent[]),
+    ]);
+
+    const vix = sectorData.vixyPrice > 0 ? sectorData.vixyPrice : (macroCtx?.vix.vix ?? 0);
+    const vixLabel     = getVixLabel(vix);
+    const marketRegime = getMarketRegime(sectorData.spyRet30d, sectorData.shyRet30d);
+    const topSectors    = sectorData.sectors.slice(0, 3);
+    const bottomSectors = sectorData.sectors.slice(-3).reverse();
+    const rebalAlerts   = detectRebalancingNeeds(positions, equity, cash);
+
+    const macroSection      = macroCtx ? buildMacroPromptSection(macroCtx) : '';
+    const sentimentSection  = buildSentimentPromptSection(sentimentScores);
+    const earningsSection   = buildEarningsPromptSection(earningsData);
+    const signals13FSection = build13FPromptSection(signals13F);
+    const geoSection        = buildGeopoliticalPromptSection(geoRows);
+    const portfolioText     = buildPortfolioText(equity, buyingPower, cash, positions, prices, universeKeys);
+
+    const systemPrompt = buildSystemPrompt({
+      vixLabel, marketRegime, topSectors, bottomSectors,
+      rebalAlerts, macroSection,
+      maxTradeSize:   Number(settings.max_trade_size),
+      equity, buyingPower,
+      convictionMode: settings.conviction_mode,
+    });
+
+    const fullSystemPrompt = systemPrompt + sentimentSection + earningsSection + signals13FSection + geoSection;
+    const response = await anthropic.messages.create({
+      model:       'claude-opus-4-8',
+      max_tokens:  2048,
+      system:      fullSystemPrompt,
+      tools:       [ANALYSIS_TOOL],
+      tool_choice: { type: 'tool', name: 'submit_portfolio_analysis' },
+      messages: [
+        {
+          role:    'user',
+          content: `AutoPilot cron run. Today's macro data and portfolio are below. Analyse the situation and return 4-6 specific trade recommendations that will improve diversification, capture sector momentum, and respect the risk mandate.\n\n${portfolioText}`,
+        },
+      ],
+    });
+
+    const toolBlock = response.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
+    if (!toolBlock) throw new Error('Claude did not return a tool_use block');
+
+    const raw = toolBlock.input as {
+      recommendations: Array<{
+        ticker:     string;
+        action:     'buy' | 'sell' | 'hold';
+        qty:        number;
+        confidence: number;
+        reasoning:  string;
+        risk_level: 'low' | 'medium' | 'high';
+      }>;
+      market_outlook: string;
+      summary:        string;
+    };
+
+    const recs: TradeRecommendation[] = raw.recommendations.map((r) => ({
+      symbol:               r.ticker,
+      action:               r.action,
+      qty:                  r.qty,
+      confidence:           r.confidence,
+      reasoning:            r.reasoning,
+      risk_level:           r.risk_level,
+      institutional_signal: signals13F[r.ticker],
+    }));
+
+    const currentPositionValues: Record<string, number> = {};
+    for (const p of positions) currentPositionValues[p.symbol] = parseFloat(p.market_value);
+    const latestPrices: Record<string, number> = {};
+    for (const [ticker, info] of Object.entries(prices)) latestPrices[ticker] = info.price;
+
+    const guardConfig: AutoInvestConfig = {
+      mode:                 'auto',
+      confidence_threshold: 65,
+      max_trade_value:      Number(settings.max_trade_size),
+      max_position_pct:     0.20,
+      watchlist:            universeKeys,
+      conviction_mode:      settings.conviction_mode,
+    };
+    const { approved, rejected } = applyRiskGuard(recs, guardConfig, {
+      portfolioValue:        equity,
+      availableCash:         buyingPower,
+      currentPositionValues,
+      latestPrices,
+    });
+
+    const recommendations: RecommendationResult[] = [];
+    const decisions: AutopilotDecision[] = [];
+
+    for (const rec of approved) {
+      if (rec.action === 'hold') {
+        recommendations.push({ symbol: rec.symbol, action: 'hold', qty: 0, status: 'hold' });
+        decisions.push({ symbol: rec.symbol, action: 'hold', qty: 0, confidence: rec.confidence, reasoning: rec.reasoning, status: 'skipped' });
+        continue;
+      }
+      try {
+        await admin.from('recommendations').insert({
+          user_id: founderId, ticker: rec.symbol, action: rec.action,
+          qty: rec.qty, reasoning: rec.reasoning, confidence: rec.confidence,
+          source: 'autopilot', user_decision: 'pending',
+        });
+      } catch { /* non-fatal */ }
+      recommendations.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, status: 'pending_review' });
+      decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'skipped' });
+    }
+    for (const rec of rejected) {
+      decisions.push({ symbol: rec.symbol, action: rec.action as 'buy' | 'sell' | 'hold', qty: rec.qty, confidence: rec.confidence, reasoning: rec.reasoning, status: 'rejected', error: rec.rejection_reason });
+    }
+
+    try {
+      const decisionRows = approved.filter((r) => r.action !== 'hold').map((r) => ({
+        user_id:           founderId,
+        session_type:      'autopilot' as const,
+        symbol:            r.symbol,
+        action:            r.action,
+        qty:               r.qty,
+        confidence:        r.confidence,
+        reasoning_summary: r.reasoning?.slice(0, 500) ?? null,
+        price_at_decision: latestPrices[r.symbol] ?? null,
+        estimated_value:   null,
+        risk_level:        r.risk_level ?? null,
+        executed:          false,
+      }));
+      if (decisionRows.length > 0) await admin.from('ai_decisions').insert(decisionRows);
+    } catch { /* non-fatal */ }
+
+    const recommendedCount = recommendations.filter((r) => r.action !== 'hold').length;
+    const { data: runRow, error: runErr } = await admin
+      .from('autopilot_runs')
+      .insert({ user_id: founderId, trades_executed: recommendedCount, total_value: 0, market_outlook: raw.market_outlook, summary: raw.summary, decisions, status: 'completed' })
+      .select()
+      .single();
+    if (runErr) console.error('[autopilot/run GET] run insert:', runErr.message);
+
+    await admin.from('autopilot_settings')
+      .update({ last_run_at: new Date().toISOString(), next_run_at: computeNextRunAt(settings.frequency ?? 'weekly'), updated_at: new Date().toISOString() })
+      .eq('user_id', founderId);
+
+    console.log(`[autopilot/run GET] done — ${recommendedCount} trades queued`);
+
+    return NextResponse.json({
+      run:            runRow as AutopilotRun | null,
+      recommendations,
+      market_outlook: raw.market_outlook,
+      summary:        raw.summary,
+      macro_context: {
+        vix:           vixLabel,
+        market_regime: marketRegime,
+        top_sectors:   topSectors,
+        rebal_alerts:  rebalAlerts,
+      },
+    });
+  } catch (err: unknown) {
+    console.error('[autopilot/run GET]', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 // ── POST: trigger autopilot run ───────────────────────────────────────────────

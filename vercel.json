@@ -1,15 +1,7 @@
 {
   "framework": "nextjs",
   "crons": [
-    { "path": "/api/alerts/monitor",          "schedule": "0 9 * * *"      },
-    { "path": "/api/ai/autopilot/run",        "schedule": "0 9 * * 1-5"    },
-    { "path": "/api/ai/intraday/checkpoint",  "schedule": "35 14 * * 1-5"  },
-    { "path": "/api/ai/intraday/checkpoint",  "schedule": "0 18 * * 1-5"   },
-    { "path": "/api/ai/intraday/checkpoint",  "schedule": "30 20 * * 1-5"  },
-    { "path": "/api/ai/intelligence/geopolitical-pulse", "schedule": "30 13 * * 1-5"    },
-    { "path": "/api/ai/intelligence/daily-briefing",    "schedule": "30 10 * * 1-5"     },
-    { "path": "/api/email/send-daily-briefing",         "schedule": "45 10 * * 1-5"     },
-    { "path": "/api/data/13f/sync",                     "schedule": "0 2 * * 0"         },
-    { "path": "/api/tax/harvest-scan",                  "schedule": "0 3 * * 0"         }
+    { "path": "/api/cron/dispatch-market", "schedule": "*/15 9-21 * * 1-5" },
+    { "path": "/api/cron/dispatch-weekly", "schedule": "0 2 * * 0"         }
   ]
 }
