@@ -1,7 +1,6 @@
 {
   "framework": "nextjs",
   "crons": [
-    { "path": "/api/cron/dispatch-market", "schedule": "*/15 9-21 * * 1-5" },
-    { "path": "/api/cron/dispatch-weekly", "schedule": "0 2 * * 0"         }
+    { "path": "/api/cron/dispatch-weekly", "schedule": "0 2 * * 0" }
   ]
 }
